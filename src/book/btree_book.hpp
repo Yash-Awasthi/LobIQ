@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <stdexcept>
 #include <tlx/container/btree_map.hpp>
 
 #include "book/id_map.hpp"
@@ -23,9 +24,10 @@ class BTreeBook {
         : o_(expected_orders), ids_(expected_orders), levels_(256) {}
 
     bool add(std::uint64_t ref, Side side, std::uint32_t shares, std::uint32_t price,
-             std::uint64_t seq) {
-        if (shares == 0 || !valid_price(price) || ids_.find(ref) != kNoOrder) return false;
-        place(ref, static_cast<int>(side), shares, price, seq);
+             std::uint64_t seq, std::uint32_t owner = 0) {
+        if (shares == 0 || !valid_price(price) || ref >= kMaxRef || ids_.find(ref) != kNoOrder)
+            return false;
+        place(ref, static_cast<int>(side), shares, price, seq, owner);
         return true;
     }
     bool execute(std::uint64_t ref, std::uint32_t shares) { return reduce(ref, shares); }
@@ -40,10 +42,12 @@ class BTreeBook {
                  std::uint32_t price, std::uint64_t seq) {
         const std::uint32_t i = ids_.find(old_ref);
         if (i == kNoOrder || shares == 0 || !valid_price(price)) return false;
-        if (new_ref != old_ref && ids_.find(new_ref) != kNoOrder) return false;
+        if (new_ref >= kMaxRef || (new_ref != old_ref && ids_.find(new_ref) != kNoOrder))
+            return false;
         const int s = static_cast<int>(o_.px(i) >> 31);
+        const std::uint32_t owner = o_.owner(i);
         remove(i, old_ref);
-        place(new_ref, s, shares, price, seq);
+        place(new_ref, s, shares, price, seq, owner);
         return true;
     }
 
@@ -128,17 +132,18 @@ class BTreeBook {
     }
 
     void place(std::uint64_t ref, int s, std::uint32_t shares, std::uint32_t price,
-               std::uint64_t seq) {
+               std::uint64_t seq, std::uint32_t owner) {
         std::uint32_t i;
         if (free_ != kNoOrder) {
             i = free_;
             free_ = o_.next(i);
         } else {
+            if (used_ == kMaxOrders) throw std::length_error("book holds 2^24 orders");
             i = used_++;
             o_.reserve(used_);
         }
         Level& l = levels_[level_for_add(s, price)];
-        o_.set(i, price | (s ? kSell : 0), shares, kNoOrder, l.tail, ref, seq);
+        o_.set(i, price | (s ? kSell : 0), shares, kNoOrder, l.tail, ref, seq, owner);
         if (l.tail != kNoOrder)
             o_.next(l.tail) = i;
         else

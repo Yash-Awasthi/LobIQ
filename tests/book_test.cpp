@@ -196,3 +196,85 @@ TYPED_TEST(TickSnapshot, LoadThenReplayMatches) {
     EXPECT_FALSE(b.load(snap.data(), snap.size()));
     EXPECT_FALSE(b.load(sa.data(), sa.size() - 1));
 }
+
+// A fork replayed forward must match the original replayed forward, byte for byte, and the
+// two must not share state.
+TYPED_TEST(TickSnapshot, ForkThenReplayMatches) {
+    TypeParam a(16);
+    auto step = [](TypeParam& b, std::uint64_t i) {
+        const std::uint32_t px = 30'0000 + static_cast<std::uint32_t>(i * 7919 % 4000) * 100;
+        b.add(1 + i, i % 2 ? Side::Sell : Side::Buy, 100, i % 13 == 0 ? px + 7 : px, i);
+        if (i % 3 == 0) b.erase(1 + i / 2);
+        if (i % 5 == 0) b.execute(i, 10);
+    };
+    for (std::uint64_t i = 0; i < 3000; ++i) step(a, i);
+    TypeParam b;
+    b.copy_from(a);
+    EXPECT_TRUE(b.check());
+    for (std::uint64_t i = 3000; i < 6000; ++i) {
+        step(a, i);
+        step(b, i);
+    }
+    std::vector<std::uint8_t> sa, sb;
+    a.save(sa);
+    b.save(sb);
+    EXPECT_EQ(sa, sb);
+    b.erase(5999);
+    EXPECT_NE(a.order_count(), b.order_count());
+}
+
+TYPED_TEST(BookTest, RejectsReferencesBeyondPackedRange) {
+    EXPECT_FALSE(this->b.add(kMaxRef, kB, 1, 10'0000, 1));
+    EXPECT_TRUE(this->b.add(kMaxRef - 1, kB, 1, 10'0000, 1));
+    EXPECT_FALSE(this->b.replace(kMaxRef - 1, kMaxRef, 1, 10'0000, 2));
+    EXPECT_EQ(this->b.shares(kMaxRef - 1), 1u);
+}
+
+template <class B>
+class TickQueue : public ::testing::Test {};
+TYPED_TEST_SUITE(TickQueue, TickBooks);
+
+// Queue walk used by matching: best order first, then the orders behind it, with owners.
+TYPED_TEST(TickQueue, FrontAndBehindWalkTimePriority) {
+    TypeParam b;
+    EXPECT_FALSE(b.front(kS).has_value());
+    b.add(1, kS, 100, 10'0100, 1, 7);
+    b.add(2, kS, 200, 10'0000, 2, 8);
+    b.add(3, kS, 300, 10'0000, 3, 0);
+    b.add(4, kB, 50, 9'9900, 4, 9);
+    auto f = b.front(kS);
+    ASSERT_TRUE(f.has_value());
+    EXPECT_EQ(f->ref, 2u);
+    EXPECT_EQ(f->price, 10'0000u);
+    EXPECT_EQ(f->qty, 200u);
+    EXPECT_EQ(f->owner, 8u);
+    EXPECT_EQ(f->seq, 2u);
+    auto n = b.behind(2);
+    ASSERT_TRUE(n.has_value());
+    EXPECT_EQ(n->ref, 3u);
+    EXPECT_EQ(n->owner, 0u);
+    EXPECT_FALSE(b.behind(3).has_value());
+    EXPECT_EQ(b.front(kB)->owner, 9u);
+    b.erase(2);
+    b.erase(3);
+    EXPECT_EQ(b.front(kS)->ref, 1u);
+    EXPECT_EQ(b.order(1)->owner, 7u);
+    EXPECT_FALSE(b.order(2).has_value());
+}
+
+// Half-penny grid: $0.005 ticks land in the window, and a level far away in the radix.
+TEST(TickBookTick, HalfPennyGrid) {
+    TickBook<> b(1024, 50);
+    ASSERT_TRUE(b.add(1, kB, 100, 10'0050, 1));
+    ASSERT_TRUE(b.add(2, kS, 100, 10'0100, 2));
+    ASSERT_TRUE(b.add(3, kB, 100, 1'0050, 3));
+    ASSERT_TRUE(b.add(4, kB, 100, 10'0030, 4));  // off the half-penny grid
+    EXPECT_EQ(b.bbo(), (Bbo{10'0050, 10'0100, 100, 100}));
+    EXPECT_EQ(b.overflow_levels(), 2u);
+    EXPECT_TRUE(b.check());
+    b.erase(1);
+    EXPECT_EQ(b.bbo().bid_px, 10'0030u);
+    b.clear();
+    ASSERT_TRUE(b.add(5, kB, 100, 3'0050, 5));
+    EXPECT_EQ(b.overflow_levels(), 0u);
+}
