@@ -4,37 +4,13 @@
 
 #include <vector>
 
+#include "itch_writer.hpp"
+
 using namespace hft::engine;
 
 namespace {
 
-// Encodes ITCH messages for one symbol (locate 1).
-struct Itch {
-    std::vector<std::uint8_t> b;
-    Itch& head(char t) {
-        b.clear();
-        b.push_back(static_cast<std::uint8_t>(t));
-        return n(1, 2).n(0, 2).n(34'200'000'000'000, 6);
-    }
-    Itch& n(std::uint64_t v, int bytes) {
-        for (int s = (bytes - 1) * 8; s >= 0; s -= 8)
-            b.push_back(static_cast<std::uint8_t>(v >> s));
-        return *this;
-    }
-    Itch& c(char v) { return n(static_cast<std::uint8_t>(v), 1); }
-    Itch& stock() { return n(0x5445535420202020ull, 8); }  // "TEST    "
-
-    Itch& add(std::uint64_t ref, char side, std::uint32_t qty, std::uint32_t px) {
-        return head('A').n(ref, 8).c(side).n(qty, 4).stock().n(px, 4);
-    }
-    Itch& exec(std::uint64_t ref, std::uint32_t qty) {
-        return head('E').n(ref, 8).n(qty, 4).n(9, 8);
-    }
-    Itch& del(std::uint64_t ref) { return head('D').n(ref, 8); }
-    Itch& hidden(char side, std::uint32_t qty, std::uint32_t px) {
-        return head('P').n(0, 8).c(side).n(qty, 4).stock().n(px, 4).n(9, 8);
-    }
-};
+using Itch = ItchWriter;
 
 struct Log {
     std::vector<Event> ev;
@@ -135,4 +111,75 @@ TEST(ReplayExchange, PostOnlyAndCancel) {
     EXPECT_FALSE(x.cancel(v, 2, l));
     EXPECT_TRUE(x.cancel(v, 1, l));
     EXPECT_FALSE(x.book().order(v).has_value());
+}
+
+// ITCH sets the side of every P message to 'B', so a hidden print fills virtual orders on
+// whichever side it reaches: bids at or above the print, asks at or below it.
+TEST(ReplayExchange, HiddenPrintsIgnoreTheSideField) {
+    ReplayExchange<> x({}, FillRule::Queue);
+    Log l;
+    Itch m;
+    const auto bid = x.submit({1, kB, 10'0000, 40}, l);
+    const auto ask = x.submit({1, hft::book::Side::Sell, 10'0100, 40}, l);
+    feed(x, m.hidden('B', 10, 10'0100), l);  // at our ask
+    EXPECT_EQ(l.filled(ask), 10u);
+    EXPECT_EQ(l.filled(bid), 0u);
+    feed(x, m.hidden('B', 10, 10'0050), l);  // midpoint: reaches neither
+    EXPECT_EQ(l.filled(ask) + l.filled(bid), 10u);
+    feed(x, m.hidden('B', 5, 9'9900), l);  // below our bid
+    EXPECT_EQ(l.filled(bid), 5u);
+}
+
+// A mirrored real order leaves the replayed book and lives on as a virtual order at the same
+// queue position: its own executions in the data become fills of the virtual order, its
+// cancels reduce it, and orders behind it are untouched.
+TEST(ReplayExchange, MirroredOrderReproducesItsExecutions) {
+    ReplayExchange<> x({}, FillRule::Queue);
+    Log l;
+    Itch m;
+    x.mirror(2, 7);
+    feed(x, m.add(1, 'B', 100, 10'0000), l);
+    feed(x, m.add(2, 'B', 300, 10'0000), l);  // mirrored
+    feed(x, m.add(3, 'B', 100, 10'0000), l);
+    const auto v = x.mirrored(2);
+    ASSERT_NE(v, 0u);
+    EXPECT_EQ(x.book().order(v)->owner, 7u);
+    EXPECT_FALSE(x.book().order(2).has_value());
+    EXPECT_EQ(x.queue_ahead(v), 100u);
+    feed(x, m.exec(1, 60), l);
+    EXPECT_EQ(x.queue_ahead(v), 40u);
+    feed(x, m.exec(1, 40), l);
+    EXPECT_EQ(x.queue_ahead(v), 0u);
+    feed(x, m.exec(2, 120), l);  // the data executes the mirrored order
+    EXPECT_EQ(l.filled(v), 120u);
+    feed(x, m.cancel(2, 80), l);
+    EXPECT_EQ(x.book().order(v)->qty, 100u);
+    feed(x, m.exec(2, 100), l);
+    EXPECT_EQ(l.filled(v), 220u);
+    EXPECT_FALSE(x.book().order(v).has_value());
+    EXPECT_EQ(x.divergence().diverted, 0u);
+    EXPECT_EQ(x.book().order(3)->qty, 100u);
+    EXPECT_TRUE(x.book().check());
+}
+
+TEST(ReplayExchange, QueueAheadMatchesTheBookWalk) {
+    ReplayExchange<> x({}, FillRule::Queue);
+    Log l;
+    Itch m;
+    for (std::uint64_t r = 1; r <= 20; ++r) feed(x, m.add(r, 'S', 10 * r, 10'0100), l);
+    const auto v = x.submit({1, hft::book::Side::Sell, 10'0100, 50}, l);
+    for (std::uint64_t r = 21; r <= 30; ++r) feed(x, m.add(r, 'S', 5, 10'0100), l);
+    for (std::uint64_t r = 1; r <= 30; r += 3) feed(x, r % 2 ? m.cancel(r, 3) : m.del(r), l);
+    feed(x, m.exec(2, 20), l);
+    EXPECT_EQ(static_cast<std::int64_t>(x.queue_ahead(v)), x.book().queue_ahead(v));
+}
+
+TEST(ReplayExchange, MirroredExecutionsFillUnderTheConservativeRuleToo) {
+    ReplayExchange<> x({}, FillRule::TradeThrough);
+    Log l;
+    Itch m;
+    x.mirror(5, 3);
+    feed(x, m.add(5, 'S', 100, 20'0000), l);
+    feed(x, m.exec(5, 30), l);
+    EXPECT_EQ(l.filled(x.mirrored(5)), 30u);
 }
