@@ -16,7 +16,7 @@ import backtest_report as br  # noqa: E402
 
 
 def summary(rows):
-    base = {"day": "2025-12-11", "latency_us": 0.0, "fees": "cap30", "fill_rule": "queue", "fills": 10,
+    base = {"day": "2025-12-11", "latency_us": 0.0, "fee_schedule": "cap30", "fill_rule": "queue", "fills": 10,
             "volume": 1000, "max_abs_inventory": 200, "orders": 20}
     return pl.DataFrame([{**base, **r} for r in rows])
 
@@ -45,7 +45,7 @@ def test_bucket_returns_sum_symbols_and_difference_cumulative_pnl():
     for sym, inc in (("X", 1), ("Y", 2)):
         cum = np.cumsum(np.full(10, inc))
         mins.append(pl.DataFrame({"strategy": ["a"] * 10, "symbol": [sym] * 10, "day": ["d"] * 10,
-                                  "latency_us": [0.0] * 10, "fees": ["cap30"] * 10, "fill_rule": ["queue"] * 10,
+                                  "latency_us": [0.0] * 10, "fee_schedule": ["cap30"] * 10, "fill_rule": ["queue"] * 10,
                                   "minute": list(range(10)), "pnl": cum.tolist()}))
     r = br.bucket_returns(pl.concat(mins), ["X", "Y"], "a", width=5)
     assert np.allclose(r, [15 * br.UNIT, 15 * br.UNIT])
@@ -71,6 +71,22 @@ def test_latency_curve_is_mean_per_group_and_latency():
     ])
     c = br.latency_curve(s, "e").sort("latency_us")
     assert np.allclose(c["pnl"].to_list(), [200 * br.UNIT, -100 * br.UNIT])
+
+
+def test_sensitivity_is_optional_and_the_report_says_so():
+    a = br.parser().parse_args(["--main", "m", "--latency", "l", "--ablation", "b", "--sanity", "s", "--out", "o"])
+    assert a.sensitivity is None
+    text = "\n".join(br.sensitivity_section(None))
+    assert "## Fee schedule and fill rule" in text and "not included" in text
+
+
+def test_idle_lists_configurations_that_sent_no_order_with_their_rejects():
+    s = summary([
+        {"strategy": "a", "group": "g", "symbol": "X", "orders": 0, "rejects": 10},
+        {"strategy": "a", "group": "g", "symbol": "Y", "orders": 0, "rejects": 30},
+        {"strategy": "b", "group": "g", "symbol": "X", "orders": 5, "rejects": 0},
+    ])
+    assert br.idle(s) == [("g", "a", 20.0)]
 
 
 if __name__ == "__main__":
