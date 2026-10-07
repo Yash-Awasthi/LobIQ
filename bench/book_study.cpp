@@ -1,8 +1,9 @@
 // Order book study: store read + decode throughput, per-event book update latency and the
 // end-to-end replay, over the busiest symbols of a store. Prints one CSV row per repetition;
 // research/book_study.py turns them into the comparison table.
-// Usage: book_study <store-dir> <mode> [top-n] [reps]
-//   mode: decode | decode-only | decompress | book | replay | book-cg:<variant> (one untimed pass, for Cachegrind)
+// Usage: book_study <store-dir> <mode> [top-n] [reps] [read-threads]
+//   mode: decode | decode-only | decompress | book | book:<variant> | replay
+//         | book-cg:<variant> (one untimed pass, for Cachegrind)
 
 #include <hdr/hdr_histogram.h>
 
@@ -16,12 +17,11 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
-#include <functional>
 #include <memory>
-#include <queue>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -76,9 +76,11 @@ struct Checksum {
     }
 };
 
-void decode(const std::filesystem::path& dir, const std::vector<std::uint16_t>& locs, int reps) {
+void decode(const std::filesystem::path& dir, const std::vector<std::uint16_t>& locs, int reps,
+            unsigned threads) {
+    const std::string variant = threads > 1 ? "merged-t" + std::to_string(threads) : "merged";
     for (int r = 0; r <= reps; ++r) {
-        data::MergedReader rd(dir, locs, 64);
+        data::MergedReader rd(dir, locs, 64, threads);
         data::Record rec{};
         std::uint16_t loc;
         Checksum cs;
@@ -90,48 +92,26 @@ void decode(const std::filesystem::path& dir, const std::vector<std::uint16_t>& 
         }
         const double s = secs(t0, std::chrono::steady_clock::now());
         if (r > 0)  // first repetition is warm-up
-            std::printf("decode,merged,%d,%llu,%.0f,,,,,%llu\n", r, (unsigned long long)n, s * 1e9,
-                        (unsigned long long)(cs.h & 0xffff));
+            std::printf("decode,%s,%d,%llu,%.0f,,,,,%llu\n", variant.c_str(), r,
+                        (unsigned long long)n, s * 1e9, (unsigned long long)(cs.h & 0xffff));
     }
 }
 
 // Decode thread alone: every chunk is decompressed before the clock starts, then the timed
-// loop merges the symbols back into feed order and decodes, as MergedReader's consumer does.
-void decode_only(const std::filesystem::path& dir, const std::vector<std::uint16_t>& locs, int reps) {
-    struct Msg {
-        std::uint64_t seq;
-        std::uint64_t off;
-        std::uint16_t len;
-    };
-    struct Sym {
-        std::vector<std::uint8_t> bytes;
-        std::vector<Msg> msgs;
-    };
-    std::vector<Sym> syms(locs.size());
-    for (std::size_t i = 0; i < locs.size(); ++i) {
-        data::SymbolReader rd(dir, locs[i]);
-        data::Record rec{};
-        while (rd.next(rec)) {
-            syms[i].msgs.push_back({rec.seq, syms[i].bytes.size(), rec.len});
-            syms[i].bytes.insert(syms[i].bytes.end(), rec.data, rec.data + rec.len);
-        }
-    }
-    using Head = std::pair<std::uint64_t, std::uint32_t>;
+// loop merges the symbols back into feed order and decodes.
+void decode_only(const std::filesystem::path& dir, const std::vector<std::uint16_t>& locs,
+                 int reps) {
     for (int r = 0; r <= reps; ++r) {
+        data::MergedReader rd(dir, locs, SIZE_MAX);
+        rd.wait_read_ahead();
+        data::Record rec{};
+        std::uint16_t loc;
         Checksum cs;
         std::uint64_t n = 0;
-        std::vector<std::size_t> pos(syms.size(), 0);
         const auto t0 = std::chrono::steady_clock::now();
-        std::priority_queue<Head, std::vector<Head>, std::greater<>> heap;
-        for (std::uint32_t i = 0; i < syms.size(); ++i)
-            if (!syms[i].msgs.empty()) heap.push({syms[i].msgs[0].seq, i});
-        while (!heap.empty()) {
-            const std::uint32_t i = heap.top().second;
-            heap.pop();
-            const Msg& m = syms[i].msgs[pos[i]];
-            itch::dispatch(syms[i].bytes.data() + m.off, m.len, cs);
+        while (rd.next(rec, loc)) {
+            itch::dispatch(rec.data, rec.len, cs);
             ++n;
-            if (++pos[i] < syms[i].msgs.size()) heap.push({syms[i].msgs[pos[i]].seq, i});
         }
         const double s = secs(t0, std::chrono::steady_clock::now());
         if (r > 0)
@@ -141,7 +121,8 @@ void decode_only(const std::filesystem::path& dir, const std::vector<std::uint16
 }
 
 // Decompression alone on one thread: every chunk of every symbol, records walked, not decoded.
-void decompress(const std::filesystem::path& dir, const std::vector<std::uint16_t>& locs, int reps) {
+void decompress(const std::filesystem::path& dir, const std::vector<std::uint16_t>& locs,
+                int reps) {
     for (int r = 0; r <= reps; ++r) {
         std::uint64_t n = 0, bytes = 0;
         const auto t0 = std::chrono::steady_clock::now();
@@ -333,27 +314,34 @@ void book_mode(const std::filesystem::path& dir, const std::vector<std::uint16_t
         }
         return;
     }
+    // "book" times every variant, "book:<variant>" one.
+    auto want = [&](std::string_view v) { return only == "book" || only.substr(5) == v; };
     const double tpn = tsc::ticks_per_ns();
     const std::uint64_t ovh = tsc::overhead();
     std::fprintf(stderr, "events %zu, %.4f ticks/ns, timer overhead %llu ticks, invariant tsc %d\n",
                  ev.size(), tpn, (unsigned long long)ovh, tsc::invariant());
-    book_variant<book::MapBook>("map", ev, cap, reps, tpn, ovh);
-    book_variant<Tick>("tick", ev, cap, reps, tpn, ovh);
-    book_variant<Prefetched<Tick>>("tick-prefetch", ev, cap, reps, tpn, ovh);
-    book_variant<TickRh>("tick-rh", ev, cap, reps, tpn, ovh);
-    book_variant<TickDm>("tick-dm", ev, cap, reps, tpn, ovh);
-    book_variant<TickAos>("tick-aos", ev, cap, reps, tpn, ovh);
-    book_variant<TickSoa>("tick-soa", ev, cap, reps, tpn, ovh);
-    book_variant<SortedVec>("tick-sv", ev, cap, reps, tpn, ovh);
-    book_variant<BTree>("btree", ev, cap, reps, tpn, ovh);
-    PoolStats::huge_pages = false;
-    book_variant<Tick>("tick-4k", ev, cap, reps, tpn, ovh);
-    PoolStats::huge_pages = true;
+    if (want("map")) book_variant<book::MapBook>("map", ev, cap, reps, tpn, ovh);
+    if (want("tick")) book_variant<Tick>("tick", ev, cap, reps, tpn, ovh);
+    if (want("tick-prefetch"))
+        book_variant<Prefetched<Tick>>("tick-prefetch", ev, cap, reps, tpn, ovh);
+    if (want("tick-rh")) book_variant<TickRh>("tick-rh", ev, cap, reps, tpn, ovh);
+    if (want("tick-dm")) book_variant<TickDm>("tick-dm", ev, cap, reps, tpn, ovh);
+    if (want("tick-aos")) book_variant<TickAos>("tick-aos", ev, cap, reps, tpn, ovh);
+    if (want("tick-soa")) book_variant<TickSoa>("tick-soa", ev, cap, reps, tpn, ovh);
+    if (want("tick-sv")) book_variant<SortedVec>("tick-sv", ev, cap, reps, tpn, ovh);
+    if (want("btree")) book_variant<BTree>("btree", ev, cap, reps, tpn, ovh);
+    if (want("tick-4k")) {
+        PoolStats::huge_pages = false;
+        book_variant<Tick>("tick-4k", ev, cap, reps, tpn, ovh);
+        PoolStats::huge_pages = true;
+    }
 }
 
 // End to end on one replay thread plus the read-ahead thread: read, decode, apply, BBO.
-void replay(const std::filesystem::path& dir, const std::vector<std::uint16_t>& locs, int reps) {
+void replay(const std::filesystem::path& dir, const std::vector<std::uint16_t>& locs, int reps,
+            unsigned threads) {
     using Tick = book::TickBook<book::LinearMap>;
+    const std::string variant = threads > 1 ? "tick-t" + std::to_string(threads) : "tick";
     for (int r = 0; r <= reps; ++r) {
         const auto t0 = std::chrono::steady_clock::now();
         std::vector<std::unique_ptr<Tick>> books;
@@ -361,7 +349,7 @@ void replay(const std::filesystem::path& dir, const std::vector<std::uint16_t>& 
         for (std::size_t i = 0; i < locs.size(); ++i)
             books.push_back(std::make_unique<Tick>(1 << 16));
         for (auto& b : books) ap.push_back({*b});
-        data::MergedReader rd(dir, locs, 64);
+        data::MergedReader rd(dir, locs, 64, threads);
         data::Record rec{};
         std::uint16_t loc;
         std::uint64_t n = 0, bbo = 0, errors = 0;
@@ -376,8 +364,8 @@ void replay(const std::filesystem::path& dir, const std::vector<std::uint16_t>& 
         for (auto& a : ap) errors += a.stats.errors;
         const double s = secs(t0, std::chrono::steady_clock::now());
         if (r > 0)
-            std::printf("replay,tick,%d,%llu,%.0f,,,,,%llu\n", r, (unsigned long long)n, s * 1e9,
-                        (unsigned long long)errors + (bbo & 0));
+            std::printf("replay,%s,%d,%llu,%.0f,,,,,%llu\n", variant.c_str(), r,
+                        (unsigned long long)n, s * 1e9, (unsigned long long)errors + (bbo & 0));
     }
 }
 
@@ -385,25 +373,27 @@ void replay(const std::filesystem::path& dir, const std::vector<std::uint16_t>& 
 
 int main(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: book_study <store-dir> <mode> [top-n] [reps]\n");
+        std::fprintf(stderr,
+                     "usage: book_study <store-dir> <mode> [top-n] [reps] [read-threads]\n");
         return 2;
     }
     const std::filesystem::path dir = argv[1];
     const std::string_view mode = argv[2];
     const std::size_t top = argc > 3 ? std::strtoul(argv[3], nullptr, 10) : 50;
     const int reps = argc > 4 ? std::atoi(argv[4]) : 10;
+    const unsigned threads = argc > 5 ? static_cast<unsigned>(std::atoi(argv[5])) : 1;
     const std::vector<std::uint16_t> locs = busiest(dir, top);
     std::printf("mode,variant,rep,events,total_ns,p50_ns,p99_ns,p999_ns,max_ns,check\n");
     if (mode == "decode")
-        decode(dir, locs, reps);
+        decode(dir, locs, reps, threads);
     else if (mode == "decode-only")
         decode_only(dir, locs, reps);
     else if (mode == "decompress")
         decompress(dir, locs, reps);
-    else if (mode == "book" || mode.starts_with("book-cg:"))
+    else if (mode == "book" || mode.starts_with("book:") || mode.starts_with("book-cg:"))
         book_mode(dir, locs, reps, mode);
     else if (mode == "replay")
-        replay(dir, locs, reps);
+        replay(dir, locs, reps, threads);
     else
         return 2;
     return 0;

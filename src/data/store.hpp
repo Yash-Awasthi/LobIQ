@@ -98,19 +98,27 @@ class SymbolReader {
     std::size_t pos_ = 0;
 };
 
-// Merges the records of several symbols back into feed order. A read-ahead thread
-// decompresses chunks in global first-sequence order, which is exactly the order the merge
-// starts them in, so the hand-off is a bounded FIFO of at most `ahead` chunks.
+// Merges the records of several symbols back into feed order. Read-ahead threads
+// decompress chunks in global first-sequence order, which is exactly the order the merge
+// takes them in, so the hand-off is a bounded FIFO of at most `ahead` chunks; with several
+// threads a chunk can finish early but is handed over only in that order. Records are
+// merged a window of kWindow sequence numbers at a time: each symbol scatters its records
+// into one slot per sequence number, then the window is emitted by scanning a bitmap.
 class MergedReader {
    public:
     MergedReader(const std::filesystem::path& dir, std::vector<std::uint16_t> locates,
-                 std::size_t ahead = 16);
+                 std::size_t ahead = 16, unsigned threads = 1);
     ~MergedReader();
     MergedReader(const MergedReader&) = delete;
     MergedReader& operator=(const MergedReader&) = delete;
 
     // `out.data` stays valid until the next call.
     bool next(Record& out, std::uint16_t& locate);
+    // Blocks until every chunk is decompressed, so the merge and decode can be timed alone.
+    // Needs `ahead` of at least the chunk count.
+    void wait_read_ahead();
+
+    static constexpr std::size_t kWindow = 4096;
 
    private:
     struct Head {
@@ -122,7 +130,7 @@ class MergedReader {
         std::uint16_t locate;
         std::filesystem::path zst_path;
         std::vector<IndexEntry> idx;
-        std::vector<std::uint8_t> raw;
+        std::deque<std::vector<std::uint8_t>> bufs;  // taken, front is being read
         std::size_t pos;
         std::size_t chunk;  // chunks taken so far
     };
@@ -134,22 +142,42 @@ class MergedReader {
     struct Ready {
         std::uint32_t sym;
         std::vector<std::uint8_t> raw;
+        bool done = false;
+    };
+    struct Slot {
+        const std::uint8_t* data;
+        std::uint16_t len;
+        std::uint32_t sym;
     };
 
-    void run(const std::vector<Pending>& order);
-    void take_chunk(Sym& s, std::uint32_t sym);
+    void run();
+    void take_chunk(std::uint32_t sym);
+    bool fill();
     void sift_down(Head h);
 
     std::size_t ahead_;
     std::vector<Sym> syms_;
-    std::vector<Head> heap_;
+    std::vector<Pending> order_;
+    std::size_t taken_ = 0;
+    std::vector<Head> heap_;  // symbols by next sequence number
+
+    std::uint64_t base_ = 0;
+    std::vector<Slot> slots_;
+    std::vector<std::uint64_t> bits_;
+    std::size_t word_;
+    std::uint64_t cur_ = 0;
+    std::vector<std::vector<std::uint8_t>> retired_;  // read in this window, recycled after it
+
     std::mutex mu_;
     std::condition_variable data_, space_;
-    std::deque<Ready> ready_;
+    std::deque<Ready> ready_;  // chunks popped_, popped_ + 1, ... claimed by a thread
+    std::size_t popped_ = 0;
+    std::size_t claimed_ = 0;
+    std::size_t done_ = 0;
     std::vector<std::vector<std::uint8_t>> spare_;
     std::exception_ptr error_;
     bool stop_ = false;
-    std::thread thread_;
+    std::vector<std::thread> threads_;
 };
 
 }  // namespace hft::data
