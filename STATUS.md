@@ -25,9 +25,11 @@ task finishes or blocks.
 - MS6: integer micro-dollar accounting with the PnL identity checked every event;
   event-driven backtest; zero, random, foresight, naive, Avellaneda-Stoikov (GLFT), DP and
   DP-with-signal strategies, strategy 5 extensions with ablation switches; numerical HJB
-  check; report on the validation day (`docs/results/ms6-backtest.md`). Not built: deep queue
-  reservation, portfolio inventory, online recalibration of A and k. Fee and fill-rule
-  sensitivity sweep finishing; the report gains that section when it ends.
+  check; online recalibration of A and k for AS (`as_online`); report on the validation day
+  with fee and fill-rule sensitivity (`docs/results/ms6-backtest.md`). Not built: deep queue
+  reservation, portfolio inventory. Fixed: sweeps stored the fee PnL over the fee schedule
+  label (both named `fees`); old sweeps were relabelled by recomputing fee PnL from fills
+  (`research/repair_fee_labels.py`; 155 of 155 val-main jobs with fills reproduce exactly).
 
 ### MS2 tasks
 
@@ -46,7 +48,7 @@ task finishes or blocks.
 - [x] Merged multi-symbol reader with a read-ahead decompression thread
 - [x] Nightly script (`scripts/nightly.sh`)
 - [ ] Self-hosted nightly runner (needs you)
-- [ ] Wall-clock baseline under fixed conditions (needs you)
+- [x] Wall-clock baseline under fixed conditions (2026-10-07, turbo off)
 
 ### MS3 tasks
 
@@ -65,10 +67,8 @@ task finishes or blocks.
 
 ## In progress
 
-- Written with tests but not yet built (no rebuild while the sensitivity sweep runs):
-  online A/k recalibration for the AS strategy (`src/backtest/intensity.hpp`, `as_online`
-  sweep strategy) and the forecast-only transformer step. Patch kept at
-  `~/data/pending/online-ak-and-forecast-only.patch`; build, ctest, sweep, then commit.
+- Branch `ms6-finish` (worktree `.claude/worktrees/ms6-finish`) holds the MS6 finish and the
+  later fixes; it fast-forwards main (`git merge --ff-only ms6-finish`). Not pushed (item 7).
 - MS7 to MS10: first versions done with reports (`docs/results/ms7-regime.md`,
   `ms8-impact.md`, `ms9-transformer.md`, `ms10-validity.md`); misses listed under Results
   and in each report's "Not built".
@@ -77,9 +77,10 @@ task finishes or blocks.
 
 ## Needs you
 
-1. **Wall-clock baseline (STOP 1).** All timing so far is provisional. Needs mains power
-   and maximum processor state 99% in the Windows power plan; then I rerun
-   `bench/book_study` and `hft_bench` and replace the provisional figures.
+1. **Wall-clock baseline (STOP 1).** Done 2026-10-07: mains, idle, maximum processor
+   state 99% for all three core classes, boost mode off (about 2.4 GHz). Wall-clock figures
+   below are at this baseline; raw output in `~/data/baseline-2026-10-07`. Without turbo the
+   book update, read + decode and transformer step targets are all missed.
 2. **Hardware counters.** The WSL2 guest has no PMU (`dmesg`: "unsupported CPU family 6
    model 183 no PMU driver, software events only"; no `arch_perfmon` in
    `/proc/cpuinfo`). Cachegrind stands in. Check `hardwarePerformanceCounters=true` under
@@ -87,15 +88,18 @@ task finishes or blocks.
 3. **Self-hosted nightly runner (STOP 2).** Needs a registration token from the repository
    settings. The job it would run is `scripts/nightly.sh <store>`.
 4. **Read + decode target, reading of DESIGN (STOP 6).** "≥ 50M msg/s, decode thread,
-   decompression on the read-ahead thread": the decode thread alone does 50.4M/s, but one
-   zstd thread decompresses only 37M/s of this store (41 bytes per message), so the
-   pipeline runs at 33.7M/s. Options: (a) count the decode thread alone and report the
-   pipeline figure beside it; (b) two decompression threads; (c) change the store codec
-   (LZ4) and re-ingest. Recommended default, in use until you say otherwise: (a).
-5. **Book update target with many symbols.** Median 26.8 ns and p99 80.6 ns for one
-   symbol meet ≤ 30 / ≤ 150 ns; with the fifty busiest symbols interleaved the working set
-   (about 100 MB of ID maps and orders) leaves the caches and the figures are 43.5 / 299 ns.
-   Reported as a miss.
+   decompression on the read-ahead thread": at the baseline the decode thread alone does
+   18.8M/s, one zstd thread decompresses 17.4M/s of this store (41 bytes per message) and the
+   pipeline runs at 17.8M/s, so the target is missed under every reading. Options: (a) count
+   the decode thread alone and report the pipeline figure beside it; (b) two decompression
+   threads; (c) change the store codec (LZ4) and re-ingest. (b) and (c) cannot reach the target
+   while the decode thread is itself at 18.8M/s. Recommended default, in use until you say
+   otherwise: (a).
+5. **Book update target.** At the baseline, median 53.5 ns and p99 152 ns for one symbol
+   miss ≤ 30 / ≤ 150 ns (with turbo they were 26.8 / 80.6 ns); with the fifty busiest symbols
+   interleaved the working set (about 100 MB of ID maps and orders) leaves the caches and the
+   figures are 81.0 / 366 ns. Reported as a miss; DESIGN says targets are revised after the
+   first baseline, which is your call.
 6. **Reference data D4, QQQ weights (STOP 4).** The Invesco holdings download returns an
    empty file and weights as of December 2025 are not published as a file I can fetch.
    Recommended default, in use until you say otherwise: weights implied by a non-negative
@@ -130,15 +134,15 @@ task finishes or blocks.
 | MS2 | Persistent cross in trading state | none over 100 ms | longest 1.4 ms (post-halt uncross) | `book_replay` |
 | MS2 | Heap allocations in steady state | 0 | 0 new, 0 pool maps over 500k messages | `alloc_test` |
 | MS2 | Checkpoints every 1M messages | byte-identical replay | all verified, 5 days | `checkpoint <store> --verify` |
-| MS2 | Read + decode (provisional) | >= 50M msg/s | 33.7M pipeline; 50.4M decode thread alone | `book_study decode` |
-| MS2 | Book update, one symbol (provisional) | <= 30 / 150 ns | p50 26.8, p99 80.6 ns | `book_study book 1` |
-| MS2 | Book update, 50 symbols (provisional) | <= 30 / 150 ns | p50 43.5, p99 299 ns (miss) | `book_study book 50` |
+| MS2 | Read + decode | >= 50M msg/s | 18.8M decode thread alone; 17.8M pipeline (miss) | `book_study decode-only`, `decode` |
+| MS2 | Book update, one symbol | <= 30 / 150 ns | p50 53.5, p99 152.0 ns (miss) | `book_study book 1` |
+| MS2 | Book update, 50 symbols | <= 30 / 150 ns | p50 81.0, p99 366 ns (miss) | `book_study book 50` |
 | MS2 | Instructions per event (Cachegrind, 10 symbols) | - | tick 243, map 575 | `docs/results/ms2-book-study.md` |
-| MS2 | Full-day replay, 50 stocks (provisional) | <= 60 s | 16.7 s, 2025-12-08 | `book_study replay` |
-| MS3 | Fork, 10k orders (provisional) | <= 100 us, >= 10 GB/s | 22.9 us, 32 GiB/s, 789 KB | `hft_bench --benchmark_filter=Fork` |
+| MS2 | Full-day replay, 50 stocks | <= 60 s | 25.9 s, 2025-12-08 | `book_study replay` |
+| MS3 | Fork, 10k orders | <= 100 us, >= 10 GB/s | 53.4 us, 16.0 GiB/s, 869 KB | `hft_bench --benchmark_filter=Fork` |
 | MS3 | Matching engine vs reference | identical events | RapidCheck, 100 sequences per run | `MatchingProp` |
 | MS3 | Determinism across compilers | golden hashes | equal on GCC 13, 15, Clang 18, 21 | `Fixture.*` |
-| MS3 | Philox AVX2 x8 vs scalar (provisional) | - | 1.02G vs 0.70G words/s | `hft_bench --benchmark_filter=Philox` |
+| MS3 | Philox AVX2 x8 vs scalar | - | 532M vs 366M words/s | `hft_bench --benchmark_filter=Philox` |
 | MS4 | Leakage: features after future perturbation | bit-identical | identical (deleted, shuffled, replaced) | `Features.UnchangedWhenTheFutureIsPerturbed` |
 | MS4 | Batch vs streaming features | identical | bit-identical, 14,936 rows, CI | `research/tests/check_batch_streaming.py` |
 | MS4 | Best combined IC, validation, 10 ms | - | large-tick 0.407 ± 0.031, small-tick 0.208 ± 0.017 (LightGBM) | `docs/results/ms4-signals.md` |
@@ -153,6 +157,8 @@ task finishes or blocks.
 | MS6 | Ablation vs ext, small-tick | - | no toxicity +$234, no taking +$287, both removed (dp_signal) +$318 | same |
 | MS6 | Latency 0 to 500 us, ext | - | large-tick -$0.99 to -$16.46; small-tick -$4,176 to -$3,947 | same |
 | MS6 | AS small-tick | quotes | 0 orders: fitted k 0.027/tick gives 21.0-tick distance, collar 20 ticks rejects all (miss) | same |
+| MS6 | AS with online A/k (`as_online`), large-tick | - | -$53.05 [-96.76, -13.98] vs AS -$54.28; 430 vs 217 fills; -0.30 vs -0.61 c/share; small-tick still 0 orders (no fills, no refit) | `~/data/runs/val-as-online` |
+| MS6 | Fee schedule, naive large-tick, queue rule | - | cap30 -$553 [-1,139, -167], cap10 -$929 [-1,283, -613] | `docs/results/ms6-backtest.md` |
 | MS6 | AS closed forms vs numerical HJB | match | max 1.8e-12 ticks at 23,400 s | `research/hjb.py` |
 | MS7 | QR parameter recovery (simulate, ingest, recalibrate) | within errors | rates within 5 SE, z mean/sd in band, theta within 4 SE; half tick too | `research/tests/test_qr.py` |
 | MS7 | Method A, leave-stocks-out R2 (spread / depth / turnover) | - | 0.939 / 0.878 / 0.869 (3,801 stocks) | `docs/results/ms7-regime.md` |
@@ -164,9 +170,9 @@ task finishes or blocks.
 | MS8 | Parametric kernel G0 (1 + l/l0)^-beta, no-arbitrage check | positive definite | passes 50 of 50; median fit error 4.0% / 2.8% of mean abs R (large / small); 26 of 50 fits at a parameter bound | same |
 | MS8 | Mechanical vs reactive split | done | not built (simulator failed validation) | same |
 | MS9 | Kernel vs PyTorch, 200k INTC events | match | max error 6.7e-6, forecast decisions 100% equal | `docs/results/ms9-transformer.md` |
-| MS9 | Step latency, AVX2 float32 (provisional) | < 2 us | 2.2 to 2.5 us median (miss) | `hft_bench --benchmark_filter=EventStep` |
+| MS9 | Step latency, AVX2 float32 | < 2 us | base 3,435 ns, small 2,935 ns, small forecast-only 2,786 ns (miss) | `hft_bench --benchmark_filter=EventStep` |
 | MS9 | Parameters / weights | ~10k / 40 KB | 21,354 / 83 KB (miss) | same report |
 | MS9 | Small model parameters / weights | ~10k / 40 KB | 10,618 / 41.5 KB; IC 0.403 vs 0.409 base | same report |
-| MS9 | Small model step, AVX2 (provisional, under load) | < 2 us | 2,131 ns vs base 2,125 ns back to back (miss; attention-loop bound) | same |
+| MS9 | Transposed-key attention scores, idle | - | small 1,867 to 1,537 ns, base 1,925 to 1,841 ns; under load both were about 2,130 ns | same; turbo on, before the baseline |
 | MS10 | Relations passed (replay / QR / transformer, of 5) | - | 4 / 4 / 3; all fail the empirical exponent band | `docs/results/ms10-validity.md` |
 | MS11 | Test-set lock audit | passes | passes; test run not done (needs you, item 8) | `research/audit.py` |
