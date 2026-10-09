@@ -80,7 +80,7 @@ for the same cycles. Old and new targets with the reason for each are in the rev
 | Book update, 50 symbols interleaved, p50 / p99 | reported, no target | 81.0 / 366 ns | 79.6 / 367 ns | | [ms2](docs/results/ms2-book-study.md) |
 | Read + decode, 50 symbols | ≥ 30M msg/s | 17.8M | 31.6M (two decompression threads) | 74 per message, decode thread alone (32.3M) | [ms2](docs/results/ms2-book-study.md) |
 | Full-day replay, 50 stocks, one replay thread | ≤ 60 s | 25.9 s | 23.9 s | | [ms2](docs/results/ms2-book-study.md) |
-| Fork, 10k orders | ≤ 100 µs, ≥ 10 GB/s | 53.4 µs, 16.0 GiB/s | not re-measured | | [ms2](docs/results/ms2-book-study.md) |
+| Fork, 10k orders | ≤ 100 µs, ≥ 10 GB/s | 53.4 µs, 16.0 GiB/s | 46.9 µs, 17.2 GiB/s (one book; 50 books 4.95 ms by copy, 1.40 ms by process `fork()`) | | [ms2](docs/results/ms2-book-study.md) |
 | Transformer forecast step, small model, AVX2 | < 2 µs | 2,786 ns | 1,975 ns | | [ms9](docs/results/ms9-transformer.md) |
 | Transformer full step, small model, AVX2 | reported, no target | 2,935 ns | 2,140 ns | | [ms9](docs/results/ms9-transformer.md) |
 | Transformer full step, base model, AVX2 | reported, no target | 3,435 ns | 2,545 ns | | [ms9](docs/results/ms9-transformer.md) |
@@ -102,6 +102,28 @@ What moved the numbers:
 - **Transformer.** Score and attention loops rebuilt around independent FMA chains, plus
   AVX2 for the remaining scalar loops: 23 to 30% off the step.
 
+A later pass (replay lookahead, transformer kernels, backtest hot paths, LZ4 store, per-symbol
+replay) was timed back to back against the previous `main`, so these pairs are comparable
+with each other but not with the table above, whose clock drifted between sessions:
+
+| Path | Before | After |
+|---|---|---|
+| Full-day replay, 50 stocks, 147.6M events | 24.1 s | 17.2 s |
+| Transformer step, test fixture model | 2,090 ns | 1,620 ns |
+| Transformer step, small model | 2,081 ns | 1,335 ns |
+| NVDA backtest day, `naive` | 243 s | 43 s |
+| NVDA backtest day, `dp_signal` | 53 s | 36 s |
+| `book_replay`, all 12,076 symbols | 40.8 s | 7.5 s |
+| `checkpoint` write / verify | 4.7 s / 2.4 s | 0.92 s / 0.66 s |
+
+The merged-feed replay lookahead is used only by `bench/book_study.cpp`; the production
+replays are per symbol. The shared clock decay in the feature engine changes features in the
+last bits, so research outputs regenerated after it can differ in the last digits.
+Profile-guided build (`pgo-gen`, run `book_study replay` and `replay-sym`, then `pgo-use`): per-symbol
+replay of the 50 busiest symbols 11.7 s to 10.6 s (-10%, two runs each, one thread); the merged
+replay is unchanged within noise. A lookahead prefetch on the per-symbol path was slower
+(10.5 s to 11.7 s) and was dropped.
+
 Book variants (`std::map`, Robin Hood and direct-mapped ID maps, AoS / SoA / hot-cold
 layouts, sorted vector, B-tree) are compared in
 [docs/results/ms2-book-study.md](docs/results/ms2-book-study.md), with instructions and
@@ -110,7 +132,7 @@ cache misses per event from Cachegrind.
 
 ## Tests
 
-The C++ suite has 216 GoogleTest and RapidCheck tests; 215 pass and one
+The C++ suite has 220 GoogleTest and RapidCheck tests; 219 pass and one
 (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine exposes no hardware
 performance counters. Fifteen Python suites cover the research code against the built module.
 
