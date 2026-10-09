@@ -22,7 +22,7 @@ using namespace hft::strategy;
 namespace {
 
 struct Rig {
-    book::TickBook<> b;
+    book::TickBook b;
     MarketFeed<> feed{b};
     SymbolFeatures f;
     std::uint64_t seq = 0;
@@ -98,7 +98,7 @@ std::vector<std::vector<std::uint8_t>> symbol_messages(const std::vector<std::ui
 // Feature rows (raw bytes) after each of the first `upto` messages.
 std::vector<std::uint8_t> rows(const std::vector<std::vector<std::uint8_t>>& msgs,
                                std::size_t upto) {
-    book::TickBook<> b;
+    book::TickBook b;
     MarketFeed<> feed(b);
     SymbolFeatures f;
     std::vector<std::uint8_t> out;
@@ -119,7 +119,7 @@ std::vector<std::uint8_t> rows(const std::vector<std::vector<std::uint8_t>>& msg
 // depth walk.
 std::vector<std::uint8_t> all_rows(const std::vector<std::vector<std::uint8_t>>& msgs,
                                    bool incremental) {
-    book::TickBook<> b;
+    book::TickBook b;
     MarketFeed<> feed(b);
     FeatureParams p;
     p.incremental_depth = incremental;
@@ -150,7 +150,7 @@ TEST(Features, IncrementalDepthEqualsTheFullWalkBitForBit) {
     EXPECT_GT(compared, 10000u);
 }
 
-// Leakage check of DESIGN.md section 1: features up to t are bit-identical whatever happens
+// Leakage check of archive/docs/DESIGN.md section 1: features up to t are bit-identical whatever happens
 // after t (events deleted, shuffled, or replaced by unrelated synthetic flow).
 TEST(Features, UnchangedWhenTheFutureIsPerturbed) {
     std::vector<std::uint8_t> raw, other;
@@ -173,41 +173,5 @@ TEST(Features, UnchangedWhenTheFutureIsPerturbed) {
         replaced.resize(t);
         replaced.insert(replaced.end(), alien.begin(), alien.end());
         EXPECT_EQ(rows(replaced, t), want) << "replaced after " << t;
-    }
-}
-
-#include "strategy/labeler.hpp"
-
-TEST(Labeler, EventAndClockHorizonsAgainstBruteForce) {
-    std::vector<std::uint64_t> ts;
-    std::vector<double> mid;
-    const rng::Stream g(3, 0, 0);
-    std::uint64_t t = 1000;
-    for (std::uint32_t i = 0; i < 3000; ++i) {
-        t += g.draw(i, 0)[0] % 5'000'000;  // ties allowed when the draw is 0 mod 5e6
-        ts.push_back(t);
-        mid.push_back(i % 97 == 0 ? std::nan("") : 100 + (g.draw(i, 1)[0] % 21) * 0.5);
-    }
-    const Horizons h{{1, 10, 100}, {1'000'000, 50'000'000, 1'000'000'000}};
-    std::vector<double> y;
-    label(ts, mid, h, y);
-    const std::size_t w = h.count();
-    for (std::size_t i = 0; i < ts.size(); ++i) {
-        for (std::size_t c = 0; c < h.events.size(); ++c) {
-            const double want =
-                i + h.events[c] < ts.size() ? mid[i + h.events[c]] - mid[i] : std::nan("");
-            const double got = y[i * w + c];
-            EXPECT_TRUE(got == want || (std::isnan(got) && std::isnan(want))) << i << " " << c;
-        }
-        for (std::size_t c = 0; c < h.clock_ns.size(); ++c) {
-            double want = std::nan("");
-            if (ts[i] + h.clock_ns[c] <= ts.back()) {
-                std::size_t j = i;
-                for (std::size_t k = i; k < ts.size() && ts[k] <= ts[i] + h.clock_ns[c]; ++k) j = k;
-                want = mid[j] - mid[i];
-            }
-            const double got = y[i * w + h.events.size() + c];
-            EXPECT_TRUE(got == want || (std::isnan(got) && std::isnan(want))) << i << " " << c;
-        }
     }
 }

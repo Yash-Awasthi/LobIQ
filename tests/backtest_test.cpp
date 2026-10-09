@@ -86,7 +86,7 @@ TEST(Backtest, RandomTakingLosesAboutHalfTheSpreadPlusFees) {
 
 // The GLFT quotes widen against inventory: a long position lowers both quotes.
 TEST(Strategies, AvellanedaStoikovSkewsAgainstInventory) {
-    book::TickBook<> b;
+    book::TickBook b;
     b.add(1, Side::Buy, 100, 10'0000, 1);
     b.add(2, Side::Sell, 100, 10'0500, 2);
     std::vector<Working> w;
@@ -106,7 +106,7 @@ TEST(Strategies, AvellanedaStoikovSkewsAgainstInventory) {
 
 // A distance cap keeps quotes near the mid when the fitted intensity would put them far away.
 TEST(Strategies, AvellanedaStoikovDistanceCap) {
-    book::TickBook<> b;
+    book::TickBook b;
     b.add(1, Side::Buy, 100, 10'0000, 1);
     b.add(2, Side::Sell, 100, 10'0500, 2);
     std::vector<Working> w;
@@ -127,7 +127,7 @@ TEST(Strategies, AvellanedaStoikovDistanceCap) {
 
 // A bid fill after 10 s of quoting raises the fitted intensity; without `online` A, k stay.
 TEST(Strategies, AvellanedaStoikovRecalibratesOnItsFills) {
-    book::TickBook<> b;
+    book::TickBook b;
     b.add(1, Side::Buy, 100, 10'0000, 1);
     b.add(2, Side::Sell, 100, 10'0500, 2);
     std::vector<Working> w;
@@ -178,41 +178,10 @@ TEST(Backtest, HysteresisCutsQuoteChurn) {
     EXPECT_LT(calm, churn);
 }
 
-#include "strategy/grid.hpp"
-
-TEST(Grid, StepsCoverTheWindowAndCountExecutionsAtTheBest) {
-    FixtureStore fx;
-    const Config w = window();
-    strategy::GridSampler g(100'000'000, w.start_ns, w.start_ns + 15'000'000'000ull);
-    g.run(fx.dir.path.string(), 1, {3});
-    const auto& s = g.steps();
-    ASSERT_GT(s.size(), 100u);
-    EXPECT_LE(s.size(), 150u);
-    EXPECT_EQ(g.rows().size(), s.size() * g.features());
-    double exec = 0;
-    for (std::size_t i = 0; i < s.size(); ++i) {
-        if (i) {
-            EXPECT_EQ(s[i].ts, s[i - 1].ts + 100'000'000);
-        }
-        EXPECT_GT(s[i].ask_px, s[i].bid_px);
-        EXPECT_TRUE(std::isfinite(s[i].mid_end));
-        for (int k = 0; k < 2; ++k) {
-            EXPECT_GE(s[i].exec[k], 0);
-            EXPECT_GE(s[i].cancel[k], 0);
-            exec += s[i].exec[k];
-        }
-        // A side that held its price ends the step at the same best.
-        if (i + 1 < s.size() && !s[i].moved[0]) {
-            EXPECT_EQ(s[i + 1].bid_px, s[i].bid_px);
-        }
-    }
-    EXPECT_GT(exec, 0);
-}
-
-// Table layout of research/dp.py export: [q][bid queue][ask queue][imbalance][spread][signal].
+// Table layout of archive/research/dp.py export: [q][bid queue][ask queue][imbalance][spread][signal].
 namespace {
 
-// Writes a small policy table in the research/dp.py layout: [q][bid queue][ask queue]
+// Writes a small policy table in the archive/research/dp.py layout: [q][bid queue][ask queue]
 // [imbalance][spread][signal], signal weights w on two features.
 std::string write_table(const TempDir& dir, double w0, double w1) {
     const std::string path = (dir.path / "t.bin").string();
@@ -254,7 +223,7 @@ TEST(Strategies, DpPolicyLooksUpTheExportedLayout) {
     const std::string path = write_table(dir, 0, 0);
     DpPolicy p;
     p.load(path);
-    book::TickBook<> b;
+    book::TickBook b;
     b.add(1, Side::Buy, 100, 10'0000, 1);
     b.add(2, Side::Sell, 100, 10'0100, 2);
     std::vector<Working> w;
@@ -277,7 +246,7 @@ TEST(Strategies, ExtendedGuardsAndTakes) {
     Extended e;
     e.dp.load(write_table(dir, 0.0, 10.0));  // signal = 10 x imbalance, in ticks
     e.vol_limit = 1.0;
-    book::TickBook<> b;
+    book::TickBook b;
     b.add(1, Side::Buy, 100, 10'0000, 1);
     b.add(2, Side::Sell, 100, 10'0100, 2);
     std::vector<Working> w;

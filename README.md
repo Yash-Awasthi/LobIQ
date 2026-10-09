@@ -148,7 +148,15 @@ book_replay <store> tick                         # BBO hash and invariants, ever
 checkpoint <store> [--verify]                    # write or verify book checkpoints
 book_study <store> book 50 10                    # book update latency, 50 busiest symbols
 book_study <store> replay-sym 50 10 [threads]    # full-day replay, one symbol at a time on a pool
+itch_backtest <store> INTC avellaneda_stoikov maker_rebate=2000 taker_fee=3000 max_dist_ticks=5
 ```
+
+`itch_backtest` runs one strategy on one symbol-day: the strategy sees the market a
+market-data latency late, its orders join the real queues after the order-entry latency,
+fees and risk limits apply, and the PnL identity is checked on every event. Strategies:
+`zero`, `naive`, `random_taker`, `random_passive`, `perfect_foresight`,
+`avellaneda_stoikov`, `dp:<policy>`, `ext:<policy>`. INTC on 2025-12-10 (1.8M events)
+runs in about 1.5 s.
 
 `ingest <store-dir> <day.gz> [--codec lz4|zstd]` checks the gzip CRC and records the SHA-256
 of the download. LZ4-HC decompresses 3.5 times faster than zstd for 11% more disk.
@@ -186,6 +194,10 @@ pm_live --record data/live --spin --cpu 4          # busy-poll a pinned core for
 pm_live --replay data/live                         # same decisions, same hash
 scripts/pm_live_supervise.sh data/pm-live --seconds 21600   # restart every 6 h, one directory per run
 ```
+
+`pm_arb <dir>` replays one run, or every run under a directory, through the books and the
+scanner alone and lists each arbitrage window (group, side, duration, edge, size on the
+thinnest leg), with per-group totals on stderr.
 
 Recordings rotate hourly (zstd) and stop at `--record-cap-gb` (default 20) while trading
 goes on. A stop signal exits with 128 plus the signal, which the supervisor treats as a stop.
