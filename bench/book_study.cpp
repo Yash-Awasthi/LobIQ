@@ -5,7 +5,6 @@
 //   mode: decode | decode-only | decompress | book | book:<variant> | replay
 //         | book-cg:<variant> (one untimed pass, for Cachegrind)
 
-#include <hdr/hdr_histogram.h>
 
 #if __has_include(<valgrind/cachegrind.h>)
 #include <valgrind/cachegrind.h>
@@ -28,10 +27,10 @@
 #include <thread>
 #include <vector>
 
-#include "book/btree_book.hpp"
 #include "book/itch_apply.hpp"
 #include "book/map_book.hpp"
 #include "book/tick_book.hpp"
+#include "core/histogram.hpp"
 #include "core/pool.hpp"
 #include "core/tsc.hpp"
 #include "data/lookahead.hpp"
@@ -230,8 +229,7 @@ inline void warm(const std::vector<std::unique_ptr<Book>>& books, const std::vec
 template <class Book>
 void book_variant(const char* name, const std::vector<Event>& ev,
                   const std::vector<std::size_t>& cap, int reps, double tpn, std::uint64_t ovh) {
-    hdr_histogram* h;
-    hdr_init(1, 10'000'000, 3, &h);
+    hft::Histogram h;
     for (int r = 0; r <= reps; ++r) {
         auto books = make_books<Book>(cap);
         std::uint64_t errors = 0;
@@ -243,23 +241,22 @@ void book_variant(const char* name, const std::vector<Event>& ev,
         const std::uint64_t batch = tsc::stop() - c0;
 
         books = make_books<Book>(cap);
-        hdr_reset(h);
+        h.reset();
         for (std::size_t i = 0; i < ev.size(); ++i) {
             warm(books, ev, i);
             const std::uint64_t a = tsc::start();
             errors += !apply(*books[ev[i].sym], ev[i], i);
             const std::uint64_t t = tsc::stop() - a;
-            hdr_record_value(h, static_cast<std::int64_t>(t > ovh ? t - ovh : 0));
+            h.record(t > ovh ? t - ovh : 0);
         }
         if (r == 0) continue;  // warm-up
         auto ns = [&](double p) {
-            return static_cast<double>(hdr_value_at_percentile(h, p)) / tpn;
+            return static_cast<double>(h.percentile(p)) / tpn;
         };
         std::printf("book,%s,%d,%zu,%.0f,%.1f,%.1f,%.1f,%.1f,%llu\n", name, r, ev.size(),
                     static_cast<double>(batch) / tpn, ns(50), ns(99), ns(99.9),
-                    static_cast<double>(hdr_max(h)) / tpn, (unsigned long long)errors);
+                    static_cast<double>(h.max()) / tpn, (unsigned long long)errors);
     }
-    hdr_close(h);
 }
 
 template <class Book>
@@ -300,7 +297,6 @@ void book_mode(const std::filesystem::path& dir, const std::vector<std::uint16_t
     using TickAos = book::TickBook<book::LinearMap, book::Aos>;
     using TickSoa = book::TickBook<book::LinearMap, book::Soa>;
     using SortedVec = book::SortedVecBook<>;
-    using BTree = book::BTreeBook<>;
     if (only.starts_with("book-cg:")) {
         const std::string_view v = only.substr(8);
         if (v == "map") book_cachegrind<book::MapBook>(ev, cap);
@@ -310,7 +306,6 @@ void book_mode(const std::filesystem::path& dir, const std::vector<std::uint16_t
         if (v == "tick-aos") book_cachegrind<TickAos>(ev, cap);
         if (v == "tick-soa") book_cachegrind<TickSoa>(ev, cap);
         if (v == "tick-sv") book_cachegrind<SortedVec>(ev, cap);
-        if (v == "btree") book_cachegrind<BTree>(ev, cap);
         if (v == "tick-4k") {
             PoolStats::huge_pages = false;
             book_cachegrind<Tick>(ev, cap);
@@ -332,7 +327,6 @@ void book_mode(const std::filesystem::path& dir, const std::vector<std::uint16_t
     if (want("tick-aos")) book_variant<TickAos>("tick-aos", ev, cap, reps, tpn, ovh);
     if (want("tick-soa")) book_variant<TickSoa>("tick-soa", ev, cap, reps, tpn, ovh);
     if (want("tick-sv")) book_variant<SortedVec>("tick-sv", ev, cap, reps, tpn, ovh);
-    if (want("btree")) book_variant<BTree>("btree", ev, cap, reps, tpn, ovh);
     if (want("tick-4k")) {
         PoolStats::huge_pages = false;
         book_variant<Tick>("tick-4k", ev, cap, reps, tpn, ovh);
