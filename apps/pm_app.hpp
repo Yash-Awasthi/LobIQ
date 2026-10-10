@@ -50,6 +50,14 @@ std::atomic<bool> g_kill{false};  // operator kill (SIGUSR1 or the KILL file), r
 std::atomic<int> g_signal{0};
 void on_signal(int sig) { g_signal = sig, g_stop = true; }
 
+// --quoter NAME: a registered quote model (strategies/pm), or a list of them and exit 2.
+const QuoterEntry* quoter_or_exit(const std::string& name) {
+    if (const QuoterEntry* q = find_quoter(name)) return q;
+    std::fprintf(stderr, "unknown quoter %s; registered:\n", name.c_str());
+    for (const QuoterEntry& q : quoters()) std::fprintf(stderr, "  %-12s %s\n", q.name.c_str(), q.help.c_str());
+    std::exit(2);
+}
+
 std::int64_t now_ns() {
     timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
