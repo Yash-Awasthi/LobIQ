@@ -183,3 +183,32 @@ RC_GTEST_PROP(Ledger, IdentityAndCashHoldUnderAnySequence, ()) {
         RC_ASSERT(l.total(marks) == by_cash);
     }
 }
+
+TEST(Ledger, ABuyThatFailsAfterResolutionGivesBackItsPayoutAndGetsItsCashBack) {
+    Ledger l(kCap);
+    l.ensure(1);
+    l.fill(1, 0, Side::Buy, 4000, 10 * kShare, cents(1));  // still settling when the market resolves
+    l.resolve(0, true);                                    // paid 10 * 1.00
+    EXPECT_TRUE(l.failed(1));                              // we never had those shares
+    EXPECT_EQ(l.pos(0), 0);
+    EXPECT_EQ(l.deficits(), 0u);
+    EXPECT_EQ(l.cash(), kCap);  // purchase, fee and payout all undone
+    EXPECT_EQ(l.realised(), 0);
+    EXPECT_EQ(l.fees(), 0);
+    EXPECT_TRUE(l.identity_holds());
+}
+
+TEST(Ledger, ASellThatFailsAfterResolutionIsPaidTheShares) {
+    Ledger l(kCap);
+    l.ensure(1);
+    l.fill(1, 0, Side::Buy, 4000, 10 * kShare, 0);
+    l.settled(1);
+    l.fill(2, 0, Side::Sell, 6000, 10 * kShare, cents(1));  // still settling at resolution
+    l.resolve(0, true);                                     // nothing held: nothing paid
+    EXPECT_TRUE(l.failed(2));                               // we still had the shares: they paid 1.00
+    EXPECT_EQ(l.pos(0), 0);
+    EXPECT_EQ(l.deficits(), 0u);
+    EXPECT_EQ(l.cash(), kCap - cents(400) + cents(1000));
+    EXPECT_EQ(l.realised(), cents(600));
+    EXPECT_TRUE(l.identity_holds());
+}

@@ -68,6 +68,13 @@ class Ledger {
     bool failed(std::uint64_t fill_id) {
         const Fill* f = take(fill_id);
         if (!f) return false;
+        if (const Px pay = toks_[f->token].payout; pay >= 0) {
+            // The market resolved first: the shares were paid out (or not) at `pay`. Undo the trade
+            // and that payout in cash; there is no position left to move.
+            const Usd d = (f->side == Side::Buy ? 1 : -1) * (notional(f->px, f->qty) - notional(pay, f->qty));
+            cash_ += d + f->fee, realised_ += d, fees_ -= f->fee;
+            return true;
+        }
         apply(f->token, f->side == Side::Buy ? Side::Sell : Side::Buy, f->px, f->qty, -f->fee);
         return true;
     }
@@ -87,7 +94,8 @@ class Ledger {
     }
     // The market resolved: the position pays 1 or 0 per share.
     void resolve(std::uint32_t t, bool won) {
-        if (toks_[t].pos > 0) apply(t, Side::Sell, won ? kPxOne : 0, toks_[t].pos, 0);
+        toks_[t].payout = won ? kPxOne : 0;
+        if (toks_[t].pos > 0) apply(t, Side::Sell, toks_[t].payout, toks_[t].pos, 0);
     }
 
     void reserve_cash(Usd u) { reserved_cash_ += u; }
@@ -141,6 +149,7 @@ class Ledger {
     struct Tok {
         Qty pos = 0, confirmed = 0, reserved = 0;
         Usd cost = 0;
+        Px payout = -1;  // set when the market resolved
         std::uint32_t group = ~0u;  // none
     };
 

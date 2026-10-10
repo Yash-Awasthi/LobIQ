@@ -97,6 +97,14 @@ Docs read against code; what the design required and was missing:
 - [x] A5: unknown_orders, cancel_races_total, leg_incomplete_total{action}, leg_exposure_usd added.
 - [x] Docs: T1-T4, R9, R11, R12, L4, V7, X8, A2, A3, A4.3, A5 now say what the code does.
 
+## After the audit (owner-approved 2026-10-10)
+
+- [x] D30: production venue runs use only the ledger limits.
+- [x] Settlement failing after resolution: undone exactly against the payout (ledger, executor, maker); 5/5 mutations caught.
+- [ ] No-copy feed path: WebSocket frames decoded straight into the ring.
+- [ ] Kernel receive timestamps (SO_TIMESTAMPNS) as the message receive time.
+- [ ] Optional faults V8 (spurious reject), V12 (reorder), V13 (delay past the order manager's timeout); X11 batch skew.
+
 ## Stop conditions (any phase)
 
 - A venue fact breaks the design (E0) -> ask.

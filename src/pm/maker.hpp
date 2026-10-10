@@ -84,8 +84,12 @@ class TokenMaker {
         if (won) cash_ += inv_;
         inv_ = 0;
     }
-    // A venue fill whose settlement failed: its cash flows back; inventory comes via set_inventory.
-    void on_settle_failed(bool buy, std::int32_t px, double qty) { cash_ += (buy ? qty : -qty) * px * 1e-4; }
+    // A venue fill whose settlement failed: its cash flows back, less what the shares were paid if
+    // the market resolved in between (`paid` per share); inventory comes via set_inventory.
+    void on_settle_failed(bool buy, std::int32_t px, double qty, double paid = 0) {
+        const double q = buy ? qty : -qty;
+        cash_ += q * px * 1e-4 - q * paid;
+    }
 
     // `taker_buy`: the aggressor bought, so it consumes asks.
     void on_trade(std::int64_t ns, bool taker_buy, std::int32_t px, double size) {

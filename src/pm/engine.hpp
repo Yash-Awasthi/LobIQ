@@ -302,6 +302,7 @@ class Engine {
         std::int64_t mismatch_since = 0;  // venue and ledger positions differ since; -1 once reported
         std::int64_t updated = 0;         // last book change
         bool closed = false;              // the market resolved
+        double paid = 0;                  // what each share paid at resolution
         std::uint32_t conn = ~0u;
         bool seeded = false;
         std::int32_t bid = -1, ask = -1;  // last logged quotes
@@ -384,7 +385,10 @@ class Engine {
         const bool arb_fill = so && so->cl_id == r.cl_id && so->in.strategy == kArb;
         const std::uint32_t arb_tag = arb_fill ? so->in.tag : 0;
         const bool failed = pf && r.kind == exec::VenueRpt::SettleFailed;
-        if (failed && !arb_fill) toks_[f.token]->maker.on_settle_failed(f.side == exec::Side::Buy, f.px, static_cast<double>(f.qty) * 1e-6);
+        if (failed && !arb_fill) {
+            Tok& k = *toks_[f.token];
+            k.maker.on_settle_failed(f.side == exec::Side::Buy, f.px, static_cast<double>(f.qty) * 1e-6, k.paid);
+        }
         xh_.add(ns, r.kind, r.status, r.reason, r.px, r.qty, r.fee, r.cl_id, r.venue_id, r.fill_id, r.venue_ns);
         oms_.on_report(r, ns, [&](const exec::Order& o, exec::OrdEvent ev, exec::Qty q, exec::Px p) {
             if (o.in.strategy == kArb) {
@@ -412,11 +416,11 @@ class Engine {
 
     // The market resolved (L4, V7): the venue cancels our orders and closes the token, every
     // position pays 1 or 0 (ledger, venue view, executor, maker), and the token is not quoted
-    // again. ponytail: fills still awaiting settlement are not unwound if they later fail.
+    // again. A fill still settling that fails later is undone against the payout (Ledger::failed).
     void resolve(std::uint32_t t, bool won, std::int64_t ns) {
         Tok& k = *toks_[t];
         if (k.closed) return;
-        k.closed = true;
+        k.closed = true, k.paid = won ? 1.0 : 0.0;
         sim_.close(t, ns);
         k.maker.set_enabled(false);
         sync(t, ns);

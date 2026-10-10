@@ -198,6 +198,7 @@ class ArbExec {
             Group& g = groups_[gi];
             for (std::uint32_t i = 0; i < g.legs.size(); ++i) {
                 if (g.legs[i].token != token) continue;
+                g.legs[i].payout = won ? kPxOne : 0;
                 if (won) g.cash += notional(kPxOne, g.held[i]);
                 add(g, i, -g.held[i]);
                 g.legs[i].confirmed = 0;
@@ -280,6 +281,12 @@ class ArbExec {
             if (buy) g.legs[i].confirmed += f.qty;
             return;
         }
+        if (const Px pay = g.legs[i].payout; pay >= 0) {  // after resolution: as the ledger does
+            const Usd d = (buy ? 1 : -1) * (notional(f.px, f.qty) - notional(pay, f.qty)) + f.fee;
+            if (g.st == State::Idle && min_held(g) == 0) stats_.realised += d;  // already finished
+            else g.cash += d;
+            return;
+        }
         if (buy) add(g, i, -f.qty), g.cash += notional(f.px, f.qty) + f.fee;
         else add(g, i, f.qty), g.legs[i].confirmed += f.qty, g.cash -= notional(f.px, f.qty) - f.fee;
         mark(tag >> 8);
@@ -337,6 +344,7 @@ class ArbExec {
         std::uint32_t token;
         std::uint64_t cl;  // order in flight, 0 if none
         Qty confirmed;     // bought shares whose settlement succeeded, not yet merged
+        Px payout = -1;    // set when the leg's market resolved
     };
     struct Group {
         std::vector<Leg> legs;

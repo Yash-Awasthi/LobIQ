@@ -569,3 +569,42 @@ TEST(EngineVenue, TheLedgerLimitsGovernNotTheMakersOwnStops) {
     EXPECT_TRUE(e.maker(e.token("A")).enabled());
     EXPECT_FALSE(e.exec_risk().killed());  // far inside the 20,000 USD daily stop
 }
+
+TEST(EngineVenue, AFillFailingAfterResolutionIsUndoneWithoutAKill) {
+    auto p = params();
+    p.venue = true;
+    p.sim.settle_delay = 5 * kS;
+    p.sim.p_settle_fail_ppm = 1'000'000;
+    Engine e(p);
+    e.add_group("m", {"Y", "N"});
+    feed(e, {{kS, book("Y", "0.48", "0.52")}, {kS, book("N", "0.48", "0.52")},
+             {kS + 1, trade("Y", "SELL", "0.48", "600")}});  // we buy 100 Y; it will fail at 6 s
+    const auto y = e.token("Y");
+    ASSERT_EQ(e.ledger().pos(y), 100'000'000);
+    feed(e, {{2 * kS, resolved("Y", "Y", "N")}, {7 * kS, control("_heartbeat", 0)}, {30 * kS, control("_heartbeat", 0)}});
+    EXPECT_EQ(e.oms().settle_failures(), 1u);
+    EXPECT_EQ(e.ledger().pos(y), 0);
+    EXPECT_EQ(e.ledger().deficits(), 0u);
+    EXPECT_FALSE(e.exec_risk().killed());
+    EXPECT_EQ(e.ledger().cash(), e.ledger().capital());  // nothing was ever ours
+    EXPECT_EQ(e.maker(y).pnl(), 0);
+    EXPECT_EQ(e.position_mismatches(), 0u);
+}
+
+TEST(EngineArb, ALegFailingAfterResolutionCorrectsTheSetsCash) {
+    auto p = arb_params();
+    p.sim.settle_delay = 5 * kS;
+    p.sim.p_settle_fail_ppm = 1'000'000;
+    Engine e(p);
+    e.add_group("a", {"AY", "AN"});
+    e.add_group("b", {"BY", "BN"});
+    e.add_group("ev", {"AY", "BY"});
+    feed(e, {{kS, book2("AN", "0.50", "500", "0.70", "500")}, {kS, book2("BN", "0.40", "500", "0.60", "500")},
+             {kS, book2("AY", "0.30", "500", "0.40", "100")}, {kS + 1, book2("BY", "0.40", "500", "0.50", "100")},
+             {2 * kS, resolved("AY", "AY", "AN")}, {3 * kS, resolved("BN", "BY", "BN")},
+             {7 * kS, control("_heartbeat", 0)}, {8 * kS, control("_heartbeat", 0)}});
+    EXPECT_EQ(e.ledger().deficits(), 0u);
+    EXPECT_FALSE(e.exec_risk().killed());
+    EXPECT_EQ(e.arb_exec().stats().realised, 0);  // both legs failed: no trade, no payout, fees back
+    EXPECT_EQ(e.ledger().cash(), e.ledger().capital());
+}
