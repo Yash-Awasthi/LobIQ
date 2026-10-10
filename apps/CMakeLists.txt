@@ -34,10 +34,10 @@ target_link_libraries(pm_stats PRIVATE hft_core zstd::libzstd)
 add_executable(pm_mm pm_mm.cpp)
 target_link_libraries(pm_mm PRIVATE hft_core zstd::libzstd)
 
-add_executable(pm_live pm_live.cpp)
+add_executable(pm_live pm_live.cpp ${HFT_QUOTER_SOURCES})
 target_link_libraries(pm_live PRIVATE hft_core zstd::libzstd OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
 
-add_executable(pm_exec pm_exec.cpp)
+add_executable(pm_exec pm_exec.cpp ${HFT_QUOTER_SOURCES})
 target_link_libraries(pm_exec PRIVATE hft_core zstd::libzstd OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
 
 add_executable(itch_backtest itch_backtest.cpp ${HFT_STRATEGY_SOURCES})

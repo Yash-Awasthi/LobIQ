@@ -1,27 +1,18 @@
 #pragma once
 
-// Avellaneda-Stoikov in logit units, x = ln(p / (1 - p)): r = x - q gamma s2 tau, d = gamma s2 tau / 2 + ln(1 + gamma / k) / gamma.
+// Default quotes: Avellaneda-Stoikov in logit units, x = ln(p / (1 - p)): r = x - q gamma s2 tau, d = gamma s2 tau / 2 + ln(1 + gamma / k) / gamma.
 // No order ids in the data: fills only from trades behind `ahead` shares, cancels ahead not credited (conservative).
 
 #include <algorithm>
 #include <cmath>
-#include <vector>
 #include <cstdint>
+#include <memory>
+#include <vector>
 
 #include "pm/book.hpp"
+#include "pm/quoter.hpp"
 
 namespace hft::pm {
-
-struct MakerParams {
-    double gamma = 0.1, k = 30;
-    double horizon_s = 3600;    // time left used in the inventory terms
-    double size = 100;          // shares per quote
-    double max_inv = 1000;      // shares; the side that would pass it is not quoted
-    double min_mid = 0.05, max_mid = 0.95;
-    double warmup_s = 30;       // no quotes until the variance has seen this much data
-    double requote_s = 0.5;
-    double var_tau_s = 60, var_prior = 1e-4;
-};
 
 // One fill of the maker's own order, for parity checks between fill models.
 struct MakerFill {
@@ -40,6 +31,7 @@ class TokenMaker {
     std::vector<MakerFill>* fill_log = nullptr;  // when set, every own fill is appended
     std::uint32_t token_index = 0;
     std::int32_t tick = 100;  // price grid, in 1e-4
+    std::unique_ptr<Quoter> quoter;  // replaces the default quotes when set
 
     void on_snapshot(std::int64_t ns) {
         cancel(bid_), cancel(ask_);  // a new snapshot means we may have missed messages
@@ -167,18 +159,26 @@ class TokenMaker {
         if (static_cast<double>(ns - last_quote_ns_) * 1e-9 < p_.requote_s) return;
         last_quote_ns_ = ns;
 
-        const double q = inv_ / p_.size;
-        const double risk = p_.gamma * var_ * p_.horizon_s;
-        const double r = logit(mid) - q * risk;
-        const double d = risk / 2 + std::log1p(p_.gamma / p_.k) / p_.gamma;
-        // Grid prices that never cross the opposite best (orders are post-only).
-        const double bid_f = std::floor(sigmoid(r - d) * 1e4 / tick) * tick;
-        const double ask_f = std::ceil(sigmoid(r + d) * 1e4 / tick) * tick;
-        const std::int32_t bid = static_cast<std::int32_t>(std::min<double>(bid_f, book.best_ask() - tick));
-        const std::int32_t ask = static_cast<std::int32_t>(std::max<double>(ask_f, book.best_bid() + tick));
+        std::int32_t bid, ask;
+        if (quoter) {
+            const Quote w = quoter->quote({book, mid, inv_, var_, p_, tick,
+                                           static_cast<double>(ns - start_ns_) * 1e-9});
+            // Grid prices that never cross the opposite best (orders are post-only).
+            bid = w.bid < 0 ? -1 : std::min(w.bid / tick * tick, book.best_ask() - tick);
+            ask = w.ask < 0 ? -1 : std::max((w.ask + tick - 1) / tick * tick, book.best_bid() + tick);
+        } else {
+            const double q = inv_ / p_.size;
+            const double risk = p_.gamma * var_ * p_.horizon_s;
+            const double r = logit(mid) - q * risk;
+            const double d = risk / 2 + std::log1p(p_.gamma / p_.k) / p_.gamma;
+            const double bid_f = std::floor(sigmoid(r - d) * 1e4 / tick) * tick;
+            const double ask_f = std::ceil(sigmoid(r + d) * 1e4 / tick) * tick;
+            bid = static_cast<std::int32_t>(std::min<double>(bid_f, book.best_ask() - tick));
+            ask = static_cast<std::int32_t>(std::max<double>(ask_f, book.best_bid() + tick));
+        }
         if (inv_ < p_.max_inv && bid >= tick) place(bid_, true, bid);
         else cancel(bid_);
-        if (inv_ > -p_.max_inv && ask <= 10000 - tick) place(ask_, false, ask);
+        if (inv_ > -p_.max_inv && ask >= tick && ask <= 10000 - tick) place(ask_, false, ask);
         else cancel(ask_);
     }
 

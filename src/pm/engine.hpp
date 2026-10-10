@@ -40,6 +40,7 @@ struct EngineParams {
     std::uint16_t session = 1;  // top bits of every client order id (DESIGN T6)
     exec::ArbParams arb;        // arbitrage executor, venue mode only
     bool profile = false;       // time order submission, report delivery and venue matching (tsc ticks)
+    const QuoterEntry* quoter = nullptr;  // makers' quote model; null: the built-in logit Avellaneda-Stoikov
 };
 
 struct Decision {
@@ -80,6 +81,7 @@ class Engine {
             toks_.back()->maker.fill_log = fill_log_;
             toks_.back()->maker.token_index = i;
             toks_.back()->maker.set_venue_fills(p_.venue);
+            if (p_.quoter) toks_.back()->maker.quoter = p_.quoter->make();
             if (p_.venue) {
                 const std::uint32_t n = i + 1;
                 ledger_.ensure(n), exp_.ensure(n, 1), risk_.ensure(n), oms_.ensure(n), sim_.ensure(n);
