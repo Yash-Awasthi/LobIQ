@@ -33,6 +33,13 @@ jobs:
         run: scripts/demo/backtest.sh
       - if: matrix.preset == 'release'
         run: HFT_BIN=build/release/apps scripts/demo/paper.sh
+      - if: matrix.preset == 'release'
+        name: strategy templates build and run
+        run: |
+          scripts/new_strategy.sh ci_probe && scripts/new_strategy.sh --quoter ci_probe_q
+          cmake --preset release && cmake --build build/release --target itch_backtest pm_exec
+          build/release/apps/itch_backtest 2>&1 | grep -q ci_probe
+          build/release/apps/pm_exec --replay data/sample/pm-20261009T1600-20min --config config/exec.cfg --quoter ci_probe_q
 
   gates:
     runs-on: ubuntu-24.04

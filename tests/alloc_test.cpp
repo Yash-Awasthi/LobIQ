@@ -21,7 +21,7 @@ namespace {
 std::uint64_t g_news = 0;
 }
 
-void* operator new(std::size_t n) {
+[[gnu::noinline]] void* operator new(std::size_t n) {
     ++g_news;
     if (void* p = std::malloc(n ? n : 1)) return p;
     throw std::bad_alloc();
@@ -32,9 +32,10 @@ void* operator new(std::size_t n, const std::nothrow_t&) noexcept {
     return std::malloc(n ? n : 1);
 }
 void* operator new[](std::size_t n, const std::nothrow_t& t) noexcept { return operator new(n, t); }
-void operator delete(void* p) noexcept { std::free(p); }
+// Out of line: inlined, GCC 13 pairs ::operator new with free() and warns (-Wmismatched-new-delete).
+[[gnu::noinline]] void operator delete(void* p) noexcept { std::free(p); }
 void operator delete[](void* p) noexcept { std::free(p); }
-void operator delete(void* p, std::size_t) noexcept { std::free(p); }
+[[gnu::noinline]] void operator delete(void* p, std::size_t) noexcept { std::free(p); }
 void operator delete[](void* p, std::size_t) noexcept { std::free(p); }
 void operator delete(void* p, const std::nothrow_t&) noexcept { std::free(p); }
 void operator delete[](void* p, const std::nothrow_t&) noexcept { std::free(p); }

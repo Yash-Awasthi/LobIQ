@@ -1,6 +1,11 @@
 // Paper execution: makers and the arbitrage executor through risk, order manager and simulated venue;
 // no order leaves the machine. A replay without --config reads DIR/exec.cfg and overrides.cfg, so it runs as recorded.
 
+#include <atomic>
+#include <mutex>
+#include <ranges>
+#include <thread>
+
 #include "pm_app.hpp"
 
 namespace {
@@ -31,10 +36,67 @@ std::uint16_t next_session(const fs::path& dir) {
     return static_cast<std::uint16_t>(n + 1);
 }
 
+// --sweep key=a,b,... (exec.cfg keys, repeatable): every combination as config overrides, replayed on a
+// thread pool; one TSV row per run and, with --report, a ranked index linking each run's report.
+int sweep(const Options& base, const std::vector<std::pair<std::string, std::vector<std::string>>>& axes) {
+    std::vector<std::vector<std::pair<std::string, std::string>>> combos(1);
+    for (const auto& [key, values] : axes) {
+        std::vector<std::vector<std::pair<std::string, std::string>>> next;
+        for (const auto& c : combos)
+            for (const std::string& v : values) {
+                auto x = c;
+                x.emplace_back(key, v);
+                next.push_back(std::move(x));
+            }
+        combos = std::move(next);
+    }
+    if (combos.size() > 256) throw std::runtime_error("sweep has " + std::to_string(combos.size()) + " runs; at most 256");
+    std::vector<PmSweepRun> runs(combos.size());
+    std::vector<Options> opts(combos.size(), base);
+    for (std::size_t i = 0; i < combos.size(); ++i) {
+        for (const auto& [k, v] : combos[i]) {
+            apply_config(opts[i].engine, k + "=" + v, "--sweep " + k + "=" + v);
+            runs[i].label += (runs[i].label.empty() ? "" : ",") + k + "=" + v;
+        }
+        opts[i].quiet = true, opts[i].rows_out = &runs[i].rows;
+        if (!base.report.empty()) opts[i].report = base.report / runs[i].label;
+    }
+    std::atomic<std::size_t> next{0};
+    std::string error;
+    std::mutex error_lock;
+    auto worker = [&] {
+        for (std::size_t i; (i = next++) < runs.size();) try {
+                replay(opts[i]);
+            } catch (const std::exception& e) {
+                const std::lock_guard g(error_lock);
+                error = e.what();
+            }
+    };
+    const char* env = std::getenv("THREADS");
+    const unsigned n = std::max(1u, std::min<unsigned>(env ? static_cast<unsigned>(std::atoi(env)) : std::thread::hardware_concurrency(),
+                                                        static_cast<unsigned>(runs.size())));
+    std::vector<std::thread> pool;
+    for (unsigned t = 0; t < n; ++t) pool.emplace_back(worker);
+    for (std::thread& t : pool) t.join();
+    if (!error.empty()) throw std::runtime_error(error);
+    const char* cols[] = {"ledger_pnl_usd", "fees_usd", "maker_fills", "taker_fills", "arb_attempts", "arb_realised_usd", "kill", "decision_hash_v2"};
+    for (const auto& [k, v] : axes) std::printf("%s\t", k.c_str());
+    for (const char* c : cols) std::printf("%s%s", c, c == cols[std::size(cols) - 1] ? "\n" : "\t");
+    for (std::size_t i = 0; i < runs.size(); ++i) {
+        for (const auto& [k, v] : combos[i]) std::printf("%s\t", v.c_str());
+        for (const char* c : cols) std::printf("%s%s", runs[i].value(c).c_str(), c == cols[std::size(cols) - 1] ? "\n" : "\t");
+    }
+    if (!base.report.empty()) {
+        write_pm_sweep_report(base.report, base.replay.filename().string(), runs);
+        std::fprintf(stderr, "report: %s\n", (base.report / "index.html").c_str());
+    }
+    return 0;
+}
+
 int usage() {
     std::fprintf(stderr,
                  "usage: pm_exec --replay DIR [--config FILE]... [--set KEY=VALUE]... [--run OUT] [--profile] [--report DIR]\n"
-                 "               [--quoter NAME]\n"
+                 "               [--quoter NAME] [--sweep KEY=V1,V2,... (repeatable; THREADS=N)]\n"
                  "       pm_exec --paper --run OUT --config FILE [--set KEY=VALUE]... [--seconds S] [--port P]\n"
                  "               [--cpu C] [--spin] [--spin-feeds] [--events N] [--max-tokens N] [--tokens-per-conn N]\n"
                  "               [--record-cap-gb G] [--exec-dir DIR] [--reset-kill]\n"
@@ -49,6 +111,7 @@ int main(int argc, char** argv) {
     Options o;
     std::vector<fs::path> configs;
     std::vector<std::string> sets;
+    std::vector<std::pair<std::string, std::vector<std::string>>> axes;
     bool paper = false, reset_kill = false;
     const char* home = std::getenv("HOME");
     fs::path exec_dir = fs::path(home ? home : ".") / "data" / "exec";
@@ -66,6 +129,14 @@ int main(int argc, char** argv) {
         else if (a == "--paper") paper = true;
         else if (a == "--config") configs.push_back(val());
         else if (a == "--set") sets.push_back(val());
+        else if (a == "--sweep") {
+            const std::string v = val();
+            const std::size_t eq = v.find('=');
+            if (eq == std::string::npos || eq == 0 || eq + 1 == v.size()) return usage();
+            std::vector<std::string> values;
+            for (const auto part : std::views::split(v.substr(eq + 1), ',')) values.emplace_back(part.begin(), part.end());
+            axes.emplace_back(v.substr(0, eq), std::move(values));
+        }
         else if (a == "--run") o.run = val();
         else if (a == "--exec-dir") exec_dir = val();
         else if (a == "--reset-kill") reset_kill = true;
@@ -86,7 +157,9 @@ int main(int argc, char** argv) {
             return usage();
         }
     }
-    if (paper == !o.replay.empty() || (paper && (o.run.empty() || configs.size() != 1 || !o.report.empty()))) return usage();
+    if (paper == !o.replay.empty() || (paper && (o.run.empty() || configs.size() != 1 || !o.report.empty() || !axes.empty())) ||
+        (!axes.empty() && (!o.run.empty() || !o.dump_fills.empty())))
+        return usage();
 
     std::signal(SIGINT, on_signal);
     std::signal(SIGTERM, on_signal);
@@ -132,7 +205,7 @@ int main(int argc, char** argv) {
             rc = live(o);
         } else {
             if (!o.run.empty()) fs::create_directories(o.run);
-            rc = replay(o);
+            rc = axes.empty() ? replay(o) : sweep(o, axes);
         }
         return g_signal ? 128 + g_signal : rc;
     } catch (const std::exception& ex) {

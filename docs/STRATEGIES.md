@@ -6,6 +6,12 @@ Two plug-in points, both "write a type, register it with one line, run it by nam
 - [Prediction-market maker](#prediction-market-quoter): a quoter picks bid and ask prices per token for
   `pm_exec` and `pm_live`, live on paper or replayed from a recording.
 
+Start from a template: `scripts/new_strategy.sh my_idea` writes `strategies/my_idea.cpp`, and
+`scripts/new_strategy.sh --quoter my_idea` writes `strategies/pm/my_idea.cpp`; both build and run
+as written (CI checks that), and print the command to try them. No toolchain? Open the repository
+in a dev container (`.devcontainer/`, also GitHub Codespaces): it builds everything and runs the
+demos on creation.
+
 ## Nasdaq backtester
 
 A strategy for the Nasdaq backtester is a C++ type with one method. Put it in a new file under
@@ -115,6 +121,12 @@ itch_backtest /tmp/qrsim QRSIM imbalance --sweep threshold=0.2,0.4,0.6,0.8,1 --s
 Ten runs of a full synthetic day take about 0.4 s on 20 threads. Pick parameters on some days and
 check them on others: the best row of one day is partly luck.
 
+Several symbols: give a comma list (`INTC,AAPL,MSFT,AMD`). Each symbol runs on its own, in
+parallel, combined with any `--sweep`; the report adds the total over symbols for each parameter
+set. On 2025-12-10 (the demo venue settings: 0.2c rebate, 0.3c fee, 50 and 20 us latency),
+`naive` with `size=100` makes $1,799 on AMD and loses $4,799 on MSFT: one
+symbol says little. Four symbols times two sizes take 2.4 s.
+
 ### What the simulation does and does not model
 
 - **Queue position:** your order joins the queue behind every real order already resting at its
@@ -176,6 +188,11 @@ through pre-trade risk, the order manager and the simulated venue like any other
 pm_exec --replay data/sample/pm-20261009T1600-20min --config config/exec.cfg --set arb=1 --quoter skew --report out/skew
 pm_exec --paper --run runs/skew --config config/exec.cfg --quoter skew       # live feed, paper only
 ```
+
+`pm_exec --sweep key=v1,v2,...` (repeatable; any `exec.cfg` key such as `gamma`, `k`, `size`,
+`lat_ms`) replays every combination in parallel and ranks them; with `--report DIR` each run gets
+its report and `DIR/index.html` links them. A sweep row is the same run as `--set` with those
+values, decision hash included. `scripts/demo/paper_sweep.sh` sweeps `gamma` and `k` on the sample.
 
 A paper run stores the quoter's name in `quoter.txt`, so `pm_exec --replay runs/skew` replays it as
 it ran. `logit_as` is the built-in model written as a plug-in; it gives the same decision hash as
