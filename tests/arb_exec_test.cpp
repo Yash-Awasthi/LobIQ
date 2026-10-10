@@ -33,9 +33,10 @@ struct Legs {
     void bid(std::size_t i, Px px, double size) { books[i].set(true, px, size); }
 };
 
-ArbParams params() {
+ArbParams params() {  // X13 off: these books have no depth to reverse into; its own tests turn it on
     ArbParams p;
     p.latency_ticks = 0;
+    p.leg_risk_pct = 0;
     return p;
 }
 
@@ -178,4 +179,51 @@ TEST(ArbExec, LossBeyondTheAttemptBoundFreezes) {
     EXPECT_EQ(choose(held, l.v.data(), 2, spent, 29 * kDollar).action, ArbAction::Freeze);
     l.bid(0, 1000, 0), l.ask(1, 9900, 0);  // no depth either way
     EXPECT_EQ(choose(held, l.v.data(), 2, spent, 1000 * kDollar).action, ArbAction::Freeze);
+}
+
+TEST(ArbExec, ExitValueReversesTheLegsThatFilledAtTheVisibleBook) {
+    Legs l(2);
+    l.ask(0, 4000, 100), l.ask(1, 5000, 100), l.bid(0, 3900, 100), l.bid(1, 4900, 100);
+    // Leg 0 misses: sell leg 1 back, 0.50 -> 0.49; leg 1 misses: sell leg 0 back, 0.40 -> 0.39.
+    EXPECT_EQ(exit_value(true, l.v.data(), 2, 100 * kShare), -notional(100, 100 * kShare));
+    l.bid(1, 4900, 0);  // leg 1 bids only at the far 0.01 placeholder (1 share): no way back
+    EXPECT_EQ(exit_value(true, l.v.data(), 2, 100 * kShare), kNoExit);
+}
+
+TEST(ArbExec, LegRiskRefusesWindowsWhoseProfitDoesNotCoverAMissedLeg) {
+    Legs l(2);
+    // Near-resolved pair: 0.02 + 0.97, the expensive leg's bid far below its ask.
+    l.ask(0, 200, 100), l.ask(1, 9700, 100), l.bid(0, 150, 100), l.bid(1, 8900, 100);
+    ArbParams p = params();
+    p.leg_risk_pct = 100;
+    const Plan pl = buy(l, p);
+    EXPECT_EQ(pl.why, ArbFilter::LegRisk);  // earns 1 USD, a missed cheap leg costs 8
+    p.leg_risk_pct = 0;
+    EXPECT_EQ(buy(l, p).why, ArbFilter::Pass);  // the check off
+    p.leg_risk_pct = 100;
+    l.bid(1, 8900, 0), l.bid(1, 9690, 100);  // tight: a missed leg costs at most 0.50 (the cheap one, 0.02 -> 0.015)
+    EXPECT_EQ(buy(l, p).why, ArbFilter::Pass);
+    p.attempt_bound = notional(40, 100 * kShare);  // 0.40 USD: a miss may not cost more (R10)
+    EXPECT_EQ(buy(l, p).why, ArbFilter::LegRisk);
+}
+
+TEST(ArbExec, LegRiskOnTheSellSideBuysTheSoldLegBack) {
+    Legs l(2);
+    l.bid(0, 5500, 100), l.bid(1, 5000, 100), l.ask(0, 5600, 100), l.ask(1, 5100, 100);
+    // Leg 0 unsold: buy leg 1 back 0.50 -> 0.51 and merge; leg 1 unsold: buy leg 0 back 0.55 -> 0.56.
+    EXPECT_EQ(exit_value(false, l.v.data(), 2, 30 * kShare), -notional(100, 30 * kShare));
+    ArbParams p = params();
+    p.leg_risk_pct = 100;
+    EXPECT_EQ(plan(false, l.v.data(), 2, 10 * kS, 9 * kS, 1'000'000 * kDollar, 100'000 * kDollar, p).why, ArbFilter::Pass);
+}
+
+TEST(ArbExec, ExitValueCountsBothTakerFees) {
+    pm::MarketRules r = no_fees();
+    r.fees = true;
+    Legs l(2, r);
+    l.ask(0, 4000, 100), l.ask(1, 5000, 100), l.bid(0, 3900, 100), l.bid(1, 4900, 100);
+    const Qty q = 100 * kShare;
+    const Usd miss0 = -notional(100, q) - taker_fee(q, 5000, r) - taker_fee(q, 4900, r);  // leg 1 bought and sold back
+    const Usd miss1 = -notional(100, q) - taker_fee(q, 4000, r) - taker_fee(q, 3900, r);
+    EXPECT_EQ(exit_value(true, l.v.data(), 2, q), miss0 < miss1 ? miss0 : miss1);
 }

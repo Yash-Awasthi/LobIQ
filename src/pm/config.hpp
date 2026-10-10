@@ -100,6 +100,7 @@ inline const Key kKeys[] = {
     {"arb_hold_limit_s", 0.1, 86'400, false, [](EngineParams& p, double v) { p.arb.hold_limit = sec(v); }},
     {"merge_ms", 0, 600'000, false, [](EngineParams& p, double v) { p.arb.merge_delay = ms(v); }},
     {"batch_gap_ms", 0, 10'000, false, [](EngineParams& p, double v) { p.arb.batch_gap = ms(v); }},
+    {"arb_leg_risk_pct", 0, 10'000, true, [](EngineParams& p, double v) { p.arb.leg_risk_pct = static_cast<std::int32_t>(v); }},
     // engine
     {"stale_s", 0.1, 3'600, false, [](EngineParams& p, double v) { p.stale_s = v; }},
 };

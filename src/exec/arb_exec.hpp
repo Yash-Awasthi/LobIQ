@@ -29,9 +29,10 @@ struct ArbParams {
     Ns hold_limit = 60'000'000'000;     // R15: leg exposure above attempt_bound for longer trips the kill switch
     Ns merge_delay = 0;                 // L6: relayer latency for merge and split
     Ns batch_gap = 0;                   // X11: the venue takes 15 orders per batch (D19); later batches leave this much later
+    std::int32_t leg_risk_pct = 100;    // X13: net edge must cover this % of the loss if a leg misses; 0 = off
 };
 
-enum class ArbFilter : std::uint8_t { Pass, Young, Stale, Frozen, OneSided, SelfCross, Size, Edge, kCount };
+enum class ArbFilter : std::uint8_t { Pass, Young, Stale, Frozen, OneSided, SelfCross, Size, Edge, LegRisk, kCount };
 
 // One leg as the executor sees it.
 struct LegView {
@@ -60,6 +61,10 @@ inline Qty level_qty(const LegView& v, bool book_bid, Px px) {
     return q > 0 ? q : 0;
 }
 inline Qty floor_hundredths(Qty q) { return q / (kShare / 100) * (kShare / 100); }
+
+inline Usd walk(const LegView& v, bool buy, Qty q, Px* limit);
+inline constexpr Usd kNoExit = INT64_MIN;  // some leg cannot be reversed: the loss has no bound
+inline Usd exit_value(bool buy, const LegView* legs, std::size_t n, Qty size);
 
 // Buy side: every leg's best ask, sum below 1. Sell side (pairs, after a split): every leg's best
 // bid, sum above 1. `opened`: when the window opened; `room`: what the group cap still allows.
@@ -98,6 +103,12 @@ inline Plan plan(bool buy, const LegView* legs, std::size_t n, Ns now, Ns opened
         net -= taker_fee(size, buy ? b.best_ask() : b.best_bid(), *legs[i].rules);
     }
     if (net < notional(p.min_edge, size)) return {ArbFilter::Edge, size, net};
+    if (p.leg_risk_pct > 0) {  // X13
+        const Usd worst = exit_value(buy, legs, n, size);
+        const Usd loss = worst == kNoExit ? INT64_MAX : worst < 0 ? -worst : 0;
+        if (loss > p.attempt_bound || static_cast<__int128>(net) * 100 < static_cast<__int128>(loss) * p.leg_risk_pct)
+            return {ArbFilter::LegRisk, size, net};
+    }
     return {ArbFilter::Pass, size, net};
 }
 
@@ -115,6 +126,30 @@ inline Usd walk(const LegView& v, bool buy, Qty q, Px* limit) {
         u += notional(px, take), q -= take, *limit = px;
     }
     return q > 0 ? -1 : u;
+}
+
+// X13: the attempt's value if one leg trades nothing and every other leg is reversed at the
+// visible book (sold at the bids on the buy side; on the sell side bought back at the asks and
+// merged with the unsold leg), fees included; the worst over the legs. Completing the missed leg
+// is no bound: its price at completion time is not known now. kNoExit if a reversal finds no
+// depth within the collar.
+inline Usd exit_value(bool buy, const LegView* legs, std::size_t n, Qty size) {
+    Usd worst = INT64_MAX;
+    for (std::size_t j = 0; j < n; ++j) {
+        Usd v = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            if (i == j) continue;
+            const pm::TokenBook& b = *legs[i].book;
+            const Px px = buy ? b.best_ask() : b.best_bid();
+            Px limit = 0;
+            const Usd back = walk(legs[i], !buy, size, &limit);
+            if (back < 0) return kNoExit;
+            const Usd fees = taker_fee(size, px, *legs[i].rules) + taker_fee(size, limit, *legs[i].rules);
+            v += (buy ? back - notional(px, size) : notional(px, size) - back) - fees;
+        }
+        if (v < worst) worst = v;
+    }
+    return worst;
 }
 
 enum class ArbAction : std::uint8_t { None, Complete, Unwind, Freeze };

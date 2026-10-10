@@ -260,6 +260,7 @@ EngineParams arb_params() {
     p.quote = false;
     p.arb.on = true;
     p.arb.latency_ticks = 0;
+    p.arb.leg_risk_pct = 0;  // these tests drive the executor's mechanics on wide books; X13 has its own
     p.sim.settle_delay = kS;
     return p;
 }
@@ -636,4 +637,18 @@ TEST(EngineArb, LegsBeyondFifteenGoInALaterBatch) {
     const auto batched = sixteen_legs(10 * kMs);
     EXPECT_EQ(batched.complete, 0u);  // the 16th leg left 10 ms later and missed 0.05
     EXPECT_EQ(batched.completed + batched.unwound + batched.frozen_bound + batched.frozen_depth + batched.frozen_retries, 1u);
+}
+
+TEST(EngineArb, ByDefaultAWindowIsTakenOnlyIfItsProfitCoversAMissedLeg) {
+    auto p = arb_params();
+    p.arb.leg_risk_pct = 100;  // the production default
+    Engine wide(p);
+    wide.add_group("m", {"Y", "N"});
+    // 0.40 + 0.50: 10 USD gross on 100 sets, but a missed leg sells the other back 10 cents lower.
+    feed(wide, {{kS, book2("Y", "0.30", "100", "0.40", "100")}, {kS + 1, book2("N", "0.40", "100", "0.50", "100")}});
+    EXPECT_EQ(wide.arb_exec().stats().attempts, 0u);
+    Engine tight(p);
+    tight.add_group("m", {"Y", "N"});
+    feed(tight, {{kS, book2("Y", "0.39", "100", "0.40", "100")}, {kS + 1, book2("N", "0.49", "100", "0.50", "100")}});
+    EXPECT_EQ(tight.arb_exec().stats().attempts, 1u);  // a miss costs 1 USD plus fees
 }

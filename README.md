@@ -269,9 +269,8 @@ touch runs/today/KILL                                              # or SIGUSR1:
 - On the 2.0M-message reference recording, pinned to one vCPU: intent to venue request
   172 ns p50 / 649 ns p99, engine 556 ns p50 per message, 514k messages/s; in isolation the
   risk check takes 19.6 ns and each order-manager operation 12 ns.
-- Same recording at a 182 ms round trip: 305 arbitrage windows, 19 attempts; 18 of them lost a
-  leg and were completed, for -11.76 USD after fees (markets resolving
-  in the recording paid out the sets held). Full tables and their commands:
+- Same recording at a 182 ms round trip: 305 arbitrage windows, 18 attempts; all of them lost a
+  leg and were completed, for -12.15 USD after fees. Full tables and their commands:
   [docs/exec/RESULTS.md](docs/exec/RESULTS.md); demos with fixed hashes: `scripts/demo/`.
 
 ## License

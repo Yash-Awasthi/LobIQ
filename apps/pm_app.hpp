@@ -228,7 +228,7 @@ struct GroupRow {
 // are reused, so taking it allocates nothing after the first second.
 constexpr const char* kRejectNames[] = {"none", "killed", "frozen", "tick", "size", "no_book", "collar",
                                        "self_cross", "position", "group", "gross", "cash", "throttle", "too_many"};
-constexpr const char* kFilterNames[] = {"pass", "young", "stale", "frozen", "one_sided", "self_cross", "size", "edge"};
+constexpr const char* kFilterNames[] = {"pass", "young", "stale", "frozen", "one_sided", "self_cross", "size", "edge", "leg_risk"};
 static_assert(std::size(kFilterNames) == static_cast<std::size_t>(exec::ArbFilter::kCount));
 constexpr const char* kKillNames[] = {"none", "operator", "loss", "deficit", "reject_spike", "mismatch", "leg_exposure", "internal"};
 static_assert(std::size(kRejectNames) == static_cast<std::size_t>(exec::Reject::kCount));
