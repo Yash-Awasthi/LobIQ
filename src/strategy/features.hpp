@@ -1,9 +1,7 @@
 #pragma once
 
-// Streaming features of DESIGN.md section 1, one SymbolFeatures per symbol. Every update is
-// O(1): event-time EMAs, clock-time decaying sums, and a walk of the first five levels for
-// order flow imbalance. on_event sees the book after an event and the event itself, nothing
-// later, so features cannot use the future; targets come only from the separate labeler.
+// O(1) updates per event. on_event sees the book after the event and nothing later, so features
+// cannot use the future; targets come only from the separate labeler.
 
 #include <algorithm>
 #include <array>
@@ -24,9 +22,8 @@ struct FeatureParams {
     double hawkes_alpha = 1.0;   // jump per trade
     double hawkes_mu = 0.5;      // baseline intensity, 1/s
     std::uint32_t tick = 100;    // ITCH units per tick
-    // Re-walk only the side of the book an event touched, and only when the event reaches the
-    // cached top levels. Valid when every book change is reported as an event, as MarketFeed
-    // does; tests that edit the book by hand leave it off.
+    // Re-walks only the touched side, and only when the event reaches the cached top levels: valid
+    // only when every book change arrives as an event (MarketFeed); hand-edited test books leave it off.
     bool incremental_depth = false;
 };
 
@@ -36,9 +33,8 @@ struct EventEma {
     void add(double x, double w) { v += w * (x - v); }
 };
 
-// Exponentially decaying sum in clock time: value(t) = sum of x_i exp(-(t - t_i) / tau). The
-// owner decays every sum with the same tau together, once per event (SymbolFeatures::advance),
-// so a sum costs a multiply rather than an exp.
+// value(t) = sum x_i exp(-(t - t_i) / tau). The owner decays all sums sharing tau once per event,
+// so a sum costs a multiply, not an exp.
 struct DecaySum {
     double v = 0;
     void add(double x) { v += x; }
@@ -200,9 +196,8 @@ class SymbolFeatures {
         return f;
     }
 
-    // The first levels of both sides after the event. With incremental_depth only the side
-    // the event touched is walked again, and only when the event's price is not strictly
-    // worse than the cached last level; every other kind of event leaves the book as it was.
+    // With incremental_depth only the touched side is re-walked, and only when the event's price is
+    // not strictly worse than the cached last level; other events leave the book as it was.
     template <class Book>
     void depth(const Book& b, const MarketEvent& e, Level (&bid)[kLevels], Level (&ask)[kLevels]) {
         bool walk_bid = true, walk_ask = true;

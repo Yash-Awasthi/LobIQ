@@ -1,12 +1,7 @@
 #pragma once
 
-// Chunked store, one file pair per stock-locate code:
-//   <locate>.zst  concatenated zstd frames, each holding ~chunk_msgs records, or
-//   <locate>.lz4  the same chunks as raw LZ4 blocks (decompresses about 5x faster, 14% larger)
-//   <locate>.idx  one IndexEntry per chunk
-// A store is read in whichever codec its files use; a directory holds one codec.
-// A record is {u64 seq, u16 len, len message bytes}, host (little) endian. The global
-// sequence number lets symbols be merged back into feed order.
+// One <locate>.zst or .lz4 (one codec per directory) plus <locate>.idx per symbol; records are
+// {u64 seq, u16 len, bytes}, little endian, and the global seq merges symbols back into feed order.
 
 #include <bit>
 #include <condition_variable>
@@ -82,9 +77,8 @@ struct Record {
     std::uint16_t len;
 };
 
-// Rewrites one symbol of the store in `src` into `dst` with `codec`, keeping the chunk
-// boundaries and index fields so checkpoints and sequence ranges stay valid. Returns the
-// compressed bytes written.
+// Keeps chunk boundaries and index fields so checkpoints and sequence ranges stay valid.
+// Returns the compressed bytes written.
 std::uint64_t transcode_symbol(const std::filesystem::path& src, const std::filesystem::path& dst,
                                std::uint16_t locate, Codec codec);
 
@@ -111,12 +105,8 @@ class SymbolReader {
     std::size_t pos_ = 0;
 };
 
-// Merges the records of several symbols back into feed order. Read-ahead threads
-// decompress chunks in global first-sequence order, which is exactly the order the merge
-// takes them in, so the hand-off is a bounded FIFO of at most `ahead` chunks; with several
-// threads a chunk can finish early but is handed over only in that order. Records are
-// merged a window of kWindow sequence numbers at a time: each symbol scatters its records
-// into one slot per sequence number, then the window is emitted by scanning a bitmap.
+// Read-ahead threads decompress in global first-sequence order, the merge's own order, so the hand-off is
+// a bounded in-order FIFO. Records merge a kWindow of sequence numbers at a time via a bitmap scan.
 class MergedReader {
    public:
     MergedReader(const std::filesystem::path& dir, std::vector<std::uint16_t> locates,

@@ -1,8 +1,5 @@
-// Runs the logit Avellaneda-Stoikov maker on every token of a pm_record directory and prints
-// one row per token. Fills come from recorded trades only (see pm/maker.hpp), makers pay no
-// fee, and inventory is valued at the last mid, not at resolution.
-//
-//   pm_mm <record-dir> [--gamma G] [--k K] [--size S] [--max-inv N] [--horizon-s T] > mm.tsv
+// Logit Avellaneda-Stoikov maker on every token of a pm_record directory, one row per token.
+// Fills from recorded trades only, no maker fee, inventory valued at the last mid.
 
 #include <algorithm>
 #include <cstdio>

@@ -1,18 +1,7 @@
 #pragma once
 
-// Queue-reactive order flow (Huang, Lehalle and Rosenbaum 2015, model I) for one symbol,
-// written as ITCH 5.0 so the replay exchange and backtest run on it unchanged.
-//
-// State: K levels per side around a reference price p_ref (half a tick off the price grid),
-// level i at p_ref -/+ (i - 1/2) tick, holding n_i units of `aes` shares. Per level i and queue
-// size n: limit insertions at rate L_i(n), cancellations of one random whole order at C_i(n),
-// and market orders taking from the front at M_i(n) when level i is the best non-empty level
-// of its side; the same rates on both sides. An insertion is one order of k units and a market
-// order takes k units (at most the level), k drawn from size_L / size_M (P(k) at index k - 1;
-// empty means one unit). When level 1 of a side empties, with probability
-// theta p_ref moves one tick towards it: the levels shift, the emptied price becomes the first
-// level of the other side and every new level is redrawn from `init` (level 1 conditioned on
-// at least one order); the level leaving the window is deleted.
+// Queue-reactive order flow (Huang, Lehalle and Rosenbaum 2015, model I) written as ITCH 5.0, so replay
+// and backtest run on it unchanged. Rates and sizes per level as in the paper; see QrParams.
 
 #include <algorithm>
 #include <cmath>

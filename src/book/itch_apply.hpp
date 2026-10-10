@@ -1,8 +1,7 @@
 #pragma once
 
-// Applies decoded ITCH messages of one stock-locate to a book. A, F add; E, C, X reduce;
-// D deletes; U replaces with a new reference and loses priority. Other types do not
-// touch the book; P and Q volumes are counted for reconciliation.
+// Applies one stock-locate's ITCH messages to a book. U replaces with a new reference and loses
+// priority; P and Q volumes are counted for reconciliation only.
 
 #include <cstdint>
 

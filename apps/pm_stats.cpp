@@ -1,8 +1,5 @@
-// Rebuilds the order book of every token in a pm_record directory and prints one row per
-// token: message counts, trades, time-weighted spread and depth, and consistency checks
-// (crossed books, differences from the exchange's own best bid and offer).
-//
-//   pm_stats <record-dir> > tokens.tsv
+// Rebuilds every token's book in a pm_record directory: counts, trades, spread, depth, and
+// consistency against the exchange's own best prices. Usage: pm_stats <record-dir> > tokens.tsv
 
 #include <algorithm>
 #include <cstdio>

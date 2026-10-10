@@ -1,8 +1,7 @@
 #pragma once
 
-// Run configuration (exec.cfg): "key = value" lines, '#' starts a comment. Parsing is strict
-// (SECURITY SEC4): an unknown or repeated key, a value that is not entirely a finite number, a
-// fraction for an integer key, or a value outside the key's hard bounds refuses the run.
+// Strict (SEC4): an unknown or repeated key, a non-finite or partial number, a fraction for an
+// integer key, or a value outside hard bounds refuses the run.
 
 #include <charconv>
 #include <cmath>

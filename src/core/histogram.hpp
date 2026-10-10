@@ -1,8 +1,7 @@
 #pragma once
 
-// Log-linear latency histogram: values below 2^S are counted exactly, larger ones in
-// buckets of relative width 2^-(S-1), so a percentile is within 0.2% of the true value
-// for S = 10. Recording is one bit scan and one increment, with no allocation.
+// Values below 2^S exact, larger ones in buckets of relative width 2^-(S-1) (within 0.2% at S = 10).
+// Recording is one bit scan and one increment, no allocation.
 
 #include <bit>
 #include <cstdint>

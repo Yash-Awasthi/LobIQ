@@ -1,9 +1,5 @@
-// Order book study: store read + decode throughput, per-event book update latency and the
-// end-to-end replay, over the busiest symbols of a store. Prints one CSV row per repetition.
+// Read, decode, book update latency and replay over a store's busiest symbols; one CSV row per repetition.
 // Usage: book_study <store-dir> <mode> [top-n] [reps] [read-threads]
-//   mode: decode | decode-only | decompress | book | book:<variant> | replay
-//         | book-cg:<variant> (one untimed pass, for Cachegrind)
-//   variant: map | tick | tick-prefetch | tick-4k (tick book without huge pages)
 
 
 #if __has_include(<valgrind/cachegrind.h>)
@@ -319,9 +315,8 @@ void book_mode(const std::filesystem::path& dir, const std::vector<std::uint16_t
     }
 }
 
-// End to end on one replay thread plus the read-ahead thread: read, decode, apply, BBO.
-// Look is the lookahead depth (0 reads the merged stream directly): the ID slot of each
-// message is prefetched on entry and its order record when it is half way to the front.
+// Look is the lookahead depth (0: merged stream directly): the ID slot is prefetched on entry,
+// the order record half way to the front.
 template <std::size_t Look>
 void replay_run(const std::filesystem::path& dir, const std::vector<std::uint16_t>& locs, int reps,
                 unsigned threads) {
@@ -375,9 +370,8 @@ void replay_run(const std::filesystem::path& dir, const std::vector<std::uint16_
     }
 }
 
-// The same replay one symbol at a time: books are independent, so each worker takes the next
-// symbol (busiest first), reads only that symbol's stream and applies it to a private book.
-// No merge, and one book's working set stays in cache. The BBO sum equals the merged replay's.
+// Books are independent, so each worker replays one symbol's stream into a private book:
+// no merge, and the working set stays in cache. The BBO sum equals the merged replay's.
 void replay_sym(const std::filesystem::path& dir, const std::vector<std::uint16_t>& locs, int reps,
                 unsigned threads) {
     using Tick = book::TickBook;

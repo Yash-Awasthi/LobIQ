@@ -1,11 +1,7 @@
 #pragma once
 
-// Exchange side of a replay backtest for one symbol. Real ITCH orders (owner 0) and our
-// virtual orders share the book's queues. A real execution of order R fills, first, every
-// virtual order the aggressor would have reached before R: a better price, or the same price
-// earlier in the queue. Those shares are counted as diverted, since in the data R got them.
-// Virtual orders that take liquidity consume real resting shares, tracked per order so the
-// same shares are not taken twice. DESIGN.md section 2.
+// A real execution of R first fills every virtual order the aggressor would have reached before R
+// (counted as diverted); virtual takers consume real shares at most once, tracked per order.
 
 #include <algorithm>
 #include <cstdint>
@@ -20,9 +16,8 @@
 
 namespace hft::engine {
 
-// Queue: fill by queue priority, including displayed priority over hidden executions at the
-// same price. TradeThrough: fill only when a trade prints strictly beyond our price, the
-// conservative bound of section 2.
+// Queue: fill by queue priority, displayed before hidden at the same price. TradeThrough: fill only
+// when a trade prints strictly beyond our price (the conservative bound).
 enum class FillRule : std::uint8_t { Queue, TradeThrough };
 
 struct Divergence {
@@ -109,10 +104,8 @@ class ReplayExchange {
         return 0;
     }
 
-    // Takes the real order `real_ref` out of the replayed book from its arrival on and keeps
-    // it as a virtual order of `owner` at the same queue position. Its executions in the data
-    // become executions of the virtual order at that position; its cancels and deletes apply
-    // to it. This is the queue-tracking check of DESIGN.md section 2.
+    // Keeps real order `real_ref` as a virtual order of `owner` at its queue position: its executions,
+    // cancels and deletes in the data apply to the virtual order (the queue-tracking check).
     void mirror(std::uint64_t real_ref, std::uint32_t owner) { mirrors_[real_ref] = {owner, 0}; }
     std::uint64_t mirrored(std::uint64_t real_ref) const {
         const auto it = mirrors_.find(real_ref);
@@ -160,9 +153,8 @@ class ReplayExchange {
             x.mirrors_.erase(m.orig_ref);
             x.book_.add(m.new_ref, v->side, m.shares, m.price, x.real_key(m.new_ref));
         }
-        // ITCH sets the side of every P message to 'B', so a hidden print is matched against
-        // both sides: it reaches bids at or above its price and asks at or below it. A
-        // displayed order outranks the hidden one at the same price.
+        // ITCH marks every P message 'B', so a hidden print is matched against both sides;
+        // a displayed order outranks it at the same price.
         void operator()(const itch::Trade& m) {
             const std::uint32_t got =
                 x.virtual_fills(Side::Buy, m.price, ~0ull, m.shares, true, sink);
@@ -195,9 +187,8 @@ class ReplayExchange {
         return it == mirrors_.end() ? real_ref : it->second.vref;
     }
 
-    // Queue priority follows the order reference, which Nasdaq assigns on receipt: orders
-    // received before the open are displayed at 09:30 yet keep their earlier rank. A virtual
-    // order ranks after every reference seen so far.
+    // Priority follows the reference, assigned on receipt: pre-open orders keep their earlier rank
+    // at 09:30. A virtual order ranks after every reference seen so far.
     std::uint64_t real_key(std::uint64_t ref) {
         max_ref_ = std::max(max_ref_, ref);
         return ref << 20;

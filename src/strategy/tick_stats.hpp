@@ -1,9 +1,7 @@
 #pragma once
 
-// Accumulators for the regime forecast inputs (DESIGN.md section 5).
-// Eta (Robert and Rosenbaum; Dayri and Rosenbaum 2015): continuations over twice the
-// alternations among successive non-zero mid changes. Realized variance from the mid sampled on
-// a fixed clock.
+// Regime inputs. Eta (Robert and Rosenbaum): continuations over twice the alternations of non-zero
+// mid changes. Realized variance from the mid sampled on a fixed clock.
 
 #include <cmath>
 #include <cstdint>

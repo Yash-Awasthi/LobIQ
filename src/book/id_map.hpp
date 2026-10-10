@@ -1,8 +1,7 @@
 #pragma once
 
-// Order-ID maps from an ITCH reference (below kMaxRef) to an order index (below 2^24).
-// Open addressing over a power-of-two table, kept at most half full, with backward-shift
-// deletion so no tombstones build up over a day.
+// ITCH reference -> order index. Open addressing, at most half full, backward-shift deletion
+// so no tombstones build up over a day.
 
 #include <bit>
 #include <cstddef>

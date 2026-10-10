@@ -1,9 +1,7 @@
 #pragma once
 
-// Index-addressed array of trivially copyable T in its own anonymous mapping. Indices stay
-// valid across growth, so a state built from pools can be copied with memcpy. Mappings of
-// 2 MB or more are aligned to 2 MB, advised for transparent huge pages and pre-faulted;
-// MAP_POPULATE would fault 4 KB pages before the advice applies.
+// Index-addressed trivially copyable T in its own mapping: indices survive growth, so state copies by memcpy.
+// Mappings >= 2 MB are 2 MB aligned, THP-advised, then pre-faulted (MAP_POPULATE would fault 4 KB pages first).
 
 #include <sys/mman.h>
 

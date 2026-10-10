@@ -1,8 +1,7 @@
 #pragma once
 
-// Units and messages shared by the order manager, risk, ledger and simulated venue.
-// Prices are 1e-4 USD per share, sizes 1e-6 share, money 1e-10 USD, so a price times a size
-// is an exact amount of money and nothing in the ledger rounds.
+// Prices 1e-4 USD, sizes 1e-6 share, money 1e-10 USD: a price times a size is exact money,
+// so nothing in the ledger rounds.
 
 #include <cstdint>
 #include <type_traits>

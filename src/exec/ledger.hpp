@@ -1,11 +1,7 @@
 #pragma once
 
-// Positions, cash, fees and PnL in exact integer units (types.hpp). Positions are long only:
-// the venue sells only shares held, and a short view is a long position in the other outcome.
-// Cost basis is integer and a sale removes cost in proportion, so
-//   cash - capital + cost == realised - fees
-// holds exactly after every operation (identity_holds). Fills count when matched; a failed
-// settlement is applied as the opposite fill with the fee refunded (DESIGN D16, L1).
+// Long-only positions, integer cost basis, so cash - capital + cost == realised - fees holds exactly
+// after every operation; a failed settlement is the opposite fill with the fee refunded (D16, L1).
 
 #include <cstdint>
 #include <optional>

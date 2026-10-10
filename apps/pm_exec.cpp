@@ -1,19 +1,5 @@
-// Paper execution on the prediction-market stream: makers quote through risk, the order manager
-// and the simulated venue, configured by a run file (exec.cfg). No order ever leaves the machine.
-//
-//   pm_exec --replay DIR [--config FILE]... [--set KEY=VALUE]... [--run OUT] [--profile]
-//   pm_exec --paper --run OUT --config FILE [--set KEY=VALUE]... [--seconds S] [--port P] [--cpu C]
-//           [--spin] [--spin-feeds] [--events N] [--max-tokens N] [--tokens-per-conn N] [--record-cap-gb G]
-//           [--exec-dir DIR] [--reset-kill]
-//
-// Replay: the venue's reports are a function of the recording, the config and its seed, so the
-// same three give the same hashes. Without --config, DIR/exec.cfg and DIR/overrides.cfg are used
-// (what a paper run writes), so a paper run replays as it ran.
-// Paper: live feed into a new run directory OUT: the recording, session.tsv, exec.cfg (as given),
-// overrides.cfg (--set lines and the session number), summary.tsv and, on a kill, kill.log.
-// Kill (D11): SIGUSR1 or a file OUT/KILL trips the switch; every order is cancelled, none placed.
-// A tripped switch leaves EXEC_DIR/KILLED and later paper runs refuse to start until one is given
-// --reset-kill. EXEC_DIR (default ~/data/exec) also holds the session counter (DESIGN T6).
+// Paper execution: makers and the arbitrage executor through risk, order manager and simulated venue;
+// no order leaves the machine. A replay without --config reads DIR/exec.cfg and overrides.cfg, so it runs as recorded.
 
 #include "pm_app.hpp"
 
@@ -50,7 +36,9 @@ int usage() {
                  "usage: pm_exec --replay DIR [--config FILE]... [--set KEY=VALUE]... [--run OUT] [--profile]\n"
                  "       pm_exec --paper --run OUT --config FILE [--set KEY=VALUE]... [--seconds S] [--port P]\n"
                  "               [--cpu C] [--spin] [--spin-feeds] [--events N] [--max-tokens N] [--tokens-per-conn N]\n"
-                 "               [--record-cap-gb G] [--exec-dir DIR] [--reset-kill]\n");
+                 "               [--record-cap-gb G] [--exec-dir DIR] [--reset-kill]\n"
+                 "kill: SIGUSR1 or a file OUT/KILL cancels every order and places none; it leaves EXEC_DIR/KILLED\n"
+                 "      (default ~/data/exec) and later paper runs refuse to start until given --reset-kill\n");
     return 2;
 }
 

@@ -2,7 +2,7 @@
 # Every app refuses an unknown option and a missing input directory with its usage and exit 2.
 B=${1:-$(dirname "$0")/../build/native/apps}
 fail=0
-for app in book_replay checkpoint day_stats gen_fixture ingest itch_backtest itch_count itch_dump \
+for app in book_replay checkpoint gen_fixture ingest itch_backtest itch_count itch_dump \
            pm_arb pm_exec pm_live pm_mm pm_record pm_stats store_cat transcode; do
   for args in "--bogus-flag" "/nonexistent/dir"; do
     case "$app $args" in

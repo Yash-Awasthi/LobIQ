@@ -1,13 +1,5 @@
-// Records the public market WebSocket of a prediction-market order book to hourly files.
-//
-//   pm_record [--out DIR] [--tags a,b,c] [--per-tag N] [--min-days D] [--refresh-h H]
-//             [--tokens-per-conn N] [--cap-gb G] [--seconds S]
-//
-// Markets are the top N by 24 h volume for each tag, re-chosen every H hours; the connections
-// restart only when the chosen set changes. Every WebSocket text message is stored as one
-// line "<receive time, ns since epoch> <message>" in DIR/c<k>/<UTC date>T<hour>.jsonl, which
-// is compressed with zstd when the hour ends. DIR/events.log records connects, drops and
-// gaps; DIR/markets.tsv maps token ids to markets. Recording stops at the size cap.
+// Records the public market WebSocket to hourly "<recv ns> <message>" files (zstd when the hour ends),
+// top N markets per tag by volume; connections restart only when the chosen set changes.
 
 #include <algorithm>
 #include <atomic>
@@ -238,7 +230,10 @@ int main(int argc, char** argv) {
         else if (a == "--cap-gb") cap_gb = std::atof(val().c_str());
         else if (a == "--seconds") seconds = std::atof(val().c_str());
         else {
-            std::fprintf(stderr, "unknown option %s\n", a.c_str());
+            std::fprintf(stderr,
+                         "unknown option %s\nusage: pm_record [--out DIR] [--tags a,b,c] [--per-tag N] [--min-days D] "
+                         "[--refresh-h H] [--tokens-per-conn N] [--cap-gb G] [--seconds S]\n",
+                         a.c_str());
             return 2;
         }
     }

@@ -1,8 +1,7 @@
 #pragma once
 
-// Discrete-event queue for the backtest. Events pop in (time, kind, insertion) order, so at
-// equal timestamps real market events apply before our messages, the conservative choice
-// for queue races, and the order is deterministic.
+// Events pop in (time, kind, insertion) order: at equal times real market events apply before ours
+// (conservative for queue races), and the order is deterministic.
 
 #include <cstdint>
 #include <vector>

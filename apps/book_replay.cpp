@@ -1,9 +1,5 @@
-// Replays symbols of a store through a book and reports per-symbol book statistics, a hash
-// of the BBO stream and invariant failures.
-// Usage: book_replay <store-dir> <book> [locate ...]   (no locate: every symbol)
-//   book: map | tick
-// Env: CHECK_EVERY=N runs the full invariant check every N book events (default 0: off).
-//      THREADS=N replays N symbols at a time (default: all hardware threads); rows print in locate order.
+// Replays store symbols through a book: per-symbol stats, BBO hash, invariant failures.
+// Usage: book_replay <store-dir> <map|tick> [locate ...]; env CHECK_EVERY=N, THREADS=N.
 
 #include <algorithm>
 #include <atomic>

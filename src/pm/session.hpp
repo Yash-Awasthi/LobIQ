@@ -1,8 +1,7 @@
 #pragma once
 
-// What a pm_live run subscribed to, and its recording. The session file lists tokens (with
-// connection and label) and arbitrage groups, so a replay sets the engine up the same way;
-// the recorder writes the records the trading thread processed, in its order.
+// The session file lists tokens and arbitrage groups so a replay sets the engine up the same way;
+// the recorder writes what the trading thread processed, in its order.
 
 #include <atomic>
 #include <chrono>
@@ -96,11 +95,8 @@ struct Session {
     }
 };
 
-// Writes every record the trading thread processed, in its order, as "<ns> <json>" lines in
-// hourly files (by receive time) under DIR/c0, compressing each when its hour ends. One
-// connection directory, so a replay sees exactly the live order. Writing stops, and trading
-// goes on, once the directory reaches the size cap, or once the ring fills because the disk
-// fell behind: the trading thread never waits, and what was written stays a valid prefix.
+// One directory (c0), so a replay sees exactly the live order. Writing stops at the size cap or when the
+// ring fills (disk behind); trading goes on, never waits, and what was written stays a valid prefix.
 class Recorder {
    public:
     Recorder(const std::filesystem::path& dir, double cap_gb, std::size_t ring_bytes = 1 << 24)
