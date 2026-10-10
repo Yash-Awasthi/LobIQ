@@ -31,6 +31,5 @@ Terse reference docs; ids are stable, cite them in commits and code comments whe
 - Hot path rule: no alloc, lock, syscall, file I/O on the trading thread in steady state.
 - Every step: inspect -> failing test -> code -> test -> measure if perf-relevant -> commit.
 - Commit message: normal prose subject+body, max 3 lines, no attribution lines.
-- Build: `wsl.exe -e bash -lc 'cd ~/hft && export VCPKG_ROOT=~/vcpkg && cmake --build build/<preset>'`.
+- Build: `cmake --preset <preset> && cmake --build build/<preset>` (VCPKG_ROOT set).
 - Presets to keep green: release, native, asan, ubsan, tsan, clang (+ fuzz targets).
-- Edit via `\\wsl.localhost\Ubuntu\home\yash\hft\...`; multi-line scripts as files in `~/scratch`.

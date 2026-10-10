@@ -15,6 +15,45 @@ A low-latency trading system in C++23 with no framework underneath, in three par
 The project is complete; every number below names the command or report that produced it.
 Phases and what is not planned: [docs/ROADMAP.md](docs/ROADMAP.md); final state and
 verification: [STATUS.md](STATUS.md).
+
+## Highlights
+
+Measured on a laptop (i7-13650HX, turbo off, WSL2); sources in the sections below.
+
+- **Order book:** 52.8 ns per update at p50 on one symbol; a full Nasdaq day of all 12,076
+  symbols rebuilt and hash-checked in 7.5 s; read and decode at 31.6M messages/s.
+- **Live feed:** own TLS WebSocket client and JSON parser (AVX2 structural scan); network to
+  trading decision about 39 µs p50 with busy-polling threads.
+- **Paper execution:** order intent to venue request 177 ns p50; 489k messages/s through books,
+  makers, arbitrage executor, risk, order manager and simulated venue on one thread.
+- **Determinism:** a live session replays from its recording to bit-identical decisions,
+  checked by hash; so do fault-injected runs and kill-switch runs.
+- **Correctness:** zero heap allocations on the hot path in steady state; property tests against
+  reference implementations; 291 tests, also run under ASan, UBSan and TSan; four fuzzers; fault campaigns
+  at 20-30% dropped, duplicated and delayed reports with zero illegal order states.
+- **Honest results:** the obvious arbitrage loses money after fees and latency on recorded data
+  (-63.85 USD over 49 attempts); reported as measured, with no thresholds tuned afterwards.
+
+Where to read the code:
+
+| What | File |
+|---|---|
+| L3 order book with two-level bitmap and radix tree | `src/book/tick_book.hpp` |
+| Lock-free single-producer single-consumer rings | `src/core/spsc.hpp` |
+| SIMD JSON tape and single-pass message decoder | `src/net/tape.hpp`, `src/pm/msg.hpp` |
+| Order manager state machine | `src/exec/oms.hpp` |
+| Simulated venue with fault injection | `src/exec/sim_venue.hpp` |
+| Arbitrage executor and leg-risk handling | `src/exec/arb_exec.hpp` |
+| Design decisions and their reasons | `docs/exec/DECISIONS.md`, `docs/exec/DESIGN.md` |
+
+Quick start (no data needed; tests use a synthetic ITCH fixture):
+
+```
+cmake --preset release && cmake --build build/release && ctest --test-dir build/release
+```
+
+Replays need data: an ITCH day from Nasdaq's public sample files (`scripts/ingest_day.sh`), or a
+prediction-market recording made with `pm_live --record`.
 Studies from the earlier research phase (Python, signal and regime reports, transformer
 forecaster, pre-registration) are kept at the [research-archive](https://github.com/Yash-Awasthi/hft/blob/research-archive/archive/) tag.
 
@@ -313,7 +352,7 @@ touch runs/today/KILL                                              # or SIGUSR1:
 
 - Live order entry: never. There is no order entry code, and a CI gate keeps it that way.
 - A dedicated or cloud machine for hardware counters and spin-mode numbers on isolated cores:
-  the owner's decision; the numbers here are from a laptop under WSL2.
+  not available here; the numbers are from a laptop under WSL2.
 - A miss-probability model for the arbitrage executor: a research step, outside this project.
 
 ## License

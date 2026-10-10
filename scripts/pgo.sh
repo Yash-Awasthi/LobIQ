@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Profile-guided release build. Trains on a real store (per-symbol and merged replay) and
-# writes the optimised binaries to build/pgo-use. With a pm_record directory it also trains
-# the prediction-market tools on it. Usage: scripts/pgo.sh <store-dir> [pm-record-dir]
+# Profile-guided build into build/pgo-use, trained on a store (and a pm_record directory if given).
+# Usage: scripts/pgo.sh <store-dir> [pm-record-dir]
 set -euo pipefail
 store=${1:?store directory}
 pm=${2:-}
