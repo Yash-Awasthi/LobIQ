@@ -358,3 +358,19 @@ TEST(Report, WritesTheReportAndItsData) {
     EXPECT_NE(html.find("<svg"), std::string::npos);
     EXPECT_EQ(html.find("<script"), std::string::npos);  // self-contained, nothing to execute
 }
+
+TEST(Report, SweepLabelsAndRanking) {
+    SweepRun a, b;
+    a.params = {{"gamma", 0.1}, {"size", 200}};
+    b.params = {{"gamma", 0.25}, {"size", 100}};
+    EXPECT_EQ(a.label(), "gamma=0.1,size=200");
+    a.summary.total = 5'000'000, b.summary.total = 9'000'000;  // micro-dollars
+    TempDir out{"sweep_report"};
+    write_sweep_report(out.path.string(), "SYM", "naive", {a, b});
+    std::ifstream page(out.path / "index.html");
+    const std::string html((std::istreambuf_iterator<char>(page)), {});
+    const std::size_t pb = html.find("href=\"gamma=0.25,size=100/report.html\""), pa = html.find("href=\"gamma=0.1,size=200/report.html\"");
+    ASSERT_NE(pa, std::string::npos);
+    ASSERT_NE(pb, std::string::npos);
+    EXPECT_LT(pb, pa);  // best total first
+}
