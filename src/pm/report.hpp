@@ -105,4 +105,35 @@ inline void write_pm_report(const std::filesystem::path& dir, const std::string&
                        report::page("Paper execution replay", recording + " | decision_hash_v2 " + value("decision_hash_v2"), body));
 }
 
+// One run of pm_exec --sweep: its overrides ("k=0.5,size=50") and exec summary rows.
+struct PmSweepRun {
+    std::string label;
+    std::vector<std::pair<std::string, std::string>> rows;
+    std::string value(const std::string& k) const {
+        for (const auto& [key, v] : rows)
+            if (key == k) return v;
+        return {};
+    }
+};
+
+// DIR/index.html: runs ranked by ledger PnL, each linking its own report.
+inline void write_pm_sweep_report(const std::filesystem::path& dir, const std::string& recording, std::vector<PmSweepRun> runs) {
+    std::filesystem::create_directories(dir);
+    auto pnl = [](const PmSweepRun& r) { return std::atof(r.value("ledger_pnl_usd").c_str()); };
+    std::stable_sort(runs.begin(), runs.end(), [&](const PmSweepRun& a, const PmSweepRun& b) { return pnl(a) > pnl(b); });
+    std::string rows;
+    for (const PmSweepRun& r : runs)
+        rows += "<tr><td><a href=\"" + report::esc(r.label) + "/report.html\">" + report::esc(r.label) + "</a></td><td>" +
+                report::num(pnl(r)) + "</td><td>" + report::esc(r.value("fees_usd")) + "</td><td>" + report::esc(r.value("maker_fills")) +
+                "</td><td>" + report::esc(r.value("taker_fills")) + "</td><td>" + report::esc(r.value("arb_attempts")) + "</td><td>" +
+                report::esc(r.value("kill")) + "</td></tr>";
+    const std::string body = "<h2>Runs, best ledger PnL first</h2><table><thead><tr><th>overrides</th><th>ledger PnL</th><th>fees</th>"
+                             "<th>maker fills</th><th>taker fills</th><th>arb attempts</th><th>kill</th></tr></thead><tbody>" +
+                             rows +
+                             "</tbody></table><p class=\"muted\">USD. One recording is one sample: confirm a choice on "
+                             "other recordings before trusting it.</p>";
+    report::write_file((dir / "index.html").string(),
+                       report::page("Paper sweep on " + recording, std::to_string(runs.size()) + " runs", body));
+}
+
 }  // namespace hft::pm

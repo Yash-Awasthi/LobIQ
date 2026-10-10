@@ -77,6 +77,8 @@ struct Options {
     fs::path record, replay, dump_fills;  // dump_fills: replay writes every maker fill there
     fs::path run;       // pm_exec: summary.tsv, kill.log; KILL there trips the switch (live)
     fs::path report;    // pm_exec replay: report.html, timeline.csv, summary.csv
+    bool quiet = false;  // sweep runs: no console output
+    std::vector<std::pair<std::string, std::string>>* rows_out = nullptr;  // exec summary of a replay
     fs::path kill_latch;  // pm_exec paper: created on a kill; the next run refuses to start (D11)
 };
 
@@ -503,7 +505,7 @@ void kill_log(const Options& o, const Engine& e) {
     if (!o.kill_latch.empty()) {
         if (std::FILE* f = std::fopen(o.kill_latch.c_str(), "w")) std::fprintf(f, "%s\n", o.run.c_str()), std::fclose(f);
     }
-    std::fprintf(stderr, "kill switch tripped: %s\n", kKillNames[static_cast<int>(e.exec_risk().kill_reason())]);
+    if (!o.quiet) std::fprintf(stderr, "kill switch tripped: %s\n", kKillNames[static_cast<int>(e.exec_risk().kill_reason())]);
 }
 
 std::string hex(std::uint64_t v) {
@@ -572,7 +574,7 @@ std::vector<std::pair<std::string, std::string>> exec_summary(const Options& o, 
         if (f) std::fprintf(f, "%s\t%s\n", k.c_str(), val.c_str());
     }
     if (f) std::fclose(f);
-    std::fprintf(stderr, "%s\n", line.c_str());
+    if (!o.quiet) std::fprintf(stderr, "%s\n", line.c_str());
     return rows;
 }
 
@@ -623,34 +625,36 @@ int replay(const Options& o) {
     });
     const double wall_s = static_cast<double>(tsc::mono_ns() - wall0) * 1e-9;
     e.finish(INT64_MAX);
-    std::fprintf(stderr, "files %zu messages %llu parse_errors %llu\n", st.files, (unsigned long long)st.messages,
-                 (unsigned long long)st.parse_errors);
     const double ns = 1 / tsc::ticks_per_ns();
-    std::fprintf(stderr, "per message ns p50/p99/p99.9: parse %.0f/%.0f/%.0f engine %.0f/%.0f/%.0f; tape fallbacks %llu\n",
-                 parse.percentile(50) * ns, parse.percentile(99) * ns, parse.percentile(99.9) * ns,
-                 engine.percentile(50) * ns, engine.percentile(99) * ns, engine.percentile(99.9) * ns,
-                 (unsigned long long)dec.fallbacks());
-    if (const Engine::Profile* p = e.profile()) {
-        auto row = [&](const char* name, const Histogram& h) {
-            std::fprintf(stderr, " %s %.0f/%.0f/%.0f (n %llu)", name, h.percentile(50) * ns, h.percentile(99) * ns,
-                         h.percentile(99.9) * ns, static_cast<unsigned long long>(h.count()));
-        };
-        std::fprintf(stderr, "profile ns p50/p99/p99.9:");
-        row("parse", parse), row("engine", engine), row("submit", p->submit), row("deliver", p->deliver), row("venue", p->venue);
-        std::fprintf(stderr, "; messages/s %.0f\n", static_cast<double>(st.messages) / wall_s);
-    }
-    if (o.engine.venue) {
-        const exec::SimStats& v = e.venue_stats();
-        std::fprintf(stderr, "venue orders %llu rejects %llu maker_fills %llu taker_fills %llu cancels %llu dropped %llu dup %llu held %llu settle_failed %llu | oms illegal %llu duplicates %llu orphan_settles %llu timeouts %llu mismatches %llu open %u | position_mismatches %llu kill %d\n",
-                     (unsigned long long)v.orders, (unsigned long long)v.rejects, (unsigned long long)v.maker_fills,
-                     (unsigned long long)v.taker_fills, (unsigned long long)v.cancels, (unsigned long long)v.dropped,
-                     (unsigned long long)v.duplicated, (unsigned long long)v.held, (unsigned long long)v.settle_failed,
-                     (unsigned long long)e.oms().illegal_count(), (unsigned long long)e.oms().duplicates(),
-                     (unsigned long long)e.oms().orphan_settlements(),
-                     (unsigned long long)e.oms().timeouts(), (unsigned long long)e.oms().mismatches(), e.oms().open_orders(),
-                     (unsigned long long)e.position_mismatches(), static_cast<int>(e.exec_risk().kill_reason()));
-        if (e.oms().illegal_count())
-            std::fprintf(stderr, "first illegal report: kind %d on order state %d reason %d\n", e.oms().first_illegal().first, e.oms().first_illegal().second, e.oms().first_illegal_reason());
+    if (!o.quiet) {
+        std::fprintf(stderr, "files %zu messages %llu parse_errors %llu\n", st.files, (unsigned long long)st.messages,
+                     (unsigned long long)st.parse_errors);
+        std::fprintf(stderr, "per message ns p50/p99/p99.9: parse %.0f/%.0f/%.0f engine %.0f/%.0f/%.0f; tape fallbacks %llu\n",
+                     parse.percentile(50) * ns, parse.percentile(99) * ns, parse.percentile(99.9) * ns,
+                     engine.percentile(50) * ns, engine.percentile(99) * ns, engine.percentile(99.9) * ns,
+                     (unsigned long long)dec.fallbacks());
+        if (const Engine::Profile* p = e.profile()) {
+            auto row = [&](const char* name, const Histogram& h) {
+                std::fprintf(stderr, " %s %.0f/%.0f/%.0f (n %llu)", name, h.percentile(50) * ns, h.percentile(99) * ns,
+                             h.percentile(99.9) * ns, static_cast<unsigned long long>(h.count()));
+            };
+            std::fprintf(stderr, "profile ns p50/p99/p99.9:");
+            row("parse", parse), row("engine", engine), row("submit", p->submit), row("deliver", p->deliver), row("venue", p->venue);
+            std::fprintf(stderr, "; messages/s %.0f\n", static_cast<double>(st.messages) / wall_s);
+        }
+        if (o.engine.venue) {
+            const exec::SimStats& v = e.venue_stats();
+            std::fprintf(stderr, "venue orders %llu rejects %llu maker_fills %llu taker_fills %llu cancels %llu dropped %llu dup %llu held %llu settle_failed %llu | oms illegal %llu duplicates %llu orphan_settles %llu timeouts %llu mismatches %llu open %u | position_mismatches %llu kill %d\n",
+                         (unsigned long long)v.orders, (unsigned long long)v.rejects, (unsigned long long)v.maker_fills,
+                         (unsigned long long)v.taker_fills, (unsigned long long)v.cancels, (unsigned long long)v.dropped,
+                         (unsigned long long)v.duplicated, (unsigned long long)v.held, (unsigned long long)v.settle_failed,
+                         (unsigned long long)e.oms().illegal_count(), (unsigned long long)e.oms().duplicates(),
+                         (unsigned long long)e.oms().orphan_settlements(),
+                         (unsigned long long)e.oms().timeouts(), (unsigned long long)e.oms().mismatches(), e.oms().open_orders(),
+                         (unsigned long long)e.position_mismatches(), static_cast<int>(e.exec_risk().kill_reason()));
+            if (e.oms().illegal_count())
+                std::fprintf(stderr, "first illegal report: kind %d on order state %d reason %d\n", e.oms().first_illegal().first, e.oms().first_illegal().second, e.oms().first_illegal_reason());
+        }
     }
     if (!o.dump_fills.empty()) {
         std::FILE* f = std::fopen(o.dump_fills.c_str(), "w");
@@ -661,6 +665,7 @@ int replay(const Options& o) {
     }
     if (e.venue()) {
         const auto rows = exec_summary(o, e, dh);
+        if (o.rows_out) *o.rows_out = rows;
         if (!o.report.empty()) {
             std::vector<ReportLatency> lat;
             auto add = [&](const char* name, const Histogram& h) {
@@ -672,10 +677,10 @@ int replay(const Options& o) {
             for (const auto& g : e.arb().stats())
                 if (g.windows) groups.push_back({g.name, g.windows, g.open_seconds, g.max_edge});
             write_pm_report(o.report, o.replay.filename().string(), rows, samples, lat, groups);
-            std::fprintf(stderr, "report: %s\n", (o.report / "report.html").c_str());
+            if (!o.quiet) std::fprintf(stderr, "report: %s\n", (o.report / "report.html").c_str());
         }
     }
-    summary(e, dh, stdout);
+    if (!o.quiet) summary(e, dh, stdout);
     return 0;
 }
 

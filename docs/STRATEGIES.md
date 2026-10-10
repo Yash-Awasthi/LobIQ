@@ -189,6 +189,11 @@ pm_exec --replay data/sample/pm-20261009T1600-20min --config config/exec.cfg --s
 pm_exec --paper --run runs/skew --config config/exec.cfg --quoter skew       # live feed, paper only
 ```
 
+`pm_exec --sweep key=v1,v2,...` (repeatable; any `exec.cfg` key such as `gamma`, `k`, `size`,
+`lat_ms`) replays every combination in parallel and ranks them; with `--report DIR` each run gets
+its report and `DIR/index.html` links them. A sweep row is the same run as `--set` with those
+values, decision hash included. `scripts/demo/paper_sweep.sh` sweeps `gamma` and `k` on the sample.
+
 A paper run stores the quoter's name in `quoter.txt`, so `pm_exec --replay runs/skew` replays it as
 it ran. `logit_as` is the built-in model written as a plug-in; it gives the same decision hash as
 running without `--quoter` (test `PmQuoter.LogitAsPluginMatchesTheBuiltIn`), which is the check
