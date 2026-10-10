@@ -103,10 +103,14 @@ struct Feed {
     SpscBytes ring;
     std::atomic<std::uint64_t> msgs{0}, bytes{0}, reconnects{0}, drops{0};
     std::atomic<std::int64_t> last_rx_ns{0};
+    Histogram kernel_to_ring;  // ns from the kernel's receive stamp to the ring; feed thread only, read after join
 };
 
-bool put(Feed& f, std::string_view text) {
-    if (f.ring.try_write(now_ns(), tsc::start(), static_cast<std::uint32_t>(f.idx), text)) {
+// A message's receive time is the kernel's stamp of its bytes when there is one, else now.
+bool put(Feed& f, std::string_view text, std::int64_t kernel_ns = 0) {
+    std::int64_t ns = now_ns();
+    if (kernel_ns > 0 && kernel_ns <= ns) f.kernel_to_ring.record(static_cast<std::uint64_t>(ns - kernel_ns)), ns = kernel_ns;
+    if (f.ring.try_write(ns, tsc::start(), static_cast<std::uint32_t>(f.idx), text)) {
         f.bell.ring();
         return true;
     }
@@ -145,7 +149,7 @@ void feed_loop(Feed& f) {
                     f.last_rx_ns = now_ns();
                     if (msg != "PONG") {
                         ++f.msgs, f.bytes += msg.size();
-                        overflow = !put(f, msg);  // a lost message leaves books wrong: resubscribe
+                        overflow = !put(f, msg, ws.rx_ns());  // a lost message leaves books wrong: resubscribe
                     }
                 }
                 if (now - last_beat >= std::chrono::seconds(1) && now - last_rx < std::chrono::seconds(15)) {
@@ -769,6 +773,11 @@ int live(const Options& o) {
     summary(e, dh, stdout);
     const double ns = 1 / tpn;
     const Latency& total = metrics.totals(*window);
+    Histogram k2r;
+    for (const auto& f : feeds) k2r.merge(f->kernel_to_ring);
+    if (k2r.count())
+        std::fprintf(stderr, "kernel_to_ring ns p50/p99/p99.9: %llu/%llu/%llu (n %llu)\n", (unsigned long long)k2r.percentile(50),
+                     (unsigned long long)k2r.percentile(99), (unsigned long long)k2r.percentile(99.9), (unsigned long long)k2r.count());
     std::fprintf(stderr, "latency ns p50/p99/p99.9: queue %.0f/%.0f/%.0f parse %.0f/%.0f/%.0f engine %.0f/%.0f/%.0f "
                  "wire_to_decision %.0f/%.0f/%.0f\n",
                  total.queue.percentile(50) * ns, total.queue.percentile(99) * ns, total.queue.percentile(99.9) * ns,

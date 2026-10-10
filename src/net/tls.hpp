@@ -5,17 +5,20 @@
 
 #include <netdb.h>
 #include <netinet/tcp.h>
+#include <openssl/bio.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <poll.h>
 #include <signal.h>
 #include <sys/random.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <array>
 #include <cctype>
 #include <cerrno>
+#include <cstdint>
 #include <cstring>
 #include <memory>
 #include <stdexcept>
@@ -25,6 +28,35 @@
 #include "net/ws_frames.hpp"
 
 namespace hft::net {
+
+inline std::int64_t realtime_ns() {
+    timespec ts;
+    ::clock_gettime(CLOCK_REALTIME, &ts);
+    return static_cast<std::int64_t>(ts.tv_sec) * 1'000'000'000 + ts.tv_nsec;
+}
+
+// The kernel stamps each received packet (CLOCK_REALTIME); recv_stamped returns it with the data.
+inline bool enable_rx_timestamps(int fd) {
+    const int one = 1;
+    return ::setsockopt(fd, SOL_SOCKET, SO_TIMESTAMPNS, &one, sizeof one) == 0;
+}
+
+// recv(2) that also sets *ns to the kernel receive time of the newest data read, if it has one.
+inline ssize_t recv_stamped(int fd, char* buf, std::size_t n, std::int64_t* ns) {
+    iovec iov{buf, n};
+    alignas(cmsghdr) char ctl[CMSG_SPACE(sizeof(timespec))];
+    msghdr m{};
+    m.msg_iov = &iov, m.msg_iovlen = 1, m.msg_control = ctl, m.msg_controllen = sizeof ctl;
+    const ssize_t r = ::recvmsg(fd, &m, 0);
+    if (r > 0)
+        for (cmsghdr* c = CMSG_FIRSTHDR(&m); c; c = CMSG_NXTHDR(&m, c))
+            if (c->cmsg_level == SOL_SOCKET && c->cmsg_type == SCM_TIMESTAMPNS) {
+                timespec ts;
+                std::memcpy(&ts, CMSG_DATA(c), sizeof ts);
+                *ns = static_cast<std::int64_t>(ts.tv_sec) * 1'000'000'000 + ts.tv_nsec;
+            }
+    return r;
+}
 
 class TlsConn {
    public:
@@ -61,11 +93,19 @@ class TlsConn {
         SSL_CTX_set_default_verify_paths(ctx_);
         SSL_CTX_set_verify(ctx_, SSL_VERIFY_PEER, nullptr);
         ssl_ = SSL_new(ctx_);
-        SSL_set_fd(ssl_, fd_);
+        enable_rx_timestamps(fd_);
+        BIO* bio = BIO_new(stamped_socket());  // reads go through recvmsg to keep the kernel time
+        if (!bio) throw std::runtime_error("BIO_new");
+        BIO_set_data(bio, this);
+        SSL_set_bio(ssl_, bio, bio);
         SSL_set_tlsext_host_name(ssl_, host.c_str());
         SSL_set1_host(ssl_, host.c_str());
         if (SSL_connect(ssl_) != 1) throw std::runtime_error("tls handshake with " + host + ": " + last_error());
     }
+
+    // Kernel receive time of the newest bytes read from the socket, 0 before any. Decrypted data
+    // can come from an earlier packet, so this bounds a message's arrival from above.
+    std::int64_t rx_ns() const { return rx_ns_; }
 
     // Reads up to n bytes; 0 means the peer closed.
     std::size_t read(char* buf, std::size_t n) {
@@ -117,7 +157,33 @@ class TlsConn {
         ERR_error_string_n(e, buf, sizeof buf);
         return buf;
     }
+    // A socket BIO for OpenSSL whose reads keep the kernel receive time (rx_ns_).
+    static BIO_METHOD* stamped_socket() {
+        static BIO_METHOD* const m = [] {
+            BIO_METHOD* b = BIO_meth_new(BIO_get_new_index() | BIO_TYPE_SOURCE_SINK, "stamped socket");
+            BIO_meth_set_read(b, [](BIO* bio, char* buf, int n) -> int {
+                auto* c = static_cast<TlsConn*>(BIO_get_data(bio));
+                const ssize_t r = recv_stamped(c->fd_, buf, static_cast<std::size_t>(n), &c->rx_ns_);
+                BIO_clear_retry_flags(bio);
+                if (r < 0 && (errno == EAGAIN || errno == EINTR)) BIO_set_retry_read(bio);
+                return static_cast<int>(r);
+            });
+            BIO_meth_set_write(b, [](BIO* bio, const char* buf, int n) -> int {
+                auto* c = static_cast<TlsConn*>(BIO_get_data(bio));
+                const ssize_t w = ::send(c->fd_, buf, static_cast<std::size_t>(n), MSG_NOSIGNAL);
+                BIO_clear_retry_flags(bio);
+                if (w < 0 && (errno == EAGAIN || errno == EINTR)) BIO_set_retry_write(bio);
+                return static_cast<int>(w);
+            });
+            BIO_meth_set_ctrl(b, [](BIO*, int cmd, long, void*) -> long { return cmd == BIO_CTRL_FLUSH ? 1 : 0; });
+            BIO_meth_set_create(b, [](BIO* bio) -> int { return BIO_set_init(bio, 1), 1; });
+            return b;
+        }();
+        return m;
+    }
+
     int fd_ = -1;
+    std::int64_t rx_ns_ = 0;
     SSL_CTX* ctx_ = nullptr;
     SSL* ssl_ = nullptr;
 };
@@ -235,6 +301,7 @@ class WsClient {
     }
 
     void close() { conn_.close(); }
+    std::int64_t rx_ns() const { return conn_.rx_ns(); }  // see TlsConn::rx_ns
 
    private:
     TlsConn conn_;

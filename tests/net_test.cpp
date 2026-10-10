@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -138,6 +139,31 @@ TEST(Net, ReserveGrowsAndCompactsWithoutLosingAPartialFrame) {
     ASSERT_TRUE(p.next_view(v));
     EXPECT_EQ(v.data.size(), big.size());
     EXPECT_EQ(v.data, big);
+}
+
+TEST(Net, ReadsCarryTheKernelReceiveTime) {
+    // TCP over loopback: a listening socket, a client with receive timestamps on, one write.
+    const int ls = ::socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in a{};
+    a.sin_family = AF_INET, a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    socklen_t len = sizeof a;
+    ASSERT_EQ(::bind(ls, reinterpret_cast<sockaddr*>(&a), sizeof a), 0);
+    ASSERT_EQ(::listen(ls, 1), 0);
+    ASSERT_EQ(::getsockname(ls, reinterpret_cast<sockaddr*>(&a), &len), 0);
+    const int c = ::socket(AF_INET, SOCK_STREAM, 0);
+    ASSERT_EQ(::connect(c, reinterpret_cast<sockaddr*>(&a), sizeof a), 0);
+    const int sv = ::accept(ls, nullptr, nullptr);
+    ASSERT_TRUE(hft::net::enable_rx_timestamps(c));
+    const std::int64_t before = hft::net::realtime_ns();
+    ASSERT_EQ(::write(sv, "hello", 5), 5);
+    char buf[16];
+    std::int64_t ns = 0;
+    ASSERT_EQ(hft::net::recv_stamped(c, buf, sizeof buf, &ns), 5);
+    const std::int64_t after = hft::net::realtime_ns();
+    EXPECT_EQ(std::string_view(buf, 5), "hello");
+    EXPECT_GE(ns, before);  // stamped by the kernel when it arrived, not when we read it
+    EXPECT_LE(ns, after);
+    ::close(sv), ::close(c), ::close(ls);
 }
 
 TEST(Json, ParsesNestedValuesAndEscapes) {
