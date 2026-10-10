@@ -38,9 +38,9 @@ Format: id, decision, why. Change a decision only by adding a new id that supers
 - D30 One set of limits in production venue mode: the ledger's (R5 caps, R9 daily stop, R13, R15). The makers' own loss stop (100 USD on their own PnL) and gross-share pause applied first and on the wrong numbers; they now apply only to pm_live and compat runs (parity needs them). Their config keys are refused by pm_exec. Why: owner approval 2026-10-10.
 - D31 Supersedes S13 for one case: a fill for a Cancelled or Expired order, with a new fill id, within the order's size and limit, is a late fill, not illegal. Why: on the venue, fills come on the user WebSocket while acks and cancel acks are REST responses, so a fill can arrive after its cancel ack (V12). Applied to position and cash only (reservations were released at the finish), counted (late_fills).
 - D32 Pre-trade leg-risk check X13, on by default (owner chose it over a fitted threshold, 2026-10-10): exact from the book, fees and collar; nothing estimated from recordings. Measured on the reference recording: no window refused outright, realised -11.76 -> -12.15 USD; the recorded losses come from miss frequency, which X13 does not model (RESULTS.md). Why: bounds the loss of a missed leg before sending, as R10 bounds it after.
-- D23 Recorders run continuously from pinned binaries in ~/data/bin (PM_RECORD_BIN, PM_LIVE_BIN); autostart at logon stays off (owner). Caps 50 GB + 20 GB kept (owner). Replace a pinned binary with `install` (new inode), never `cp` over it.
+- D23 Recorders run from pinned binaries in ~/data/bin (PM_RECORD_BIN, PM_LIVE_BIN), started by hand only; nothing starts at logon (owner). Stopped 2026-10-11 when the project closed. Caps 50 GB + 20 GB kept (owner). Replace a pinned binary with `install` (new inode), never `cp` over it.
 
-## Open (owner)
+## Owner questions (resolved)
 
 - Q1 resolved 2026-10-10: D3 accepted.
 - Q2 resolved 2026-10-10: D22.
@@ -57,6 +57,6 @@ Format: id, decision, why. Change a decision only by adding a new id that supers
 - Q10 UMA oracle, 2 h challenge; `market_resolved` event carries winner (F25, F26).
 - Q11 RTT 182 ms median request, 67 ms TCP to edge (F27, F28).
 
-## Open (owner)
+## Owner questions (resolved, continued)
 
 - Q4b resolved 2026-10-10: both (RF4, RF27).

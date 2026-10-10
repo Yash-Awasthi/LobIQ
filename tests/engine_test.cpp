@@ -356,6 +356,21 @@ TEST(EngineArb, IncompleteSetIsCompletedWhenThatIsCheaper) {
     EXPECT_EQ(e.position_mismatches(), 0u);
 }
 
+TEST(EngineArb, AnAttemptReopenedByAFailedSettlementCountsOneOutcome) {
+    for (std::uint64_t seed = 1; seed <= 40; ++seed) {  // some seeds fail one leg only, reopening the set
+        auto p = slow();
+        p.sim.p_settle_fail_ppm = 500'000;
+        p.sim.settle_delay = 3 * kS;  // failures land after the set was completed
+        p.sim.seed = seed;
+        Engine e(p);
+        incomplete(e, "0.55", "0.30");
+        for (std::int64_t t = 5; t <= 12; ++t) feed(e, {{t * kS, control("_heartbeat", 0)}});
+        const auto& s = e.arb_exec().stats();
+        EXPECT_EQ(s.attempts, 1u);
+        EXPECT_LE(s.complete + s.empty + s.completed + s.unwound, s.attempts) << "seed " << seed;
+    }
+}
+
 TEST(EngineArb, IncompleteSetIsUnwoundWhenThatIsCheaper) {
     Engine e(slow());
     incomplete(e, "0.75", "0.38");  // completing costs 0.15 per set, unwinding 0.02

@@ -114,6 +114,8 @@ Docs read against code; what the design required and was missing:
 - [x] Final verification on the merged code, all passing: release, native, clang (289 tests each, alloc_test included) and asan, ubsan, tsan (285, no alloc_test); one test skips where the machine has no hardware counters. check_parity.sh: SAME on all seven recordings, both settings. fault_campaign.sh and arb_fault_campaign.sh: zero illegal reports and zero residual sets in every run; dropped fills end in the mismatch kill; 20% spurious rejects trip R13. Demos a-d print their expected hashes. check_cli.sh and security_gates.sh clean. Fuzzers itch, tape, oms, ws 60 s each, no crash. Baselines unchanged.
 - [x] RESULTS.md re-measured: E6.1 on the final code (PERF R10), E6.3 over every complete recording.
 - [x] Repo hygiene: day_stats removed (it fed the archived research); every script is referenced in docs or CI.
+- [x] Executor outcome counters: a settlement failing after a pair set was completed reopened it and counted a second outcome (30% failures on the reference recording: 26 outcomes for 18 attempts). Each attempt now counts one outcome, its first; test over 40 seeds (26 failed before). Hashes and RESULTS tables unchanged.
+- [x] Decoder property test failed on some random seeds under ubsan and tsan: `JsonTape::num` read the first byte of an empty value (`"conn":""`), and `parse_price` overflowed `int` on a long integer part. Both fixed at the shared function with a test each; 200 runs of the decoder properties and 15 full ubsan and asan runs clean. Valid input is unaffected: hashes, parity and RESULTS unchanged.
 
 ## Stop conditions (any phase)
 

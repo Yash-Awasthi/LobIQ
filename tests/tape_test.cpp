@@ -140,6 +140,12 @@ TEST(Tape, ReadsAnExchangeMessage) {
     EXPECT_EQ(t.next(e), t.end(0));
 }
 
+TEST(Tape, NumOfAnEmptyStringIsZero) {
+    JsonTape t;
+    ASSERT_TRUE(t.parse(R"({"conn":""})"));
+    EXPECT_EQ(t.num(t.find(0, "conn")), 0.0);
+}
+
 TEST(Tape, EscapesAcrossBlockBoundaries) {
     for (int pad = 0; pad < 70; ++pad) {
         const std::string s = "{\"" + std::string(static_cast<std::size_t>(pad), 'x') + "\\\\\\\"k\":[1,\"\\\\\"]}";

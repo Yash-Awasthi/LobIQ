@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Keeps pm_live running with a fresh recording directory per run: <data-dir>/<UTC start>/.
-# Restarts after any exit except a deliberate stop (130, 143).
+# Restarts pm_live with a new <data-dir>/<UTC start>/ recording after any exit but a stop (130, 143).
 # Usage: scripts/pm_live_supervise.sh <data-dir> [pm_live options]
 set -u
 trap '' HUP  # survive the session that started it
