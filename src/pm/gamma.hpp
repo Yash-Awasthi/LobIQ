@@ -3,6 +3,8 @@
 // Market and event discovery through the exchange's public metadata API (REST, JSON).
 
 #include <cctype>
+#include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <ctime>
 #include <set>
@@ -12,6 +14,7 @@
 
 #include "net/json.hpp"
 #include "net/tls.hpp"
+#include "pm/rules.hpp"
 
 namespace hft::pm {
 
@@ -23,6 +26,7 @@ struct Market {
     std::string tag, slug, condition, end, title;
     std::vector<std::pair<std::string, std::string>> tokens;  // token id, outcome label
     bool open = true;                                          // not closed, has a book, takes orders
+    MarketRules rules;
 };
 
 struct EventInfo {
@@ -67,13 +71,34 @@ inline std::vector<std::string> string_array(const net::Json& m, const char* key
     return out;
 }
 
+// Exchange ids end up in subscription messages, URLs and file names (SECURITY SEC5): only
+// non-empty runs of up to 100 decimal digits are accepted.
+inline bool valid_id(std::string_view s) {
+    if (s.empty() || s.size() > 100) return false;
+    for (const char c : s)
+        if (c < '0' || c > '9') return false;
+    return true;
+}
+
 inline Market market_from(const net::Json& m, const std::string& tag) {
-    Market mk{tag, m.str("slug"), m.str("conditionId"), m.str("endDate"), m.str("groupItemTitle"), {}, true};
+    Market mk{tag, m.str("slug"), m.str("conditionId"), m.str("endDate"), m.str("groupItemTitle"), {}, true, {}};
     const auto ids = string_array(m, "clobTokenIds");
     const auto names = string_array(m, "outcomes");
-    for (std::size_t i = 0; i < ids.size(); ++i) mk.tokens.emplace_back(ids[i], i < names.size() ? names[i] : std::to_string(i));
+    bool ok = true;  // one bad id drops the whole market
+    for (const std::string& id : ids) ok = ok && valid_id(id);
+    for (std::size_t i = 0; ok && i < ids.size(); ++i) mk.tokens.emplace_back(ids[i], i < names.size() ? names[i] : std::to_string(i));
     mk.open = !m.flag("closed") && m.flag("active") && m.flag("enableOrderBook") && m.flag("acceptingOrders") &&
               !mk.tokens.empty();
+    MarketRules& r = mk.rules;
+    if (const double t = m.num("orderPriceMinTickSize"); t > 0 && t <= 0.1) r.tick = static_cast<std::int32_t>(std::lround(t * 1e4));
+    if (const double q = m.num("orderMinSize"); q > 0 && q < 1e6) r.min_qty = std::llround(q * 1e6);
+    r.neg_risk = m.flag("negRisk");
+    if (m.find("feesEnabled")) r.fees = m.flag("feesEnabled");
+    if (const net::Json* f = m.find("feeSchedule"); f && f->type == net::Json::Type::Obj) {
+        if (const double rate = f->num("rate"); rate >= 0 && rate < 1) r.fee_rate_ppm = static_cast<std::uint32_t>(std::lround(rate * 1e6));
+        if (const double e = f->num("exponent"); e >= 0 && e <= 2) r.fee_exp = static_cast<std::uint8_t>(e);
+    }
+    if (const double d = m.num("secondsDelay"); d > 0 && d < 60) r.delay_ms = static_cast<std::uint16_t>(std::lround(d * 1000));
     return mk;
 }
 
@@ -86,6 +111,7 @@ inline std::vector<Market> discover_markets(const std::vector<std::string>& tags
         const net::Json t = net::parse_json(net::http_get(kGammaHost, "/tags/slug/" + url_encode(tag)));
         std::string id = t.str("id");
         if (id.empty()) id = std::to_string(static_cast<long long>(t.num("id")));
+        if (!valid_id(id)) continue;  // goes into the request path
         const net::Json ms = net::parse_json(net::http_get(
             kGammaHost, "/markets?active=true&closed=false&order=volume24hr&ascending=false&limit=80&tag_id=" + id +
                             "&end_date_min=" + url_encode(min_end)));

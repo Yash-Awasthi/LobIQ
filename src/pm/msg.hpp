@@ -18,13 +18,25 @@ namespace hft::pm {
 
 // Leading decimal number of `s`, 0 if there is none (strtod without its exotic forms).
 inline double parse_size(std::string_view s) {
+    // digits[.digits] with at most 15 digits: mantissa and power of ten are exact doubles, so
+    // one division rounds correctly, as from_chars does.
+    static constexpr double kPow10[] = {1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15};
+    std::uint64_t m = 0;
+    int digits = 0, frac = -1;
+    for (const char c : s) {
+        if (c >= '0' && c <= '9') m = m * 10 + static_cast<std::uint64_t>(c - '0'), ++digits;
+        else if (c == '.' && frac < 0) frac = digits;
+        else digits = 99;
+    }
+    if (digits > 0 && digits <= 15 && frac != digits && s[0] != '.')
+        return static_cast<double>(m) / kPow10[frac < 0 ? 0 : digits - frac];
     double v = 0;
     const char* b = s.data() + (!s.empty() && s[0] == '+');
     const auto r = std::from_chars(b, s.data() + s.size(), v);
     return r.ptr == b ? 0.0 : v;
 }
 
-enum class Kind : std::uint8_t { Book, PriceChange, Trade, Other };
+enum class Kind : std::uint8_t { Book, PriceChange, Trade, Other, TickChange, Resolved };
 
 struct Level {
     std::int32_t px;
@@ -43,7 +55,7 @@ struct Event {
     Kind kind = Kind::Other;
     std::string_view type, asset;
     std::span<const Level> bids, asks;     // Book
-    std::int32_t tick = -1;                // Book: tick_size, -1 if absent
+    std::int32_t tick = -1;                // Book: tick_size; TickChange: new_tick_size; -1 if absent
     std::span<const Change> changes;       // PriceChange
     bool has_changes = false;              // PriceChange carried a price_changes list
     std::int32_t px = -1;                  // Trade
@@ -52,14 +64,33 @@ struct Event {
     bool buy = false;                      // Trade: the aggressor bought
     std::int64_t exch_ms = 0;              // exchange timestamp, ms since epoch, 0 if absent
     std::int32_t conn = -1;                // control records ("_heartbeat", "_reconnect"): connection
+    std::span<const std::string_view> assets;  // Resolved: the market's outcome tokens; asset is the winner
 };
 
 class Decoder {
    public:
     // Calls fn(const Event&) for the message's event, or each event of a batch. False if
-    // the text is not JSON.
+    // the text is not JSON. Messages in the shape the exchange sends take a single pass over
+    // the bytes; anything else (escapes, deep nesting, unusual numbers) goes through the tape,
+    // which gives the same events.
     template <class Fn>
     bool decode(std::string_view text, Fn&& fn) {
+        if (!fast(text)) return ++fallbacks_, decode_tape(text, fn);
+        for (Pending& e : pend_) {
+            e.ev.bids = std::span<const Level>(lv_).subspan(e.bids.b, e.bids.e - e.bids.b);
+            e.ev.asks = std::span<const Level>(lv_).subspan(e.asks.b, e.asks.e - e.asks.b);
+            e.ev.changes = std::span<const Change>(ch_).subspan(e.chg.b, e.chg.e - e.chg.b);
+            e.ev.assets = std::span<const std::string_view>(sv_).subspan(e.ids.b, e.ids.e - e.ids.b);
+            fn(static_cast<const Event&>(e.ev));
+        }
+        return true;
+    }
+
+    // Messages that took the tape.
+    std::uint64_t fallbacks() const { return fallbacks_; }
+
+    template <class Fn>
+    bool decode_tape(std::string_view text, Fn&& fn) {
         if (!t_.parse(text)) return false;
         const std::uint32_t r = t_.root();
         if (t_.type(r) == net::JsonTape::Type::Arr) {
@@ -72,19 +103,55 @@ class Decoder {
 
    private:
     using Tape = net::JsonTape;
-    enum Field { EventType, AssetId, Price, Size, Side, BestBid, BestAsk, TickSize, Bids, Asks, PriceChanges, Timestamp, Conn, kFields };
+    enum Field { EventType, AssetId, Price, Size, Side, BestBid, BestAsk, TickSize, Bids, Asks, PriceChanges, Timestamp, Conn,
+                 NewTickSize, WinningAssetId, AssetsIds, kFields };
     using Fields = std::array<std::uint32_t, kFields>;
+
+    // Little-endian integer of the first n bytes of a literal, to compare keys a word at a time.
+    static constexpr std::uint64_t lit(const char* s, int n) {
+        std::uint64_t v = 0;
+        for (int i = 0; i < n; ++i) v |= std::uint64_t{static_cast<unsigned char>(s[i])} << (8 * i);
+        return v;
+    }
+    template <class T>
+    static T load(const char* p) {
+        T v;
+        std::memcpy(&v, p, sizeof v);
+        return v;
+    }
 
     // Keys are matched as sent; the exchange does not escape them.
     static int field(std::string_view k) {
+        const char* p = k.data();
         switch (k.size()) {
-            case 4:
-                return k == "side" ? Side : k == "size" ? Size : k == "bids" ? Bids : k == "asks" ? Asks : k == "conn" ? Conn : -1;
-            case 5: return k == "price" ? Price : -1;
-            case 8: return k == "asset_id" ? AssetId : k == "best_bid" ? BestBid : k == "best_ask" ? BestAsk : -1;
-            case 9: return k == "tick_size" ? TickSize : k == "timestamp" ? Timestamp : -1;
-            case 10: return k == "event_type" ? EventType : -1;
-            case 13: return k == "price_changes" ? PriceChanges : -1;
+            case 4: {
+                const auto w = load<std::uint32_t>(p);
+                return w == lit("side", 4) ? Side : w == lit("size", 4) ? Size : w == lit("bids", 4) ? Bids
+                     : w == lit("asks", 4) ? Asks : w == lit("conn", 4) ? Conn : -1;
+            }
+            case 5: return load<std::uint32_t>(p) == lit("pric", 4) && p[4] == 'e' ? Price : -1;
+            case 8: {
+                const auto w = load<std::uint64_t>(p);
+                return w == lit("asset_id", 8) ? AssetId : w == lit("best_bid", 8) ? BestBid : w == lit("best_ask", 8) ? BestAsk : -1;
+            }
+            case 9: {
+                const auto w = load<std::uint64_t>(p);
+                return w == lit("tick_siz", 8) && p[8] == 'e' ? TickSize : w == lit("timestam", 8) && p[8] == 'p' ? Timestamp : -1;
+            }
+            case 10: {
+                const auto w = load<std::uint64_t>(p);
+                const auto v = load<std::uint16_t>(p + 8);
+                return w == lit("event_ty", 8) && v == lit("pe", 2) ? EventType : w == lit("assets_i", 8) && v == lit("ds", 2) ? AssetsIds : -1;
+            }
+            case 13: {
+                const auto w = load<std::uint64_t>(p);
+                const auto v = load<std::uint32_t>(p + 8);
+                return w == lit("price_ch", 8) && v == lit("ange", 4) && p[12] == 's'   ? PriceChanges
+                     : w == lit("new_tick", 8) && v == lit("_siz", 4) && p[12] == 'e' ? NewTickSize
+                                                                                       : -1;
+            }
+            case 16:
+                return load<std::uint64_t>(p) == lit("winning_", 8) && load<std::uint64_t>(p + 8) == lit("asset_id", 8) ? WinningAssetId : -1;
             default: return -1;
         }
     }
@@ -145,13 +212,359 @@ class Decoder {
             ev.px = parse_price(ev.price);
             ev.size = parse_size(str(f, Size));
             ev.buy = str(f, Side) == "BUY";
+        } else if (ev.type == "tick_size_change") {
+            ev.kind = Kind::TickChange;
+            ev.asset = str(f, AssetId);
+            ev.tick = parse_price(str(f, NewTickSize));
+        } else if (ev.type == "market_resolved") {
+            ev.kind = Kind::Resolved;
+            ev.asset = str(f, WinningAssetId);
+            assets_.clear();
+            const std::uint32_t a = f[AssetsIds];
+            if (a != Tape::npos && t_.type(a) == Tape::Type::Arr)
+                for (std::uint32_t c = t_.first(a); c != t_.end(a); c = t_.next(c))
+                    if (t_.type(c) == Tape::Type::Str) assets_.push_back(t_.raw(c));
+            ev.assets = assets_;
         }
         return ev;
+    }
+
+    // ---- single-pass path. Every failure means "not handled here", never "malformed": the
+    // tape decides. Events are buffered so a late failure has emitted nothing.
+    struct Range {
+        std::uint32_t b = 0, e = 0;
+    };
+    struct Pending {
+        Event ev;
+        Range bids, asks, chg, ids;
+    };
+    // First occurrence of each known member: whether it was seen, and its contents if a string.
+    // s[f] is written only for string members and read only through str(), so it is left
+    // uninitialised: zeroing it was a measurable share of each object's cost.
+    struct Members {
+        struct Sv {
+            const char* p;
+            std::size_t n;
+            operator std::string_view() const { return {p, n}; }
+        };
+        std::uint32_t seen = 0, strs = 0;
+        Sv s[kFields];
+        bool first(int f) {
+            if (f < 0 || (seen >> f & 1)) return false;
+            seen |= 1u << f;
+            return true;
+        }
+        bool has(int f) const { return seen >> f & 1; }
+        std::string_view str(int f) const { return strs >> f & 1 ? s[f] : std::string_view(); }
+        bool set(int f, std::string_view v) { return s[f] = {v.data(), v.size()}, strs |= 1u << f, true; }
+    };
+
+    static constexpr int kMaxDepth = 16;
+
+    static bool blank(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
+    void ws() {
+        while (p_ != e_ && blank(*p_)) ++p_;
+    }
+    bool eat(char c) {
+        if (p_ == e_ || *p_ != c) return false;
+        ++p_;
+        return true;
+    }
+    char peek() const { return p_ != e_ ? *p_ : '\0'; }
+
+    // First '"' or '\\' at or after p, eight bytes at a time; the lowest flagged byte of the
+    // zero-byte test is exact, so ctz finds it.
+    static const char* quote_or_escape(const char* p, const char* e) {
+#ifdef __AVX2__
+        using V32 = char __attribute__((vector_size(32)));
+        for (; e - p >= 32; p += 32) {
+            V32 x;
+            __builtin_memcpy(&x, p, 32);
+            if (const auto m = static_cast<std::uint32_t>(__builtin_ia32_pmovmskb256((x == '"') | (x == '\\'))))
+                return p + __builtin_ctz(m);
+        }
+#endif
+        constexpr std::uint64_t ones = 0x0101010101010101ull, highs = 0x8080808080808080ull;
+        for (; e - p >= 8; p += 8) {
+            std::uint64_t w;
+            std::memcpy(&w, p, 8);
+            const std::uint64_t q = w ^ (ones * '"'), b = w ^ (ones * '\\');
+            if (const std::uint64_t m = (((q - ones) & ~q) | ((b - ones) & ~b)) & highs) return p + (__builtin_ctzll(m) >> 3);
+        }
+        while (p != e && *p != '"' && *p != '\\') ++p;
+        return p;
+    }
+
+    bool string(std::string_view& out) {
+        if (!eat('"')) return false;
+        const char* q = quote_or_escape(p_, e_);
+        if (q == e_ || *q != '"') return false;
+        out = {p_, static_cast<std::size_t>(q - p_)};
+        p_ = q + 1;
+        return true;
+    }
+
+    static bool digit(char c) { return c >= '0' && c <= '9'; }
+    // -?digits(.digits)?([eE][+-]?digits)?, which the tape always accepts; `out` is set for a
+    // plain integer of at most nine digits.
+    bool number(std::int64_t* out = nullptr, bool* plain = nullptr) {
+        const bool neg = eat('-');
+        const char* d = p_;
+        while (p_ != e_ && digit(*p_)) ++p_;
+        if (p_ == d) return false;
+        const char* int_end = p_;
+        if (eat('.')) {
+            const char* f = p_;
+            while (p_ != e_ && digit(*p_)) ++p_;
+            if (p_ == f) return false;
+        }
+        if (p_ != e_ && (*p_ == 'e' || *p_ == 'E')) {
+            ++p_;
+            if (p_ != e_ && (*p_ == '+' || *p_ == '-')) ++p_;
+            const char* x = p_;
+            while (p_ != e_ && digit(*p_)) ++p_;
+            if (p_ == x) return false;
+        }
+        if (plain) {
+            *plain = p_ == int_end && int_end - d <= 9;
+            if (*plain) {
+                std::int64_t v = 0;
+                for (const char* c = d; c != int_end; ++c) v = v * 10 + (*c - '0');
+                *out = neg ? -v : v;
+            }
+        }
+        return true;
+    }
+
+    bool literal(std::string_view w) {
+        if (static_cast<std::size_t>(e_ - p_) < w.size() || std::memcmp(p_, w.data(), w.size()) != 0) return false;
+        p_ += w.size();
+        return true;
+    }
+
+    bool skip(int depth) {
+        if (depth > kMaxDepth) return false;
+        switch (peek()) {
+            case '"': {
+                std::string_view s;
+                return string(s);
+            }
+            case '{':
+            case '[': {
+                const char close = *p_ == '{' ? '}' : ']';
+                const bool obj = *p_++ == '{';
+                ws();
+                if (eat(close)) return true;
+                for (;;) {
+                    if (obj) {
+                        std::string_view k;
+                        if (!string(k)) return false;
+                        ws();
+                        if (!eat(':')) return false;
+                        ws();
+                    }
+                    if (!skip(depth + 1)) return false;
+                    ws();
+                    if (eat(close)) return true;
+                    if (!eat(',')) return false;
+                    ws();
+                }
+            }
+            case 't': return literal("true");
+            case 'f': return literal("false");
+            case 'n': return literal("null");
+            default: return number();
+        }
+    }
+
+    bool string_into(Members& m, int f) {
+        std::string_view v;
+        return string(v) && m.set(f, v);
+    }
+
+    // Value of a member: a string goes into m when it is the member's first occurrence.
+    bool member_value(Members& m, int f, int depth) {
+        const bool first = m.first(f);
+        if (first && peek() == '"') return string_into(m, f);
+        return skip(depth);
+    }
+
+    // Object members, calling on(field, first) at each value; on() consumes the value.
+    template <class On>
+    bool object(On&& on) {
+        if (!eat('{')) return false;
+        ws();
+        if (eat('}')) return true;
+        for (;;) {
+            std::string_view k;
+            if (!string(k)) return false;
+            ws();
+            if (!eat(':')) return false;
+            ws();
+            if (!on(field(k))) return false;
+            ws();
+            if (eat('}')) return true;
+            if (!eat(',')) return false;
+            ws();
+        }
+    }
+
+    // Array of objects, calling elem() at each '{'.
+    template <class Elem>
+    bool array(Elem&& elem) {
+        if (!eat('[')) return false;
+        ws();
+        if (eat(']')) return true;
+        for (;;) {
+            if (peek() != '{' || !elem()) return false;
+            ws();
+            if (eat(']')) return true;
+            if (!eat(',')) return false;
+            ws();
+        }
+    }
+
+    bool levels_fast(Range& r) {
+        r.b = static_cast<std::uint32_t>(lv_.size());
+        const bool ok = array([&] {
+            Members m;
+            if (!object([&](int f) { return member_value(m, f, 3); })) return false;
+            lv_.push_back({parse_price(m.str(Price)), parse_size(m.str(Size))});
+            return true;
+        });
+        r.e = static_cast<std::uint32_t>(lv_.size());
+        return ok;
+    }
+
+    bool changes_fast(Range& r) {
+        r.b = static_cast<std::uint32_t>(ch_.size());
+        const bool ok = array([&] {
+            Members m;
+            if (!object([&](int f) { return member_value(m, f, 3); })) return false;
+            ch_.push_back({m.str(AssetId), parse_price(m.str(Price)), parse_size(m.str(Size)), m.str(Side) == "BUY", m.str(BestBid), m.str(BestAsk)});
+            return true;
+        });
+        r.e = static_cast<std::uint32_t>(ch_.size());
+        return ok;
+    }
+
+    // Array of strings (assets_ids); anything else is left to the tape.
+    bool strings_fast(Range& r) {
+        r.b = static_cast<std::uint32_t>(sv_.size());
+        if (!eat('[')) return false;
+        ws();
+        if (!eat(']')) {
+            for (;;) {
+                std::string_view s;
+                if (!string(s)) return false;
+                sv_.push_back(s);
+                ws();
+                if (eat(']')) break;
+                if (!eat(',')) return false;
+                ws();
+            }
+        }
+        r.e = static_cast<std::uint32_t>(sv_.size());
+        return true;
+    }
+
+    bool event_fast() {
+        Members m;
+        Pending& pe = pend_.emplace_back();
+        bool bids_arr = false, asks_arr = false, chg_arr = false, ids_arr = false, conn_plain = false;
+        std::int64_t conn = 0;
+        const bool ok = object([&](int f) {
+            const bool first = m.first(f);
+            if (!first) return skip(2);
+            switch (f) {
+                case Bids: return peek() == '[' ? (bids_arr = true, levels_fast(pe.bids)) : skip(2);
+                case Asks: return peek() == '[' ? (asks_arr = true, levels_fast(pe.asks)) : skip(2);
+                case PriceChanges: return peek() == '[' ? (chg_arr = true, changes_fast(pe.chg)) : skip(2);
+                case AssetsIds: return peek() == '[' ? (ids_arr = true, strings_fast(pe.ids)) : skip(2);
+                case Conn:
+                    if (peek() == '-' || digit(peek())) return number(&conn, &conn_plain);
+                    return skip(2);
+                default:
+                    if (peek() == '"') return string_into(m, f);
+                    return skip(2);
+            }
+        });
+        if (!ok) return false;
+        Event& ev = pe.ev;
+        ev.type = m.str(EventType);
+        if (const std::string_view ts = m.str(Timestamp); !ts.empty()) std::from_chars(ts.data(), ts.data() + ts.size(), ev.exch_ms);
+        if (!ev.type.empty() && ev.type[0] == '_' && m.has(Conn)) {
+            if (!conn_plain) return false;
+            ev.conn = static_cast<std::int32_t>(conn);
+        }
+        if (!bids_arr) pe.bids = {};
+        if (!asks_arr) pe.asks = {};
+        if (!chg_arr) pe.chg = {};
+        if (!ids_arr) pe.ids = {};
+        if (ev.type == "book") {
+            ev.kind = Kind::Book;
+            ev.asset = m.str(AssetId);
+            ev.tick = parse_price(m.str(TickSize));
+            pe.chg = {};
+        } else if (ev.type == "price_change") {
+            ev.kind = Kind::PriceChange;
+            ev.has_changes = m.has(PriceChanges);
+            pe.bids = pe.asks = {};
+        } else {
+            pe.bids = pe.asks = pe.chg = {};
+            if (ev.type == "last_trade_price") {
+                ev.kind = Kind::Trade;
+                ev.asset = m.str(AssetId);
+                ev.price = m.str(Price);
+                ev.px = parse_price(ev.price);
+                ev.size = parse_size(m.str(Size));
+                ev.buy = m.str(Side) == "BUY";
+            } else if (ev.type == "tick_size_change") {
+                ev.kind = Kind::TickChange;
+                ev.asset = m.str(AssetId);
+                ev.tick = parse_price(m.str(NewTickSize));
+            } else if (ev.type == "market_resolved") {
+                ev.kind = Kind::Resolved;
+                ev.asset = m.str(WinningAssetId);
+            }
+        }
+        if (ev.kind != Kind::Resolved) pe.ids = {};
+        return true;
+    }
+
+    bool fast(std::string_view text) {
+        p_ = text.data(), e_ = text.data() + text.size();
+        pend_.clear(), lv_.clear(), ch_.clear(), sv_.clear();
+        ws();
+        if (peek() == '[') {
+            ++p_;
+            ws();
+            if (!eat(']')) {
+                for (;;) {
+                    if (peek() != '{' || !event_fast()) return false;
+                    ws();
+                    if (eat(']')) break;
+                    if (!eat(',')) return false;
+                    ws();
+                }
+            }
+        } else if (peek() != '{' || !event_fast()) {
+            return false;
+        }
+        ws();
+        return p_ == e_;
     }
 
     Tape t_;
     std::vector<Level> bids_, asks_;
     std::vector<Change> changes_;
+    std::vector<std::string_view> assets_;
+    const char *p_ = nullptr, *e_ = nullptr;
+    std::uint64_t fallbacks_ = 0;
+    std::vector<Pending> pend_;
+    std::vector<Level> lv_;
+    std::vector<Change> ch_;
+    std::vector<std::string_view> sv_;
 };
 
 // Dense indices for token ids: open addressing on a hash of the id's ends.

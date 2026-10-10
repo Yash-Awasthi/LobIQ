@@ -1,0 +1,116 @@
+# Phases
+
+Each step: [ ] todo, [x] done (commit id). Gate Gn must pass before the next phase starts.
+Step template: do -> check. "Ask" = stop and ask the owner before continuing.
+
+## E0 Facts and inspection (no product code)
+
+- [x] E0.1 (5f7aa4a; ~/data/ref/pm-snap frozen, 44 files, pm_stats sha256 dafd558b45dc3a1a; replay hash re-checked) Create branch `exec-layer` from `phase1-hotpath`. Save `pm_stats ~/data/pm` to `~/data/ref/pm_stats.tsv`; confirm baseline hash (INDEX).
+- [x] E0.2 (2026-10-10, docs only) Read in full: engine/scheduler.hpp, backtest/risk.hpp, backtest/accounting.hpp, engine/matching.hpp, pm/maker.hpp, pm/engine.hpp, pm/arb.hpp, core/pool.hpp, book/id_map.hpp. Confirm or amend D8 (reuse map).
+- [x] E0.3 (2026-10-10) Answer Q3..Q10 from the exchange's current public API docs; write `docs/exec/VENUE.md` (fact, source URL, date read). Fix D5 units.
+- [x] E0.4 (2026-10-10) Measure RTT to the exchange API host: 20 TCP connects, median/p90 (Q11). Record in VENUE.md.
+- [x] E0.5 (2026-10-10) Check recorded data for: tick_size_change events, market close/resolution events, min order size hints. Record counts in VENUE.md.
+- [x] E0.6 (cf8b358) Data integrity: recorders ignore SIGHUP, pm_record exits 128+signal (was 0, so its supervisor restarted it), torn last lines dropped on compression (12 torn lines in 3.9M found in pm-snap, one with 4083 NUL bytes from an unclean WSL stop); CMake module scanning off (ninja 1.13 assertion).
+- [x] E0.7 Hardware verified: HW.md.
+- Ask if any fact contradicts DESIGN (e.g. fills not attributable to orders, no complete-set payout).
+- G0: VENUE.md complete with dates; D5 and D8 final; DECISIONS updated. MET 2026-10-10.
+
+## E1 Types, ledger, risk
+
+- [x] E1.0 (see commit) Session file gains market category, neg_risk, min_order_size, tick (from Gamma/book) for D18, F8; recorded sessions without them get defaults (category Other, min 5, tick from book).
+- [x] E1.1 (7c5aab7) `.gitignore` secret patterns (SEC7).
+- [x] E1.2 (4e8012d) src/exec/types.hpp (T1..T7) + static_asserts.
+- [x] E1.3 (4a04a29) Ledger tests first (L2 identity property, L4 settlement, L3 capital-days), then src/exec/ledger.hpp.
+- [x] E1.4 Risk tests first: each R1..R8 boundary (limit pass, limit+1 step reject); token bucket refill; R9..R15 triggers; R16 trip blocks and cancels; then src/exec/risk.hpp.
+- [x] E1.5 Bench: pre-trade check 27 ns mean at 2/40/200 tokens (native, vCPU 6; batch-timed mean, per-call p99 not measurable: timer > check). First version 270 ns at 200 tokens (group/gross loops) -> running sums in ledger.
+- G1: tests pass all presets; bench within budget; mutation check (plant: R5 ignores open orders; R16 does not block) both caught. MET 2026-10-10 (release, native, asan, ubsan, tsan, clang; risk mutations 5/5, ledger 3/3, fee 1/1).
+
+## E2 OMS
+
+- [x] E2.1 (90f6ccf) Table test: every (state, event) pair -> expected state or S13.
+- [x] E2.2 (90f6ccf) Reference model (naive, std::map) for property test.
+- [x] E2.3 (90f6ccf) src/exec/oms.hpp: Pool order table, cl_id (T6), S1..S16, timeouts, Status/reconcile hook.
+- [x] E2.4 (90f6ccf; 3 seeds x 100k) Property test 100k cases: random interleavings incl. dup/reorder/timeout vs reference: cum fill monotone, <= qty; open qty, reservations, positions equal reference.
+- [x] E2.5 (b91f5d9) fuzz/oms_fuzz.cpp; 10 min clean (2.9M runs, ASan+UBSan, RSS flat 486 MB).
+- [x] E2.6 (b91f5d9) alloc_test extended: steady-state submit/ack/fill/cancel zero allocations.
+- [x] E2.7 (b91f5d9) Bench S17: 57 ns per 5-operation cycle.
+- G2: all above; mutation check (plant: overfill accepted; dup fill counted twice; reject not releasing reservation) all caught. MET 2026-10-10 (4/4 OMS mutations caught).
+
+## E3 SimVenue
+
+- [x] E3.1 (see commit) Matching V1..V7 with unit tests on constructed books (taker walk, overlay clear, maker ahead, Fok/Fak/Gtc, fees, rule rejects).
+- [x] E3.2 Invariants V15..V17 as always-on checks in tests and debug builds.
+- [x] E3.3 Faults (D14, D16): core V18, V9, V10, V11, V14 with Philox, each forced on in a test; V8, V12, V13 optional.
+- [x] E3.3b Venue rules: F8 min size, F10 delay, D18 fees tested in SimVenue; L6 merge/split in Ledger; D19 batches belong to the executor (E5). F6 rounding never applies to our orders: 2-dp sizes times tick-dp prices land exactly on the amount precision (3+2=5, 2+2=4, 4+2=6). F12 cancel-only mode not seen in data: deferred.
+- Mutations: overlay off, ahead not capped, FOK check off, settlement ordered, compat side inverted: 5/5 caught. One release segfault during the mutation script did not reproduce (0/11, ASan and UBSan clean).
+- [x] E3.0 (F32) Measure on pm-snap: share of last_trade_price where feed side disagrees with the side implied by price vs the book just before (D21, RF27). Record in VENUE.md.
+- [x] E3.4 Parity G3b prep (pm_live --replay --dump-fills; ~/data/ref/maker_fills_old.txt): run maker on reference recording, old path, dump fills (ns, token, px, qty) to file.
+- [x] E3.5 Maker quotes become intents (EngineParams.venue; pm_live --venue-compat) (A2.7); fills via SimVenue with latency 0, faults off; compare dump: must be identical.
+- Ask if parity is not exact after one day of investigation (stop condition).
+- G3: (a) invariants hold on full reference recording under each fault mode; (b) maker parity exact. MET 2026-10-10.
+  (b) scripts/check_parity.sh: decision hash and fills identical on every recording, default and high-fill maker settings (10/10 frozen runs; the run being recorded differs only because it grows; its frozen copy matches). Mutation (queue ahead forced to 0): 14 -> 17 fills, hash differs.
+  (a) scripts/fault_campaign.sh (50 ms latency, 20 ms jitter): no fault, drop ack 20%, duplicate 20%, settlement failure 20%, disconnect 8 s/120 s: 0 illegal reports, no kill; drop fill 20%: kill on position mismatch. Duplicates leave the decision hash unchanged.
+  Found and fixed on the way: inbound requests reordered by jitter (a cancel overtook its order); Reject after an early cancel is legal; duplicate final reports and settlements for unseen fills are counted, not illegal; asynchronous fills were not logged; a dropped fill on an acked order went unnoticed until position reconciliation was added (R14).
+
+## E4 pm_exec app
+
+- [x] E4.1 apps/pm_exec.cpp: replay mode over recording + exec.cfg + seed; event loop A1. Shares the feed, trading loop, recorder and metrics with pm_live through apps/pm_app.hpp (D28); config/exec.cfg is the reference run file.
+- [x] E4.2 Strict config parser (SEC4), hard bounds: src/pm/config.hpp; unknown, repeated, non-numeric, fractional-integer or out-of-bound values refuse the run (6/6 mutations caught). Venue mode now also runs R9 (loss on the worse of mid and best-bid marks), R13 (reject spike) and capital-days every risk tick (4/4 mutations caught); compat mode lifts R13 as the old model had none.
+- [x] E4.3 Decision hash v2 (A4.2); same seed twice -> same hash; different seed with faults -> different hash. Engine::exec_hash covers intents with risk result, requests, reports, ledger after each report, kill; decision_hash_v2 mixes it with the quote hash. Reference recording, config/exec.cfg: seed 1 twice f6aa89e3b71dadac; with faults 2eca2f516dd4264e twice; seed 2 with faults 21bdd233151e321b.
+- [x] E4.4 Paper mode on live feed with inline SimVenue (reuse pm_live feed/ring/recorder). `pm_exec --paper --run OUT`: a 90 s paper run replays (`pm_exec --replay OUT`) to the same three hashes.
+- [x] E4.5 Metrics A5 through existing hand-off; kill via SIGUSR1 and KILL file (D11, D13); SEC3 check. Kill: both triggers tested on paper runs (all orders cancelled, risk rejects Killed after, kill.log, latch refuses the next start, --reset-kill clears it; replay of the killed run reproduces it). SEC3: port on 127.0.0.1 only (ss -ltnp). A5 not yet: unknown_orders, cancel_races, per-operation latency (E6.1 measures it), leg_* (E5).
+- [x] E4.5b Known bug: `pm_arb --help` (any unknown argument) throws filesystem_error uncaught; make all apps reject unknown flags with usage and exit 2. apps/args.hpp; scripts/check_cli.sh (8 apps failed before, none after; a missing input directory also exits 2).
+- [x] E4.6 Ask: retire pm_live in favour of pm_exec, or keep both? Default: keep both until E7. Default taken (no fact against it).
+- G4: replay determinism; 1 h paper run: zero illegal transitions, zero reconcile mismatch; TSan 5 min paper run clean. MET 2026-10-10: ~/data/exec/runs/g4-1h-20261010T145022Z (1.86M events, 16832 orders, 64 fills): 0 illegal, 0 mismatches, no kill; its replay on the E6 build gives the same decision_hash_v2 596a69f1d4a9faf7; TSan paper run 300 s, no reports.
+
+## E5 Arb executor
+
+- [x] E5.1 Unit tests on constructed books: X2 filters, X3 net edge, X4 sizing, X7 complete vs unwind choice, R10/R15 bounds. tests/arb_exec_test.cpp (12/12 mutations caught).
+- [x] E5.2 src/exec/arb_exec.hpp, policies P and Q (X5), X9 one attempt per group. Engine glue and tests in tests/engine_test.cpp (EngineArb: pair merge, event hold, sell via split, complete, unwind, freeze by bound and by depth, R15, failed settlements, policy Q, group cap; 12/12 mutations caught). Config keys arb*, attempt_bound_usd, merge_ms.
+- [x] E5.3 Fault campaign: leg faults (V9, V10, V11, V14 on one leg) at high rate on reference recording: every incomplete set completed, unwound, or frozen within bounds; no silent residual. scripts/arb_fault_campaign.sh, faults at 30% on the reference recording and on 20261010T112758Z: zero illegal reports and zero residual groups in every run; dropped fills end in the mismatch kill (as G3a). Faults act on all reports, not one leg only.
+- G5: all above. MET 2026-10-10.
+
+## E6 Demo and benchmarks (D12)
+
+- [x] E6.1 Benchmarks on the reference recording (native, pinned): per-stage latency p50/p99/p99.9 (parse, engine, risk, OMS, sim), messages/s, intent-to-request p99; table in docs/exec/RESULTS.md with the command for each row. `pm_exec --profile`; risk is inside submit (the order manager calls it), measured alone by hft_bench.
+- [x] E6.2 Demo scripts in `scripts/demo/`, each one command, printing a known decision hash:
+  (a) clean replay with maker + arb;
+  (b) replay with core faults on: OMS reaches Unknown, reconciles, ledger mismatch zero;
+  (c) leg-risk incident: one leg dropped, executor completes or unwinds within bound;
+  (d) kill switch: trip by KILL file mid-run, all orders cancelled, no new orders, kill.log written.
+- [x] E6.3 pm_exec summary output: arb windows seen / filtered (by filter) / attempted / completed / incomplete (by action), maker fills, net PnL after fees, at measured RTT and 50/150/300 ms (D4). Record in RESULTS.md as measured, with the V-limits. scripts/latency_sweep.sh. Found on the way: the executor's merge lowered its holdings after the ledger merge (the maker saw negative inventory and the legacy loss stop halted it), and it sent orders risk refuses (one-sided books, past the collar); fixed with tests.
+- G6: every number in RESULTS.md reproducible from its command line; every demo prints its expected hash. MET 2026-10-10 (counts and hashes exact; timings within 5% run to run).
+
+## E7 Hardening
+
+- [x] E7.1 CI: alloc test, exec bench smoke, oms_fuzz 60 s. ci.yml also runs on exec-layer pushes, fuzzes itch, tape and oms 60 s each (clean locally), and runs scripts/check_cli.sh.
+- [x] E7.2 Security gates SEC-G1..G5. scripts/security_gates.sh (job gates); G1 and G5 patterns refined (SECURITY.md), each still catches a planted hit.
+- [x] E7.3 README/ROADMAP: measured numbers only; INDEX status -> done.
+- G7: CI green, gates clean. MET 2026-10-10 (run 38064608707: 10 builds, fuzz, gates).
+
+## Audit after G7 (2026-10-10)
+
+Docs read against code; what the design required and was missing:
+- [x] V7/L4: `tick_size_change` and `market_resolved` (F26; 14 and 12 in the reference recording) decoded on both decoder paths and applied in production venue mode (tests: decoder, SimVenue.retick, EngineVenue resolution and tick, executor sets paid on resolution; 10/10 mutations caught). Demo and sweep hashes changed on purpose (RESULTS.md); pm_live baseline unchanged. The G4 run replays clean under the new rules (decision_hash_v2 af5f8390de233231).
+- [x] R12: a stale connection freezes the executor's legs on it.
+- [x] SEC5: token and tag ids from the metadata API must be 1-100 digits; a market with any other id is dropped.
+- [x] A5: unknown_orders, cancel_races_total, leg_incomplete_total{action}, leg_exposure_usd added.
+- [x] Docs: T1-T4, R9, R11, R12, L4, V7, X8, A2, A3, A4.3, A5 now say what the code does.
+
+## After the audit (owner-approved 2026-10-10)
+
+- [x] D30: production venue runs use only the ledger limits.
+- [x] Settlement failing after resolution: undone exactly against the payout (ledger, executor, maker); 5/5 mutations caught.
+- [x] No-copy feed path: TLS decrypts into the WebSocket parser's buffer; each message is copied once, into the ring (PERF R7: 84.7 -> 44.5 ns, allocations 2 -> 0 per message); ws_fuzz added.
+- [x] Kernel receive timestamps (SO_TIMESTAMPNS) as the message receive time; kernel_to_ring printed at the end of live runs (PERF R8: p50 148 us, p99 410 us).
+- [x] Optional faults V8 (spurious reject), V12 (reorder), V13 (delay past the order manager's timeout); X11 batch skew. Late fills accepted (D31). Executor campaign at 20-30%: zero illegal reports, zero residual sets; 20% spurious rejects trip R13 (designed). All fills reordered by 200 ms: 18 late fills, 0 illegal, 0 mismatches. 8/8 mutations caught.
+
+- [x] X13 leg-risk check (D32): exit_value and filter `leg_risk`, config `arb_leg_risk_pct`; 6/6 mutations caught; demo hashes a and c changed on purpose.
+- [x] Feed threads spin as an option (`--spin-feeds`), measured on kernel_to_ring (PERF R9: p50 173 -> 31 us; with --spin too, wire to decision about 39 us p50).
+
+## Stop conditions (any phase)
+
+- A venue fact breaks the design (E0) -> ask.
+- Parity not exact (E3) -> ask.
+- Determinism or invariant failure not understood the same day -> stop, report.
+- E6.3 shows no actionable windows -> that is the measured output; record it, no threshold fishing.

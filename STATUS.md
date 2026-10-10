@@ -2,26 +2,23 @@
 
 Open work for [docs/ROADMAP.md](docs/ROADMAP.md). Finished work is in the git history and in
 README "Performance"; the research-phase log is in
-[archive/docs/STATUS-research.md](archive/docs/STATUS-research.md).
+[STATUS-research.md](https://github.com/Yash-Awasthi/hft/blob/research-archive/archive/docs/STATUS-research.md) at the research-archive tag.
 
 ## Running
 
-Nothing. Recorder and `pm_live` were stopped on 2026-10-10 and nothing starts at logon
-(`C:\Users\Yash\hft\pm_start.ps1` does nothing; `pm_start.ps1.on` is the old version).
-Their recordings stay in `~/data/pm` and `~/data/pm-live`. To run them by hand:
+`pm_record` (into `~/data/pm`) and `pm_live --record` (a new `~/data/pm-live/<UTC>` directory every
+6 h) run from pinned binaries in `~/data/bin` (D23); nothing starts at logon. Replace a pinned
+binary with `install`, never `cp`. Paper runs of `pm_exec` go to `~/data/exec/runs`.
 
     scripts/pm_supervise.sh ~/data/pm --cap-gb 50 --per-tag 8
     scripts/pm_live_supervise.sh ~/data/pm-live --record-cap-gb 20 --port 8088 --seconds 21600
 
 ## Open
 
-1. After 2 to 3 days of `pm_live` recordings: `pm_arb ~/data/pm-live` and a short report.
-   First 2 h (675k messages): Yes/No pair windows last under 0.1 ms and open both ways at
-   once, which points at the two halves of one change arriving in separate messages, not
-   at a tradeable price; event-level windows last seconds to minutes with gross edges up
-   to 0.05 but a thinnest leg of about 8 to 70 shares. A filter for sub-millisecond windows
-   and a check for stale legs are the next things to add.
-2. After about two weeks of recorder data: `pm_stats` and `pm_mm` over the full recording.
+1. Execution layer (docs/exec): done through E7, the post-G7 audit and the optional faults.
+2. Arbitrage on the recordings (RESULTS.md E6.3): most windows are stale or below fees; attempts
+   mostly lose a leg on near-resolved pairs. More recording days give a larger sample.
+3. After about two weeks of recorder data: `pm_stats` and `pm_mm` over the full recording.
 
 ## Needs the owner
 
