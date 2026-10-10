@@ -34,6 +34,9 @@ add_library(hft_data STATIC src/data/store.cpp src/data/gzip.cpp)
 target_link_libraries(hft_data PUBLIC hft_core zstd::libzstd lz4::lz4 zlib-ng::zlib Threads::Threads)
 
 enable_testing()
+# Strategies register themselves by name; a new file under strategies/ is picked up on reconfigure.
+file(GLOB HFT_STRATEGY_SOURCES CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/strategies/*.cpp)
+
 add_subdirectory(tests)
 add_subdirectory(bench)
 add_subdirectory(apps)
