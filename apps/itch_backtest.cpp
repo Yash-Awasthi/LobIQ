@@ -7,7 +7,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <mutex>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -36,6 +38,11 @@ struct Name {
 std::uint16_t find_locate(const std::filesystem::path& store, const std::string& sym) {
     if (!sym.empty() && std::all_of(sym.begin(), sym.end(), [](char c) { return c >= '0' && c <= '9'; }))
         return static_cast<std::uint16_t>(std::stoul(sym));
+    if (std::ifstream tsv(store / "symbols.tsv"); tsv) {  // written by ingest: "<locate>\t<symbol>"
+        std::string loc, name;
+        while (tsv >> loc >> name)
+            if (name == sym) return static_cast<std::uint16_t>(std::stoul(loc));
+    }
     for (const auto& e : std::filesystem::directory_iterator(store)) {
         if (e.path().extension() != ".idx") continue;
         const auto loc = static_cast<std::uint16_t>(std::stoul(e.path().stem().string()));
@@ -75,9 +82,16 @@ void configure(backtest::RunSpec& r, const backtest::Params& p) {
 
 // --sweep key=a,b,c, repeated: every combination of the listed values, one run each on a thread pool.
 int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, const backtest::Params& p,
-          const std::vector<std::pair<std::string, std::vector<double>>>& axes, const std::string& symbol,
-          const std::string& strategy, const std::string& report_dir) {
-    std::vector<backtest::SweepRun> runs(1);
+          const std::vector<std::pair<std::string, std::vector<double>>>& axes,
+          const std::vector<std::pair<std::string, std::uint16_t>>& symbols, const std::string& strategy,
+          const std::string& report_dir) {
+    std::vector<backtest::SweepRun> runs;
+    for (const auto& [name, locate] : symbols) {
+        backtest::SweepRun x;
+        x.locate = locate;
+        if (symbols.size() > 1) x.symbol = name;
+        runs.push_back(std::move(x));
+    }
     for (const auto& [key, values] : axes) {
         std::vector<backtest::SweepRun> next;
         for (const backtest::SweepRun& run : runs)
@@ -97,10 +111,12 @@ int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, c
             backtest::Params q = p;
             for (const auto& [k, v] : runs[i].params) q.kv[k] = v;
             backtest::RunSpec r = base;
+            r.target = runs[i].locate;
             configure(r, q);
             try {
                 runs[i].summary = entry.run(r, q);
-                if (!report_dir.empty()) backtest::write_report(report_dir + "/" + runs[i].label(), symbol, strategy, r.config, runs[i].summary);
+                if (!report_dir.empty()) backtest::write_report(report_dir + "/" + runs[i].label(), runs[i].symbol.empty() ? symbols[0].first : runs[i].symbol,
+                                                          strategy, r.config, runs[i].summary);
             } catch (const std::exception& e) {
                 const std::lock_guard g(error_lock);
                 error = e.what();
@@ -114,9 +130,11 @@ int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, c
     for (unsigned t = 0; t < n; ++t) pool.emplace_back(worker);
     for (std::thread& t : pool) t.join();
     if (!error.empty()) throw std::runtime_error(error);
+    if (symbols.size() > 1) std::printf("symbol\t");
     for (const auto& [k, v] : axes) std::printf("%s\t", k.c_str());
     std::printf("total_usd\tspread_usd\tinventory_usd\tfees_usd\tfills\tmax_abs_inventory\tdiverted_shares\n");
     for (const backtest::SweepRun& run : runs) {
+        if (symbols.size() > 1) std::printf("%s\t", run.symbol.c_str());
         for (const auto& [k, v] : run.params) std::printf("%g\t", v);
         const backtest::Summary& s = run.summary;
         std::printf("%.2f\t%.2f\t%.2f\t%.2f\t%llu\t%lld\t%llu\n", backtest::usd(s.total), backtest::usd(s.spread),
@@ -124,7 +142,9 @@ int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, c
                     (long long)s.max_abs_inventory, (unsigned long long)s.divergence.diverted);
     }
     if (!report_dir.empty()) {
-        backtest::write_sweep_report(report_dir, symbol, strategy, runs);
+        std::string names;
+        for (const auto& [name, loc] : symbols) names += (names.empty() ? "" : ",") + name;
+        backtest::write_sweep_report(report_dir, names, strategy, runs);
         std::fprintf(stderr, "report: %s/index.html\n", report_dir.c_str());
     }
     return 0;
@@ -132,7 +152,7 @@ int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, c
 
 int usage() {
     std::fprintf(stderr,
-                 "usage: itch_backtest <store-dir> <symbol|locate> <strategy> [key=value ...] [--report DIR]\n"
+                 "usage: itch_backtest <store-dir> <symbol|locate>[,...] <strategy> [key=value ...] [--report DIR]\n"
                  "                     [--sweep key=v1,v2,... (repeatable; every combination, THREADS=N)]\n"
                  "                     [--fills FILE] [--minutes FILE] [--index LOC,...]\n"
                  "strategies:\n");
@@ -197,8 +217,13 @@ int main(int argc, char** argv) {
     configure(r, p);
 
     try {
-        r.target = find_locate(r.store, argv[2]);
-        if (!axes.empty()) return sweep(*entry, r, p, axes, argv[2], strategy, report_dir);
+        std::vector<std::pair<std::string, std::uint16_t>> symbols;
+        for (const std::string all = argv[2]; const auto part : std::views::split(all, ',')) {
+            const std::string name(part.begin(), part.end());
+            symbols.emplace_back(name, find_locate(r.store, name));
+        }
+        r.target = symbols[0].second;
+        if (!axes.empty() || symbols.size() > 1) return sweep(*entry, r, p, axes, symbols, strategy, report_dir);
         const auto t0 = std::chrono::steady_clock::now();
         const backtest::Summary s = entry->run(r, p);
         const double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();

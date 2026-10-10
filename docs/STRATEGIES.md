@@ -6,6 +6,12 @@ Two plug-in points, both "write a type, register it with one line, run it by nam
 - [Prediction-market maker](#prediction-market-quoter): a quoter picks bid and ask prices per token for
   `pm_exec` and `pm_live`, live on paper or replayed from a recording.
 
+Start from a template: `scripts/new_strategy.sh my_idea` writes `strategies/my_idea.cpp`, and
+`scripts/new_strategy.sh --quoter my_idea` writes `strategies/pm/my_idea.cpp`; both build and run
+as written (CI checks that), and print the command to try them. No toolchain? Open the repository
+in a dev container (`.devcontainer/`, also GitHub Codespaces): it builds everything and runs the
+demos on creation.
+
 ## Nasdaq backtester
 
 A strategy for the Nasdaq backtester is a C++ type with one method. Put it in a new file under
@@ -114,6 +120,12 @@ itch_backtest /tmp/qrsim QRSIM imbalance --sweep threshold=0.2,0.4,0.6,0.8,1 --s
 
 Ten runs of a full synthetic day take about 0.4 s on 20 threads. Pick parameters on some days and
 check them on others: the best row of one day is partly luck.
+
+Several symbols: give a comma list (`INTC,AAPL,MSFT,AMD`). Each symbol runs on its own, in
+parallel, combined with any `--sweep`; the report adds the total over symbols for each parameter
+set. On 2025-12-10 (the demo venue settings: 0.2c rebate, 0.3c fee, 50 and 20 us latency),
+`naive` with `size=100` makes $1,799 on AMD and loses $4,799 on MSFT: one
+symbol says little. Four symbols times two sizes take 2.4 s.
 
 ### What the simulation does and does not model
 
