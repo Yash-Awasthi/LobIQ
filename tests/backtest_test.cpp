@@ -374,3 +374,17 @@ TEST(Report, SweepLabelsAndRanking) {
     ASSERT_NE(pb, std::string::npos);
     EXPECT_LT(pb, pa);  // best total first
 }
+
+TEST(Report, SeveralSymbolsAreTotalledPerParameterSet) {
+    std::vector<SweepRun> runs(4);
+    const char* sym[] = {"AAA", "BBB", "AAA", "BBB"};
+    for (int i = 0; i < 4; ++i)
+        runs[i].symbol = sym[i], runs[i].params = {{"size", i < 2 ? 100.0 : 200.0}}, runs[i].summary.total = (i + 1) * 1'000'000;
+    EXPECT_EQ(runs[0].label(), "AAA,size=100");
+    TempDir out{"sweep_symbols"};
+    write_sweep_report(out.path.string(), "AAA,BBB", "naive", runs);
+    std::ifstream page(out.path / "index.html");
+    const std::string html((std::istreambuf_iterator<char>(page)), {});
+    EXPECT_NE(html.find("<td>size=200</td><td>7.00</td><td>2</td>"), std::string::npos);  // 3 + 4 USD
+    EXPECT_NE(html.find("<td>size=100</td><td>3.00</td><td>2</td>"), std::string::npos);
+}

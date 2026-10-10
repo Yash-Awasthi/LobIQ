@@ -9,6 +9,7 @@ echo "== backtest on a synthetic Nasdaq session"
 scripts/demo/backtest.sh "$out/backtest" || fail=1
 echo "== paper execution on the bundled 20-minute recording"
 scripts/demo/paper.sh "$out/paper" || fail=1
+scripts/demo/paper_sweep.sh "$out/paper-sweep" || fail=1
 sed "s/@COMMIT@/${HFT_COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo unknown)}/" scripts/demo/index.html > "$out/index.html"
 echo "reports: $out/index.html"
 exit $fail

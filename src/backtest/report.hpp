@@ -99,9 +99,11 @@ inline void write_report(const std::string& dir, const std::string& symbol, cons
 
 // One run of a parameter sweep: the swept values and the result.
 struct SweepRun {
+    std::string symbol;  // set when several symbols run
+    std::uint16_t locate = 0;
     std::vector<std::pair<std::string, double>> params;
     Summary summary;
-    std::string label() const {  // also its report directory: "gamma=0.1,k=1.5"
+    std::string params_label() const {
         std::string s;
         for (const auto& [k, v] : params) {
             char b[32];
@@ -109,6 +111,10 @@ struct SweepRun {
             s += (s.empty() ? "" : ",") + k + "=" + b;
         }
         return s;
+    }
+    std::string label() const {  // also its report directory: "INTC,gamma=0.1,k=1.5"
+        const std::string p = params_label();
+        return symbol.empty() ? p : p.empty() ? symbol : symbol + "," + p;
     }
 };
 
@@ -137,6 +143,19 @@ inline void write_sweep_report(const std::string& dir, const std::string& symbol
     body += "<h2>Runs, best total first</h2><table><thead><tr><th>parameters</th><th>total</th><th>spread</th><th>inventory</th>"
             "<th>fees</th><th>fills</th><th>max |inv|</th><th>diverted</th></tr></thead><tbody>" +
             rows + "</tbody></table>";
+    if (!runs.empty() && !runs[0].symbol.empty()) {  // several symbols: totals per parameter set
+        std::vector<std::pair<std::string, std::pair<std::int64_t, std::size_t>>> by;
+        for (const SweepRun& r : runs) {
+            const std::string k = r.params_label().empty() ? "(defaults)" : r.params_label();
+            auto it = std::find_if(by.begin(), by.end(), [&](const auto& e) { return e.first == k; });
+            if (it == by.end()) by.push_back({k, {0, 0}}), it = by.end() - 1;
+            it->second.first += r.summary.total, ++it->second.second;
+        }
+        std::sort(by.begin(), by.end(), [](const auto& a, const auto& b) { return a.second.first > b.second.first; });
+        std::vector<std::vector<std::string>> t;
+        for (const auto& [k, v] : by) t.push_back({k, report::num(usd(v.first)), std::to_string(v.second)});
+        body = "<h2>Total over symbols, per parameter set</h2>" + report::table({"parameters", "total", "symbols"}, t) + body;
+    }
     body += "<p class=\"muted\">USD. A parameter that wins on one day can lose on the next: pick on some days, "
             "confirm on others.</p>";
     report::write_file(dir + "/index.html",

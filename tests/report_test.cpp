@@ -58,3 +58,15 @@ TEST(PmReport, WritesTimelineSummaryAndPage) {
     EXPECT_NE(html.find("a&lt;b"), std::string::npos);  // values are escaped
     EXPECT_EQ(html.find("<script"), std::string::npos);
 }
+
+TEST(PmReport, SweepIndexRanksByLedgerPnl) {
+    TempDir out{"pm_sweep"};
+    std::vector<pm::PmSweepRun> runs = {{"k=10", {{"ledger_pnl_usd", "-0.5"}, {"kill", "none"}}},
+                                        {"k=30", {{"ledger_pnl_usd", "1.25"}, {"kill", "none"}}}};
+    pm::write_pm_sweep_report(out.path, "rec", runs);
+    const std::string html = slurp(out.path / "index.html");
+    const std::size_t a = html.find("href=\"k=30/report.html\""), b = html.find("href=\"k=10/report.html\"");
+    ASSERT_NE(a, std::string::npos);
+    ASSERT_NE(b, std::string::npos);
+    EXPECT_LT(a, b);
+}

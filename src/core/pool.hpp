@@ -74,8 +74,8 @@ class Pool {
         map_len_ = map_len;
         data_ = reinterpret_cast<T*>(d);
         cap_ = want;
-        ++PoolStats::maps;
-        PoolStats::bytes += map_len;
+        __atomic_fetch_add(&PoolStats::maps, 1, __ATOMIC_RELAXED);  // pools grow on several threads (book_replay, sweeps)
+        __atomic_fetch_add(&PoolStats::bytes, map_len, __ATOMIC_RELAXED);
     }
 
     // Copies the first n elements of `o`, growing this pool if needed.

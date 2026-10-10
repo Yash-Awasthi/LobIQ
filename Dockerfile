@@ -1,6 +1,5 @@
-# Build: podman build -t hft .   (or docker build)
-# Run the demos, reports land in ./out:  podman run --rm -v "$PWD/out:/hft/out" hft
-# Toolchain image for writing strategies: podman build --target build -t hft-dev .
+# podman build -t hft . (or docker); demos, reports in ./out: podman run --rm -v "$PWD/out:/hft/out" hft
+# Toolchain for writing strategies (also .devcontainer): podman build --target build -t hft-dev .
 
 FROM ubuntu:24.04 AS build
 ARG VCPKG_COMMIT=001713e802f5cf619a64461b918161be6a0634f0
