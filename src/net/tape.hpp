@@ -37,6 +37,7 @@ class JsonTape {
     double num(std::uint32_t i) const {
         double v = 0;
         const std::string_view r = raw(i);
+        if (r.empty()) return 0;  // "" in a numeric field
         if (std::from_chars(r.data() + (r[0] == '+'), r.data() + r.size(), v).ec != std::errc())
             v = std::strtod(std::string(r).c_str(), nullptr);  // out of range: same infinity or zero as strtod
         return v;

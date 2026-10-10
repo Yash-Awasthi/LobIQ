@@ -380,6 +380,7 @@ class ArbExec {
         bool filled = false;  // the attempt traded at all
         bool froze = false;   // the attempt was frozen at some point
         bool closed = false;  // a leg's market resolved: settle only
+        bool counted = false;  // the attempt's outcome is counted (a failed settlement can reopen it)
         bool attempted[2] = {false, false};  // the open window was attempted
         State st = State::Idle;
         ArbFilter last[2] = {ArbFilter::Pass, ArbFilter::Pass};
@@ -437,7 +438,7 @@ class ArbExec {
             g.last[s] = pl.why;
             if (pl.why != ArbFilter::Pass) continue;
             g.attempted[s] = true, ++stats_.attempts;
-            g.buy = buy, g.size = pl.size, g.rounds = 0, g.filled = false, g.froze = false, g.cancelled = false, g.deadline = now + p_.leg_timeout;
+            g.buy = buy, g.size = pl.size, g.rounds = 0, g.filled = false, g.froze = false, g.counted = false, g.cancelled = false, g.deadline = now + p_.leg_timeout;
             if (!buy) {
                 g.st = State::Split, g.due = now + p_.merge_delay;
                 if (p_.merge_delay == 0) do_split(gi, now, c);
@@ -504,7 +505,8 @@ class ArbExec {
         for (std::uint32_t i = 0; i < g.legs.size(); ++i) g.views[i] = c.view(g.legs[i].token);
         const Choice ch = choose(g.held.data(), g.views.data(), g.legs.size(), g.cash, p_.attempt_bound);
         if (ch.action == ArbAction::None) {
-            if (g.st == State::Legs || g.st == State::Resolve) {
+            if ((g.st == State::Legs || g.st == State::Resolve) && !g.counted) {
+                g.counted = true;
                 if (g.rounds == 0) ++(g.filled ? stats_.complete : stats_.empty);
                 else ++(g.unwinding ? stats_.unwound : stats_.completed);
             }

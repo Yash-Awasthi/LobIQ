@@ -14,7 +14,7 @@ TEST(PmBook, ParsesPrices) {
     EXPECT_EQ(parse_price("1"), 10000);
     EXPECT_EQ(parse_price("0.0001"), 1);
     EXPECT_EQ(parse_price("0.123456"), 1234);  // finer than the grid is cut, not rounded
-    for (const char* bad : {"", ".", "x", "0.1x", "2.0", "-0.1"}) EXPECT_EQ(parse_price(bad), -1) << bad;
+    for (const char* bad : {"", ".", "x", "0.1x", "2.0", "-0.1", "17915616301", "99999999999999999999.5"}) EXPECT_EQ(parse_price(bad), -1) << bad;
 }
 
 TEST(PmBook, AppliesLevelsAndRemovesAtZero) {
