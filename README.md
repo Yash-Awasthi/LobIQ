@@ -78,10 +78,10 @@ Measured on a laptop (i7-13650HX, turbo off, WSL2); sources in the sections belo
 - **Determinism:** a live session replays from its recording to bit-identical decisions,
   checked by hash, under GCC and Clang; so do fault-injected runs and kill-switch runs.
 - **Correctness:** zero heap allocations on the hot path in steady state; property tests against
-  reference implementations; 302 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
+  reference implementations; 306 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
   campaigns at 20-30% dropped, duplicated and delayed reports with zero illegal order states.
 - **Honest results:** the obvious arbitrage loses money after fees and latency on recorded data
-  (-63.85 USD over 49 attempts); reported as measured, with no thresholds tuned afterwards.
+  (-67.45 USD over 61 attempts); reported as measured, with no thresholds tuned afterwards.
 
 Where to read the code:
 
@@ -201,7 +201,7 @@ replay is unchanged within noise. A lookahead prefetch on the per-symbol path wa
 
 ## Tests
 
-`ctest` runs 302 GoogleTest and RapidCheck tests (298 under the sanitizers, which leave out
+`ctest` runs 306 GoogleTest and RapidCheck tests (302 under the sanitizers, which leave out
 `alloc_test`); one (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine
 exposes no hardware performance counters.
 
@@ -386,9 +386,10 @@ touch runs/today/KILL                                              # or SIGUSR1:
 - On the 2.0M-message reference recording, pinned to one vCPU: intent to venue request
   177 ns p50 / 712 ns p99, engine 555 ns p50 per message, 489k messages/s; in isolation the
   risk check takes 25 ns and each order-manager operation 16 ns (`hft_bench`).
-- Five recordings (5.4M messages) at the measured 182 ms round trip: 803 arbitrage windows, most
-  on stale books or below fees; 49 attempts, of which 1 completed as planned, 4 filled nothing
-  and 44 lost a leg and were completed at a loss: -63.85 USD realised after fees. The cheap leg
+- Six recordings (6.6M messages) at the measured 182 ms round trip: 1,041 arbitrage windows,
+  most on stale books or below fees; 61 attempts, of which 2 completed as planned, 5 filled
+  nothing, 52 lost a leg and were completed at a loss, 1 was unwound and 1 has no counted
+  outcome (no residual set): -67.45 USD realised after fees. The cheap leg
   of a near-resolved pair has usually moved by the time the order arrives.
 - Full tables and their commands: [docs/exec/RESULTS.md](docs/exec/RESULTS.md); demos with
   fixed hashes: `scripts/demo/`.
