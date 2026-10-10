@@ -154,12 +154,18 @@ TEST(Net, ReadsCarryTheKernelReceiveTime) {
     ASSERT_EQ(::connect(c, reinterpret_cast<sockaddr*>(&a), sizeof a), 0);
     const int sv = ::accept(ls, nullptr, nullptr);
     ASSERT_TRUE(hft::net::enable_rx_timestamps(c));
-    const std::int64_t before = hft::net::realtime_ns();
-    ASSERT_EQ(::write(sv, "hello", 5), 5);
+    // The kernel turns receive stamping on asynchronously after the first request, so the first
+    // packets may come unstamped; production falls back to the reader's clock for those.
+    std::int64_t before = 0, after = 0, ns = 0;
     char buf[16];
-    std::int64_t ns = 0;
-    ASSERT_EQ(hft::net::recv_stamped(c, buf, sizeof buf, &ns), 5);
-    const std::int64_t after = hft::net::realtime_ns();
+    for (int i = 0; i < 1000 && ns == 0; ++i) {
+        if (i) ::usleep(1000);
+        before = hft::net::realtime_ns();
+        ASSERT_EQ(::write(sv, "hello", 5), 5);
+        ASSERT_EQ(hft::net::recv_stamped(c, buf, sizeof buf, &ns), 5);
+        after = hft::net::realtime_ns();
+    }
+    ASSERT_NE(ns, 0) << "no receive stamp within 1 s";
     EXPECT_EQ(std::string_view(buf, 5), "hello");
     EXPECT_GE(ns, before);  // stamped by the kernel when it arrived, not when we read it
     EXPECT_LE(ns, after);
