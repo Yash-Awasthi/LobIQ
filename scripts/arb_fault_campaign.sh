@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# E5.3: the arbitrage executor under each core fault at a high rate. Every incomplete set must
-# end completed, unwound or frozen (counted), never as a silent residual; zero illegal reports;
-# a position mismatch only with the kill switch naming it.
+# E5.3: arbitrage executor under each fault at a high rate. Pass: zero illegal reports, no silent
+# residual set, and a position mismatch only with the kill switch naming it.
 B=${PM_EXEC:-$(dirname "$0")/../build/native/apps/pm_exec}
 C=$(dirname "$0")/../config/exec.cfg
 R=${1:-~/data/pm-live/20261009T160027Z}

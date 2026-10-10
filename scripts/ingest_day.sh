@@ -1,11 +1,6 @@
 #!/bin/bash
-# Downloads one Nasdaq ITCH day, verifies it and ingests it into the per-symbol store.
-# Usage: scripts/ingest_day.sh <remote-file-name>      e.g. S121225-v50.txt.gz
-# Env: HFT_DATA (default ~/data), HFT_INGEST (default build/release/apps/ingest),
-#      HFT_CHECKPOINT (default build/release/apps/checkpoint),
-#      KEEP_GZ=1 to keep the download (deleted after a successful ingest by default).
-# Only the 2018 to 2020 files publish an .md5sum; for the rest the gzip CRC checked while
-# decompressing and the SHA-256 recorded by ingest are the integrity record.
+# Downloads one Nasdaq ITCH day (e.g. S121225-v50.txt.gz), verifies CRC and SHA-256, ingests it.
+# Env: HFT_DATA (~/data), HFT_INGEST, HFT_CHECKPOINT, KEEP_GZ=1 keeps the download.
 set -euo pipefail
 
 name=${1:?usage: ingest_day.sh <remote-file-name>}

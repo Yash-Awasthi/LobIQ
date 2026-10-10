@@ -6,10 +6,9 @@ deliberately left out is listed there under "Not planned". The research-phase lo
 
 ## What runs
 
-`pm_record` (into `~/data/pm`) and `pm_live --record` (a new `~/data/pm-live/<UTC>` directory every
-6 h) run from pinned binaries in `~/data/bin` (D23); nothing starts at logon. Replace a pinned
-binary with `install`, never `cp`, so the running process keeps its file. Paper runs of `pm_exec`
-go to `~/data/exec/runs`.
+Nothing runs on its own: no service, scheduled task or logon hook. The recorders were stopped on
+2026-10-11; their recordings stay in `~/data`. To record again, start them by hand (stop with
+Ctrl-C or SIGTERM):
 
     scripts/pm_supervise.sh ~/data/pm --cap-gb 50 --per-tag 8
     scripts/pm_live_supervise.sh ~/data/pm-live --record-cap-gb 20 --port 8088 --seconds 21600

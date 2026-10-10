@@ -86,8 +86,8 @@ The project is complete: every phase above is done and nothing is open.
 - Live order entry: never (docs/exec DECISIONS D1). The code has no order entry and a CI gate
   keeps it that way.
 - A dedicated or cloud machine (for example a bare-metal cloud instance) for hardware counters,
-  futex wake latency without a hypervisor and spin-mode numbers on isolated cores: the owner's
-  decision; the laptop numbers stand as measured under WSL2.
+  futex wake latency without a hypervisor and spin-mode numbers on isolated cores:
+  not available here; the laptop numbers stand as measured under WSL2.
 - Miss-probability research for the arbitrage executor: would need a model estimated on some
   days and tested on later ones; a research step, outside this engineering project (D12).
 - Maker rebates (VENUE F18: 15-25% of fees by category, paid daily): the simulated venue leaves
