@@ -61,6 +61,22 @@ class SimVenue {
         }
     }
 
+    // The market's tick changed (VENUE F26, V7): resting orders off the new grid are cancelled.
+    void retick(std::uint32_t t, Px tick, Ns now) {
+        Tok& k = toks_[t];
+        k.rules.tick = tick;
+        for (std::size_t j = 0; j < k.resting.size();) {
+            VOrder& o = orders_[k.resting[j]];
+            if (o.px % tick == 0) {
+                ++j;
+                continue;
+            }
+            unrest(o);  // removes it from k.resting
+            o.state = kDone;
+            report(now, {VenueRpt::CancelAck, VenueRpt::None, kTick, 0, 0, 0, o.cl, o.vid, 0, now});
+        }
+    }
+
     // A request leaves the client at `now`.
     void request(const VenueReq& r, Ns now) {
         const std::uint32_t i = alloc_req();

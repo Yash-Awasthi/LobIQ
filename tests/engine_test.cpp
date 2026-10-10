@@ -441,3 +441,116 @@ TEST(EngineArb, GroupCapBoundsTheSetSize) {
     EXPECT_EQ(e.ledger().pos(e.token("Y")), 50'000'000);  // 45 USD at 0.90 a set
     EXPECT_EQ(e.ledger().group_cost(0), 45 * kUsd);        // both legs count against one event
 }
+
+namespace {
+
+std::string resolved(const char* winner, const char* a, const char* b) {
+    return std::string(R"({"event_type":"market_resolved","assets_ids":[")") + a + R"(",")" + b + R"("],"winning_asset_id":")" +
+           winner + R"("})";
+}
+std::string retick(const char* id, const char* tick) {
+    return std::string(R"({"event_type":"tick_size_change","asset_id":")") + id + R"(","old_tick_size":"0.001","new_tick_size":")" +
+           tick + R"("})";
+}
+
+}  // namespace
+
+TEST(EngineVenue, ResolutionPaysOutClosesTheMarketAndStopsQuoting) {
+    auto p = params();
+    p.venue = true;
+    Engine e(p);
+    e.add_group("m", {"Y", "N"});
+    feed(e, {{kS, book("Y", "0.48", "0.52")}, {kS, book("N", "0.48", "0.52")},
+             {kS + 1, trade("Y", "SELL", "0.48", "600")}});  // we buy 100 Y at 0.48
+    const auto y = e.token("Y");
+    ASSERT_EQ(e.ledger().pos(y), 100'000'000);
+    ASSERT_GT(e.oms().open_orders(), 0u);
+    const auto cash = e.ledger().cash();
+    feed(e, {{2 * kS, resolved("Y", "Y", "N")}});
+    EXPECT_EQ(e.ledger().pos(y), 0);
+    EXPECT_EQ(e.ledger().cash(), cash + 100 * hft::exec::kDollar);  // Y paid 1 a share
+    EXPECT_EQ(e.oms().open_orders(), 0u);
+    EXPECT_FALSE(e.maker(y).enabled());
+    EXPECT_EQ(e.maker(y).inventory(), 0);
+    const auto orders = e.venue_stats().orders;
+    feed(e, {{3 * kS, change("Y", "BUY", "0.50", "10")}, {4 * kS, change("N", "SELL", "0.51", "10")},
+             {30 * kS, control("_heartbeat", 0)}});  // past every reconciliation grace
+    EXPECT_EQ(e.venue_stats().orders, orders);  // neither token quoted again
+    EXPECT_FALSE(e.maker(y).enabled());
+    EXPECT_EQ(e.position_mismatches(), 0u);
+    EXPECT_TRUE(e.ledger().identity_holds());
+}
+
+TEST(EngineVenue, CompatModeIgnoresResolutionLikeTheOldModel) {
+    auto p = params();
+    p.venue = true;
+    p.sim.compat_side = true;
+    p.long_only = false;
+    p.risk.allow_short = true;
+    Engine e(p);
+    feed(e, {{kS, book("Y", "0.48", "0.52")}, {2 * kS, resolved("Y", "Y", "N")}});
+    EXPECT_TRUE(e.maker(e.token("Y")).enabled());
+}
+
+TEST(EngineVenue, TickChangeReachesTheMakerAndItsQuotes) {
+    auto p = params();
+    p.venue = true;
+    Engine e(p);
+    feed(e, {{kS, std::string(R"({"event_type":"book","asset_id":"Y","bids":[{"price":"0.483","size":"500"}],)")
+                      + R"("asks":[{"price":"0.517","size":"500"}],"tick_size":"0.001"})"}});
+    const auto y = e.token("Y");
+    ASSERT_EQ(e.maker(y).tick, 10);
+    feed(e, {{2 * kS, retick("Y", "0.01")}, {3 * kS, change("Y", "BUY", "0.48", "100")},
+             {3 * kS, change("Y", "BUY", "0.483", "0")}, {3 * kS, change("Y", "SELL", "0.52", "100")},
+             {3 * kS, change("Y", "SELL", "0.517", "0")}, {4 * kS, change("Y", "BUY", "0.47", "5")}});
+    EXPECT_EQ(e.maker(y).tick, 100);
+    EXPECT_EQ(e.maker(y).bid_px() % 100, 0);  // requoted on the new grid
+    EXPECT_EQ(e.oms().illegal_count(), 0u);
+}
+
+TEST(EngineArb, ResolvedEventSetsPayTheWinnerAndCloseTheGroup) {
+    Engine e(arb_params());
+    e.add_group("a", {"AY", "AN"});
+    e.add_group("b", {"BY", "BN"});
+    e.add_group("ev", {"AY", "BY"});
+    feed(e, {{kS, book2("AN", "0.50", "500", "0.70", "500")}, {kS, book2("BN", "0.40", "500", "0.60", "500")},
+             {kS, book2("AY", "0.30", "500", "0.40", "100")}, {kS + 1, book2("BY", "0.40", "500", "0.50", "100")},
+             {3 * kS, control("_heartbeat", 0)}});
+    ASSERT_EQ(e.arb_exec().sets_held(), 100'000'000);
+    feed(e, {{4 * kS, resolved("AY", "AY", "AN")}});  // market A: Yes won
+    EXPECT_EQ(e.arb_exec().held(e.token("AY")), 0);
+    EXPECT_EQ(e.arb_exec().residual_groups(), 0u);  // B's leg waits for its own resolution
+    feed(e, {{5 * kS, resolved("BN", "BY", "BN")}, {6 * kS, control("_heartbeat", 0)}});  // B: No won, our BY pays 0
+    const auto& s = e.arb_exec().stats();
+    EXPECT_EQ(e.arb_exec().sets_held(), 0);
+    EXPECT_EQ(s.realised, 10 * kUsd - e.ledger().fees());  // 100 sets at 0.90 paid 100
+    EXPECT_EQ(e.position_mismatches(), 0u);
+    EXPECT_TRUE(e.ledger().identity_holds());
+}
+
+TEST(EngineVenue, NothingFillsAfterResolutionWhileOurCancelsAreInFlight) {
+    auto p = params();
+    p.venue = true;
+    p.sim.lat_in = p.sim.lat_out = 5 * kMs;
+    Engine e(p);
+    e.add_group("m", {"Y", "N"});
+    feed(e, {{kS, book("Y", "0.48", "0.52")}, {kS, book("N", "0.48", "0.52")}, {kS + 200 * kMs, control("_heartbeat", 0)}});
+    ASSERT_GT(e.oms().open_orders(), 0u);
+    // A trade through our bid 1 ms after resolution, before our cancel can reach the venue.
+    feed(e, {{2 * kS, resolved("N", "Y", "N")}, {2 * kS + kMs, trade("Y", "SELL", "0.01", "1000")},
+             {3 * kS, control("_heartbeat", 0)}});
+    EXPECT_EQ(e.ledger().pos(e.token("Y")), 0);
+    EXPECT_EQ(e.oms().open_orders(), 0u);
+}
+
+TEST(EngineArb, LegsOnAStaleConnectionAreNotTraded) {
+    Engine e(arb_params());
+    e.add_group("m", {"Y", "N"});
+    e.set_conn(e.token("Y"), 0), e.set_conn(e.token("N"), 0);
+    // Connection 0 goes silent past stale_s (20 s); then a window appears on its books.
+    feed(e, {{kS, control("_heartbeat", 0)}, {kS, book2("Y", "0.30", "100", "0.45", "100")},
+             {kS, book2("N", "0.40", "100", "0.60", "100")}, {30 * kS, book2("N", "0.40", "100", "0.50", "100")},
+             {30 * kS + 1, book2("Y", "0.30", "100", "0.40", "100")}});
+    EXPECT_EQ(e.arb_exec().stats().attempts, 0u);
+    EXPECT_EQ(e.ledger().pos(e.token("Y")), 0);
+}

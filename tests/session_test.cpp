@@ -55,6 +55,22 @@ TEST(Gamma, ReadsEachMarketsTradingRules) {
     EXPECT_EQ(f.rules.delay_ms, 0);
 }
 
+TEST(Gamma, DropsMarketsWhoseTokenIdsAreNotPlainDigits) {
+    // Ids go into the subscription message, URLs and file names (SECURITY SEC5): digits only, bounded.
+    const auto quote = hft::net::parse_json(
+        R"({"clobTokenIds":"[\"12\", \"3\\\"],\\\"x\"]","active":true,"enableOrderBook":true,"acceptingOrders":true})");
+    const Market q = hft::pm::market_from(quote, "t");
+    EXPECT_TRUE(q.tokens.empty());
+    EXPECT_FALSE(q.open);
+    const auto ok = hft::net::parse_json(R"({"clobTokenIds":"[\"12\", \"34\"]"})");
+    EXPECT_EQ(hft::pm::market_from(ok, "t").tokens.size(), 2u);
+    const std::string long_id = "{\"clobTokenIds\":\"[\\\"" + std::string(101, '7') + "\\\"]\"}";
+    EXPECT_TRUE(hft::pm::market_from(hft::net::parse_json(long_id), "t").tokens.empty());
+    EXPECT_TRUE(hft::pm::valid_id("4961360"));
+    EXPECT_FALSE(hft::pm::valid_id(""));
+    EXPECT_FALSE(hft::pm::valid_id("12/../x"));
+}
+
 TEST(Session, KeepsMarketRulesAndReadsOlderFilesWithDefaults) {
     TempDir dir("pm_session_rules");
     Session s;

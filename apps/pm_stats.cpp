@@ -63,6 +63,8 @@ class Stats {
                 t.notional += e.size * hft::pm::parse_size(e.price);
                 break;
             }
+            case Kind::TickChange:
+            case Kind::Resolved:
             case Kind::Other:
                 // best_bid_ask arrives apart from the deltas, so its timing against the book is not defined.
                 if (e.type != "best_bid_ask") ++other;

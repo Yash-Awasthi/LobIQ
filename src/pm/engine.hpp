@@ -165,6 +165,19 @@ class Engine {
                 after(ns, i);
                 break;
             }
+            case Kind::TickChange:
+                if (const std::uint32_t i = ids_.find(e.asset); production() && i != TokenIndex::npos && e.tick > 0) {
+                    rules_[i].tick = e.tick;
+                    toks_[i]->maker.tick = e.tick;
+                    sim_.retick(i, e.tick, ns);
+                    pump(ns);
+                }
+                break;
+            case Kind::Resolved:
+                if (production())
+                    for (const std::string_view id : e.assets)
+                        if (const std::uint32_t i = ids_.find(id); i != TokenIndex::npos) resolve(i, id == e.asset, ns);
+                break;
             case Kind::Other:
                 if (e.type == "_kill" && p_.venue) {  // operator trip (D11), recorded so a replay sees it
                     risk_.kill(exec::KillReason::Operator, ns);
@@ -211,6 +224,8 @@ class Engine {
             risk_.on_tick(ledger_, mid_.data(), liq_.data(), ns);
             cancel_if_killed(ns);
         }
+        for (std::size_t c = 0; c < conns_.size(); ++c)  // R12, for the executor too
+            conns_[c].stale = conns_[c].last_ns && static_cast<double>(ns - conns_[c].last_ns) * 1e-9 > p_.stale_s;
         if (!p_.quote) return;
         double pnl = 0, gross = 0;
         for (const auto& t : toks_) pnl += t->maker.pnl(), gross += std::abs(t->maker.inventory());
@@ -220,12 +235,10 @@ class Engine {
             log_.push_back({Decision::Halt, ns, kAll, 0, 0, gross});
         }
         const bool gross_ok = gross < p_.max_gross_shares;
-        for (std::size_t c = 0; c < conns_.size(); ++c)
-            conns_[c].stale = conns_[c].last_ns && static_cast<double>(ns - conns_[c].last_ns) * 1e-9 > p_.stale_s;
         for (std::uint32_t i = 0; i < toks_.size(); ++i) {
             Tok& t = *toks_[i];
             const bool stale = t.conn < conns_.size() && conns_[t.conn].stale;
-            const bool on = !halted_ && gross_ok && !stale;
+            const bool on = !halted_ && gross_ok && !stale && !t.closed;
             if (on != t.maker.enabled()) {
                 t.maker.set_enabled(on);
                 sync(i, ns);
@@ -287,6 +300,7 @@ class Engine {
         Live live[2];  // [0] bid, [1] ask
         std::int64_t mismatch_since = 0;  // venue and ledger positions differ since; -1 once reported
         std::int64_t updated = 0;         // last book change
+        bool closed = false;              // the market resolved
         std::uint32_t conn = ~0u;
         bool seeded = false;
         std::int32_t bid = -1, ask = -1;  // last logged quotes
@@ -391,6 +405,30 @@ class Engine {
         if (failed) own(f.token);
         xh_.add(ledger_.cash(), ledger_.realised());
     }
+    // Venue mode with the production fill rule; compat mode reproduces the old model, which
+    // ignores tick changes and resolutions (D25).
+    bool production() const { return p_.venue && !p_.sim.compat_side; }
+
+    // The market resolved (L4, V7): the venue cancels our orders and closes the token, every
+    // position pays 1 or 0 (ledger, venue view, executor, maker), and the token is not quoted
+    // again. ponytail: fills still awaiting settlement are not unwound if they later fail.
+    void resolve(std::uint32_t t, bool won, std::int64_t ns) {
+        Tok& k = *toks_[t];
+        if (k.closed) return;
+        k.closed = true;
+        sim_.close(t, ns);
+        k.maker.set_enabled(false);
+        sync(t, ns);
+        ax_.on_resolved(t, won);
+        k.maker.resolve(won);
+        ledger_.resolve(t, won);
+        sim_.convert(t, -sim_.position(t));
+        own(t);
+        xh_.add(ns, t, won, 3);
+        pump(ns);
+        after(ns, t);
+    }
+
     // R16: the first time the switch is seen tripped, every open order is cancelled.
     void cancel_if_killed(std::int64_t ns) {
         if (!risk_.killed() || cancelled_all_) return;
@@ -468,7 +506,8 @@ class Engine {
         const TokenBook& book(std::uint32_t t) const { return e.toks_[t]->maker.book; }
         exec::LegView view(std::uint32_t t) const {
             const Tok& k = *e.toks_[t];
-            return {&k.maker.book, &e.rules_[t], k.updated, e.oms_.frozen(t) || !k.seeded, e.exp_.own_bid(t), e.exp_.own_ask(t),
+            const bool stale = k.conn < e.conns_.size() && e.conns_[k.conn].stale;  // R12
+            return {&k.maker.book, &e.rules_[t], k.updated, e.oms_.frozen(t) || !k.seeded || k.closed || stale, e.exp_.own_bid(t), e.exp_.own_ask(t),
                     [](const void* v, std::uint32_t tk, bool bid, exec::Px px) { return static_cast<const exec::SimVenue<BookOf>*>(v)->taken(tk, bid, px); },
                     &e.sim_, t, e.p_.risk.collar_ticks * (e.rules_[t].tick > 0 ? e.rules_[t].tick : 1)};
         }

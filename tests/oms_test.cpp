@@ -346,3 +346,17 @@ TEST(Oms, CancelAllAsksToCancelEveryOpenOrder) {
     EXPECT_EQ(g.oms.order(a)->state, S::PendingCancel);
     EXPECT_EQ(g.oms.order(b)->state, S::PendingCancel);
 }
+
+TEST(Oms, FillsRacingACancelAndUnknownOrdersAreCounted) {
+    Rig g;
+    const std::uint64_t a = g.buy(), b = g.buy();
+    g.ack(a);
+    ASSERT_TRUE(g.oms.cancel(a, kSec, g.sink()));
+    g.fill(a, 4 * kShare);  // the cancel was on its way when this traded (S9)
+    EXPECT_EQ(g.oms.cancel_races(), 1u);
+    g.plain(a, VenueRpt::CancelAck);
+    g.oms.on_timer(10 * kSec, g.sink());  // b was never acked
+    EXPECT_EQ(g.oms.unknown_orders(), 1u);
+    g.status(b, VenueRpt::Live);
+    EXPECT_EQ(g.oms.unknown_orders(), 0u);
+}

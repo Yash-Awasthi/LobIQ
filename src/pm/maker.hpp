@@ -79,6 +79,11 @@ class TokenMaker {
         inv_ = q;
         max_abs_inv_ = std::max(max_abs_inv_, std::abs(inv_));
     }
+    // The market resolved: the inventory paid 1 a share if this token won, else nothing.
+    void resolve(bool won) {
+        if (won) cash_ += inv_;
+        inv_ = 0;
+    }
     // A venue fill whose settlement failed: its cash flows back; inventory comes via set_inventory.
     void on_settle_failed(bool buy, std::int32_t px, double qty) { cash_ += (buy ? qty : -qty) * px * 1e-4; }
 

@@ -190,6 +190,25 @@ class ArbExec {
         dirty_.reserve(groups_.size());
     }
 
+    // A market resolved (L4): every group holding `token` is paid for it and closed: no new
+    // attempts, no completing or unwinding; its other legs wait for their own resolution.
+    void on_resolved(std::uint32_t token, bool won) {
+        if (token >= by_token_.size()) return;
+        for (const std::uint32_t gi : by_token_[token]) {
+            Group& g = groups_[gi];
+            for (std::uint32_t i = 0; i < g.legs.size(); ++i) {
+                if (g.legs[i].token != token) continue;
+                if (won) g.cash += notional(kPxOne, g.held[i]);
+                add(g, i, -g.held[i]);
+                g.legs[i].confirmed = 0;
+            }
+            g.closed = true, g.incomplete_since = 0;
+            bool flat = true;
+            for (const Qty h : g.held) flat = flat && h == 0;
+            if (flat) finish(g);
+        }
+    }
+
     // No new attempts (the kill switch tripped); open ones still finish.
     void halt() { p_.on = false; }
 
@@ -210,9 +229,18 @@ class ArbExec {
         for (const Group& g : groups_) {
             Qty hi = g.held[0], lo = g.held[0];
             for (const Qty h : g.held) hi = h > hi ? h : hi, lo = h < lo ? h : lo;
-            n += hi != lo && (g.st == State::Idle || g.st == State::Merge);
+            n += hi != lo && !g.closed && (g.st == State::Idle || g.st == State::Merge);
         }
         return n;
+    }
+    // R15 exposure summed over groups: attempt cash that no complete set covers.
+    Usd exposure() const {
+        Usd u = 0;
+        for (const Group& g : groups_) {
+            const Usd e = -(g.cash + notional(kPxOne, min_held(g)));
+            if (!g.closed && g.incomplete_since && e > 0) u += e;
+        }
+        return u;
     }
     Usd open_cash() const {
         Usd u = 0;
@@ -266,7 +294,7 @@ class ArbExec {
             dirty_.pop_back();
             groups_[gi].dirty = false;
             Group& g = groups_[gi];
-            if (busy(g)) continue;
+            if (busy(g) || g.closed) continue;
             if (g.st == State::Legs && g.rest_pending) {  // policy Q: the thinnest leg went first
                 g.rest_pending = false;
                 if (g.held[g.first] >= g.size) {
@@ -284,6 +312,7 @@ class ArbExec {
     void on_timer(Ns now, Ctx& c) {
         for (std::uint32_t gi = 0; gi < groups_.size(); ++gi) {
             Group& g = groups_[gi];
+            if (g.closed) continue;
             if (g.st == State::Split && now >= g.due) do_split(gi, now, c);
             if (g.st == State::Merge && now >= g.due) do_merge(gi, c);
             if ((g.st == State::Legs || g.st == State::Resolve) && now > g.deadline && !g.cancelled) {
@@ -316,6 +345,7 @@ class ArbExec {
         bool pair = false, buy = true, dirty = false, rest_pending = false, cancelled = false, killed = false, unwinding = false;
         bool filled = false;  // the attempt traded at all
         bool froze = false;   // the attempt was frozen at some point
+        bool closed = false;  // a leg's market resolved: settle only
         bool attempted[2] = {false, false};  // the open window was attempted
         State st = State::Idle;
         ArbFilter last[2] = {ArbFilter::Pass, ArbFilter::Pass};
@@ -350,6 +380,7 @@ class ArbExec {
     template <class Ctx>
     void check(std::uint32_t gi, Ns now, Ctx& c) {
         Group& g = groups_[gi];
+        if (g.closed) return;
         for (int s = 0; s < (g.pair ? 2 : 1); ++s) {
             const bool buy = s == 0;
             Px sum = 0;

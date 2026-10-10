@@ -2,10 +2,10 @@
 
 ## T Types (src/exec/types.hpp)
 
-- T1 `Px` int32 1e-4; `Qty` int64 (unit D5); `Usd` int64 micro-dollars (D5); `Ns` int64.
-- T2 `Side {Buy, Sell}`; `Tif {Gtc, Fok, Fak}` (confirm Q3).
-- T3 `OrderIntent {token u32, side, px, qty, tif, strategy u16, tag u32}`.
-- T4 `VenueReq {kind New|Cancel, cl_id u64, token, side, px, qty, tif}`.
+- T1 `Px` int32 1e-4 USD; `Qty` int64 1e-6 share; `Usd` int64 1e-10 USD (D5); `Ns` int64.
+- T2 `Side {Buy, Sell}`; `Tif {Gtc, Gtd, Fok, Fak}` (Q3).
+- T3 `OrderIntent {token u32, side, tif, post_only, strategy u16, px, qty, tag u32}`; strategy 0 maker, 1 arbitrage executor; tag = group << 8 | leg for the executor.
+- T4 `VenueReq {kind New|Cancel|Status, side, tif, post_only, token, px, qty, cl_id u64}`.
 - T5 `VenueRpt {kind Ack|Reject|Fill|CancelAck|CancelReject|Expired|Status|Settled|SettleFailed, cl_id, venue_id u64, fill_id u64, px, qty, fee Usd, reason u16, venue_ns}`. Ack carries the venue status (live, matched, delayed, unmatched; F9, F10).
 - T6 `cl_id = session(16) << 48 | seq(48)`; session persisted in `~/data/exec/session.counter`, incremented per run; never reused.
 - T7 All structs trivially copyable, fixed size; static_assert sizes.
@@ -56,10 +56,10 @@ Pre-trade, order (cheapest first; first failure returns its reason):
 
 Post-trade / 100 ms tick:
 
-- R9 daily loss: realised + marked PnL <= -daily_stop -> kill. Mark = min(mid mark, liquidation mark at book side with depth).
+- R9 daily loss: realised + marked PnL <= -daily_stop -> kill. Mark = min(mid mark, liquidation mark). Implemented liquidation mark: the best bid, depth ignored (positions are far below top-of-book size so far).
 - R10 per-attempt loss (arb): attempt PnL <= -attempt_bound -> stop attempt, freeze group.
-- R11 gross inventory cap -> pause new opening orders (closing allowed).
-- R12 stale feed per connection -> cancel that connection's tokens' orders, freeze.
+- R11 gross inventory cap -> pause new opening orders (closing allowed). Implemented as the makers' gross-share cap (EngineParams.max_gross_shares): all quoting pauses.
+- R12 stale feed per connection -> cancel that connection's tokens' orders, freeze. Implemented: the makers on that connection pause (their orders are cancelled) and the executor treats its tokens as frozen.
 - R13 reject spike: > K rejects in T s -> kill.
 - R14 reconcile mismatch -> kill. Two checks: Status cumulative fill vs ours (Oms), and every risk tick the venue's position per token vs the ledger's (Engine); a difference lasting longer than settle_delay + 2*(latency + jitter) + disconnect + 1 s is a missing fill. Settlement for an unseen fill id is counted (orphan), the position check decides.
 - R15 leg exposure (incomplete arb set) > bound for > T_leg -> kill.
@@ -73,7 +73,7 @@ Post-trade / 100 ms tick:
 - L6 Merge/split (D17): merge n Yes + n No -> n * 10000 Px-units of cash; split the reverse; both after a configurable latency, zero fee.
 - L2 Identity after every fill and mark: total = realised + unrealised + fees (exact int).
 - L3 Capital: locked_in_orders, locked_in_positions; capital_days += locked * dt each tick.
-- L4 Resolution: settle each token at 0 or 10000; sets settle at 10000 per set.
+- L4 Resolution: settle each token at 0 or 10000; sets settle at 10000 per set. Implemented from the feed's `market_resolved` (F26) in production venue mode: venue closes the token, ledger, venue position view, executor and maker settle, the token is not quoted again. Compat mode ignores it (D25). Fills still unsettled at resolution are not unwound if they later fail (rare; not modelled).
 - L7 Long only: the venue sells only shares held; risk rejects a sell above available position (pos - reserved). A negative position can only come from a failed settlement of shares already sold: counted as a deficit -> R14 kill.
 - L8 Identity is cash - capital + cost == realised - fees (exact). It holds for any cost-removal rule, so cost basis correctness is covered by worked examples, not by the identity.
 - L5 Overflow guard: static_assert / debug check on max notional (D5 headroom).
@@ -89,7 +89,7 @@ Matching:
 - V5 Fees (D18): taker fills only, fee = qty * rate * p * (1 - p), rounded to 1e-5 USD; rate by market category; maker fills zero.
 - V6 Rule rejects: off-tick, size not 2 dp or below min_order_size (F6, F8), closed/resolved market, cancel-only/closed-only mode (F12), paper cash insufficient, px out of bounds; amounts rounded per F6.
 - V6b Matching delay: marketable orders in sports markets wait 1 s (F10) before matching; unmatched remainder rests (GTC/GTD) or is cancelled (FAK/FOK).
-- V7 Market events: tick change -> reject resting orders off new grid (or cancel all on token, per Q4); close/resolve -> cancel all, settle.
+- V7 Market events: tick change -> reject resting orders off new grid (or cancel all on token, per Q4); close/resolve -> cancel all, settle. Implemented (production venue mode): `tick_size_change` updates the rules, the maker's grid and cancels resting orders off the new grid (SimVenue::retick); `market_resolved` per L4. F12 cancel-only/closed-only modes not seen in data: not modelled.
 
 Faults (each config prob or schedule; Philox, seed in exec.cfg):
 
@@ -128,7 +128,7 @@ Limits (print in every report): L2 has no order ids (queue estimated); others do
 - X5 Policy P (Parallel): all legs Fak at window px at once. Policy Q (seQuential): thinnest leg Fok first; on fill, rest Fak.
 - X6 Completion check after all leg reports or T_leg timeout.
 - X7 Incomplete set: complete_cost = buy missing legs at asks walking depth; unwind_cost = sell filled legs at bids walking depth. Choose cheaper if loss <= attempt bound (R10); else hold, freeze group, alert; R15 bounds hold time.
-- X8 Log per attempt: window id, policy, legs filled, cause (fault id or market), action, cost, net PnL, capital-days.
+- X8 Log per attempt: window id, policy, legs filled, cause (fault id or market), action, cost, net PnL, capital-days. Implemented as counters (ArbStats, summary.tsv, metrics), not a per-attempt log: a log would allocate on the trading thread.
 - X9 One attempt per group at a time; no new attempt while a group has residual exposure.
 - X10 Pair completion: buy side merges the set (L6) when both legs are confirmed or matched per config; sell side splits first (L6) then sells both legs; a failed sell leg leaves inventory to unwind (X7).
 - X11 Batches: event legs in batches of 15 (D19); policy P sends batches back to back. Not modelled: every leg is sent in the same instant (largest group recorded: 25 legs, two batches at the venue).

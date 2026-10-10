@@ -334,3 +334,17 @@ TEST(SimVenue, SameSeedSameRunDifferentSeedDifferentFaults) {
     EXPECT_EQ(run(1), run(1));
     EXPECT_NE(run(1), run(2));
 }
+
+TEST(SimVenue, CoarserTickCancelsRestingOrdersOffTheNewGrid) {
+    Rig g;
+    const auto off = g.send(Side::Buy, 3950, 10), on = g.send(Side::Buy, 3900, 10);
+    g.run(1);
+    g.v.retick(0, 100, 2);
+    g.run(2);
+    ASSERT_EQ(g.of(off, VenueRpt::CancelAck).size(), 1u);
+    EXPECT_EQ(g.of(off, VenueRpt::CancelAck)[0].reason, g.v.kTick);
+    EXPECT_TRUE(g.of(on, VenueRpt::CancelAck).empty());
+    const auto late = g.send(Side::Buy, 3950, 10, Tif::Gtc, 3);
+    g.run(3);
+    EXPECT_EQ(g.of(late, VenueRpt::Reject)[0].reason, g.v.kTick);
+}

@@ -236,7 +236,9 @@ struct State {
     bool venue = false;
     std::uint64_t orders = 0, venue_rejects = 0, venue_fills = 0, settle_failed = 0, mismatches = 0, illegal = 0;
     std::uint64_t risk_rejects[static_cast<std::size_t>(exec::Reject::kCount)] = {};
-    std::uint32_t open_orders = 0;
+    std::uint32_t open_orders = 0, unknown_orders = 0;
+    std::uint64_t cancel_races = 0, arb_attempts = 0, arb_complete = 0, arb_completed = 0, arb_unwound = 0, arb_frozen = 0;
+    double leg_exposure = 0;
     int kill = 0;
     double exec_pnl = 0, fees = 0, capital_locked = 0, capital_days = 0;
     std::vector<TokRow> toks;
@@ -269,7 +271,12 @@ void capture(State& st, const Engine& e, double up, std::uint64_t records, std::
         st.settle_failed = e.oms().settle_failures(), st.mismatches = e.position_mismatches(), st.illegal = e.oms().illegal_count();
         for (std::size_t r = 0; r < static_cast<std::size_t>(exec::Reject::kCount); ++r)
             st.risk_rejects[r] = e.exec_risk().count(static_cast<exec::Reject>(r));
-        st.open_orders = e.oms().open_orders();
+        st.open_orders = e.oms().open_orders(), st.unknown_orders = e.oms().unknown_orders();
+        st.cancel_races = e.oms().cancel_races();
+        const exec::ArbStats& a = e.arb_exec().stats();
+        st.arb_attempts = a.attempts, st.arb_complete = a.complete, st.arb_completed = a.completed, st.arb_unwound = a.unwound;
+        st.arb_frozen = a.frozen_bound + a.frozen_depth + a.frozen_retries;
+        st.leg_exposure = static_cast<double>(e.arb_exec().exposure()) / exec::kDollar;
         st.kill = static_cast<int>(e.exec_risk().kill_reason());
         constexpr double usd = 1.0 / exec::kDollar;
         st.exec_pnl = static_cast<double>(e.exec_pnl()) * usd, st.fees = static_cast<double>(l.fees()) * usd;
@@ -324,6 +331,14 @@ std::pair<std::string, std::string> render(const State& x, const Lat& lat, const
             line(std::string("hft_rejects_total{reason=\"") + kRejectNames[r] + "\"}", static_cast<double>(x.risk_rejects[r]));
         line("hft_fills_total", static_cast<double>(x.venue_fills));
         line("hft_open_orders", x.open_orders);
+        line("hft_unknown_orders", x.unknown_orders);
+        line("hft_cancel_races_total", static_cast<double>(x.cancel_races));
+        line("hft_arb_attempts_total", static_cast<double>(x.arb_attempts));
+        line("hft_leg_incomplete_total{action=\"none\"}", static_cast<double>(x.arb_complete));
+        line("hft_leg_incomplete_total{action=\"completed\"}", static_cast<double>(x.arb_completed));
+        line("hft_leg_incomplete_total{action=\"unwound\"}", static_cast<double>(x.arb_unwound));
+        line("hft_leg_incomplete_total{action=\"frozen\"}", static_cast<double>(x.arb_frozen));
+        line("hft_leg_exposure_usd", x.leg_exposure);
         line("hft_settle_failures_total", static_cast<double>(x.settle_failed));
         line("hft_position_mismatches_total", static_cast<double>(x.mismatches));
         line("hft_illegal_reports_total", static_cast<double>(x.illegal));
@@ -510,6 +525,7 @@ void exec_summary(const Options& o, const Engine& e, const DecisionHash& dh) {
         {"illegal_reports", std::to_string(e.oms().illegal_count())},
         {"unknown_timeouts", std::to_string(e.oms().timeouts())},
         {"oms_mismatches", std::to_string(e.oms().mismatches())},
+        {"cancel_races", std::to_string(e.oms().cancel_races())},
         {"position_mismatches", std::to_string(e.position_mismatches())},
         {"kill", kKillNames[static_cast<int>(e.exec_risk().kill_reason())]},
         {"open_orders", std::to_string(e.oms().open_orders())},

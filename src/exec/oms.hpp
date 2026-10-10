@@ -142,6 +142,7 @@ class Oms {
                 if (terminal(s) || r.qty <= 0 || o->cum + r.qty > o->in.qty ||
                     (o->in.side == Side::Buy ? r.px > o->in.px : r.px < o->in.px))
                     return illegal(now);
+                if (s == OrdState::PendingCancel) ++cancel_races_;
                 remember(*o, r.fill_id);
                 apply_fill(*o, r);
                 if (o->cum == o->in.qty) {
@@ -215,6 +216,12 @@ class Oms {
     std::uint64_t mismatches() const { return mismatches_; }
     std::uint64_t settle_failures() const { return settle_failed_; }
     std::uint64_t orphan_settlements() const { return orphan_settlements_; }
+    std::uint64_t cancel_races() const { return cancel_races_; }  // fills that arrived while a cancel was pending (S9)
+    std::uint32_t unknown_orders() const {
+        std::uint32_t n = 0;
+        for (const std::uint32_t u : unknown_) n += u;
+        return n;
+    }
     // The first illegal report: its kind and the order state it met (255: unknown order).
     std::pair<std::uint8_t, std::uint8_t> first_illegal() const { return first_illegal_; }
     std::uint16_t first_illegal_reason() const { return first_reason_; }
@@ -314,7 +321,7 @@ class Oms {
     std::pair<std::uint8_t, std::uint8_t> first_illegal_{0, 0};
     std::uint8_t last_kind_ = 0, last_state_ = 0;
     std::uint16_t last_reason_ = 0, first_reason_ = 0;
-    std::uint64_t illegal_ = 0, duplicates_ = 0, timeouts_ = 0, mismatches_ = 0, settle_failed_ = 0, orphan_settlements_ = 0;
+    std::uint64_t illegal_ = 0, duplicates_ = 0, timeouts_ = 0, mismatches_ = 0, settle_failed_ = 0, orphan_settlements_ = 0, cancel_races_ = 0;
 };
 
 }  // namespace hft::exec

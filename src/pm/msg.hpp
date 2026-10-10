@@ -36,7 +36,7 @@ inline double parse_size(std::string_view s) {
     return r.ptr == b ? 0.0 : v;
 }
 
-enum class Kind : std::uint8_t { Book, PriceChange, Trade, Other };
+enum class Kind : std::uint8_t { Book, PriceChange, Trade, Other, TickChange, Resolved };
 
 struct Level {
     std::int32_t px;
@@ -55,7 +55,7 @@ struct Event {
     Kind kind = Kind::Other;
     std::string_view type, asset;
     std::span<const Level> bids, asks;     // Book
-    std::int32_t tick = -1;                // Book: tick_size, -1 if absent
+    std::int32_t tick = -1;                // Book: tick_size; TickChange: new_tick_size; -1 if absent
     std::span<const Change> changes;       // PriceChange
     bool has_changes = false;              // PriceChange carried a price_changes list
     std::int32_t px = -1;                  // Trade
@@ -64,6 +64,7 @@ struct Event {
     bool buy = false;                      // Trade: the aggressor bought
     std::int64_t exch_ms = 0;              // exchange timestamp, ms since epoch, 0 if absent
     std::int32_t conn = -1;                // control records ("_heartbeat", "_reconnect"): connection
+    std::span<const std::string_view> assets;  // Resolved: the market's outcome tokens; asset is the winner
 };
 
 class Decoder {
@@ -79,6 +80,7 @@ class Decoder {
             e.ev.bids = std::span<const Level>(lv_).subspan(e.bids.b, e.bids.e - e.bids.b);
             e.ev.asks = std::span<const Level>(lv_).subspan(e.asks.b, e.asks.e - e.asks.b);
             e.ev.changes = std::span<const Change>(ch_).subspan(e.chg.b, e.chg.e - e.chg.b);
+            e.ev.assets = std::span<const std::string_view>(sv_).subspan(e.ids.b, e.ids.e - e.ids.b);
             fn(static_cast<const Event&>(e.ev));
         }
         return true;
@@ -101,7 +103,8 @@ class Decoder {
 
    private:
     using Tape = net::JsonTape;
-    enum Field { EventType, AssetId, Price, Size, Side, BestBid, BestAsk, TickSize, Bids, Asks, PriceChanges, Timestamp, Conn, kFields };
+    enum Field { EventType, AssetId, Price, Size, Side, BestBid, BestAsk, TickSize, Bids, Asks, PriceChanges, Timestamp, Conn,
+                 NewTickSize, WinningAssetId, AssetsIds, kFields };
     using Fields = std::array<std::uint32_t, kFields>;
 
     // Little-endian integer of the first n bytes of a literal, to compare keys a word at a time.
@@ -135,11 +138,20 @@ class Decoder {
                 const auto w = load<std::uint64_t>(p);
                 return w == lit("tick_siz", 8) && p[8] == 'e' ? TickSize : w == lit("timestam", 8) && p[8] == 'p' ? Timestamp : -1;
             }
-            case 10: return load<std::uint64_t>(p) == lit("event_ty", 8) && load<std::uint16_t>(p + 8) == lit("pe", 2) ? EventType : -1;
-            case 13:
-                return load<std::uint64_t>(p) == lit("price_ch", 8) && load<std::uint32_t>(p + 8) == lit("ange", 4) && p[12] == 's'
-                           ? PriceChanges
-                           : -1;
+            case 10: {
+                const auto w = load<std::uint64_t>(p);
+                const auto v = load<std::uint16_t>(p + 8);
+                return w == lit("event_ty", 8) && v == lit("pe", 2) ? EventType : w == lit("assets_i", 8) && v == lit("ds", 2) ? AssetsIds : -1;
+            }
+            case 13: {
+                const auto w = load<std::uint64_t>(p);
+                const auto v = load<std::uint32_t>(p + 8);
+                return w == lit("price_ch", 8) && v == lit("ange", 4) && p[12] == 's'   ? PriceChanges
+                     : w == lit("new_tick", 8) && v == lit("_siz", 4) && p[12] == 'e' ? NewTickSize
+                                                                                       : -1;
+            }
+            case 16:
+                return load<std::uint64_t>(p) == lit("winning_", 8) && load<std::uint64_t>(p + 8) == lit("asset_id", 8) ? WinningAssetId : -1;
             default: return -1;
         }
     }
@@ -200,6 +212,19 @@ class Decoder {
             ev.px = parse_price(ev.price);
             ev.size = parse_size(str(f, Size));
             ev.buy = str(f, Side) == "BUY";
+        } else if (ev.type == "tick_size_change") {
+            ev.kind = Kind::TickChange;
+            ev.asset = str(f, AssetId);
+            ev.tick = parse_price(str(f, NewTickSize));
+        } else if (ev.type == "market_resolved") {
+            ev.kind = Kind::Resolved;
+            ev.asset = str(f, WinningAssetId);
+            assets_.clear();
+            const std::uint32_t a = f[AssetsIds];
+            if (a != Tape::npos && t_.type(a) == Tape::Type::Arr)
+                for (std::uint32_t c = t_.first(a); c != t_.end(a); c = t_.next(c))
+                    if (t_.type(c) == Tape::Type::Str) assets_.push_back(t_.raw(c));
+            ev.assets = assets_;
         }
         return ev;
     }
@@ -211,7 +236,7 @@ class Decoder {
     };
     struct Pending {
         Event ev;
-        Range bids, asks, chg;
+        Range bids, asks, chg, ids;
     };
     // First occurrence of each known member: whether it was seen, and its contents if a string.
     // s[f] is written only for string members and read only through str(), so it is left
@@ -423,10 +448,30 @@ class Decoder {
         return ok;
     }
 
+    // Array of strings (assets_ids); anything else is left to the tape.
+    bool strings_fast(Range& r) {
+        r.b = static_cast<std::uint32_t>(sv_.size());
+        if (!eat('[')) return false;
+        ws();
+        if (!eat(']')) {
+            for (;;) {
+                std::string_view s;
+                if (!string(s)) return false;
+                sv_.push_back(s);
+                ws();
+                if (eat(']')) break;
+                if (!eat(',')) return false;
+                ws();
+            }
+        }
+        r.e = static_cast<std::uint32_t>(sv_.size());
+        return true;
+    }
+
     bool event_fast() {
         Members m;
         Pending& pe = pend_.emplace_back();
-        bool bids_arr = false, asks_arr = false, chg_arr = false, conn_plain = false;
+        bool bids_arr = false, asks_arr = false, chg_arr = false, ids_arr = false, conn_plain = false;
         std::int64_t conn = 0;
         const bool ok = object([&](int f) {
             const bool first = m.first(f);
@@ -435,6 +480,7 @@ class Decoder {
                 case Bids: return peek() == '[' ? (bids_arr = true, levels_fast(pe.bids)) : skip(2);
                 case Asks: return peek() == '[' ? (asks_arr = true, levels_fast(pe.asks)) : skip(2);
                 case PriceChanges: return peek() == '[' ? (chg_arr = true, changes_fast(pe.chg)) : skip(2);
+                case AssetsIds: return peek() == '[' ? (ids_arr = true, strings_fast(pe.ids)) : skip(2);
                 case Conn:
                     if (peek() == '-' || digit(peek())) return number(&conn, &conn_plain);
                     return skip(2);
@@ -454,6 +500,7 @@ class Decoder {
         if (!bids_arr) pe.bids = {};
         if (!asks_arr) pe.asks = {};
         if (!chg_arr) pe.chg = {};
+        if (!ids_arr) pe.ids = {};
         if (ev.type == "book") {
             ev.kind = Kind::Book;
             ev.asset = m.str(AssetId);
@@ -472,14 +519,22 @@ class Decoder {
                 ev.px = parse_price(ev.price);
                 ev.size = parse_size(m.str(Size));
                 ev.buy = m.str(Side) == "BUY";
+            } else if (ev.type == "tick_size_change") {
+                ev.kind = Kind::TickChange;
+                ev.asset = m.str(AssetId);
+                ev.tick = parse_price(m.str(NewTickSize));
+            } else if (ev.type == "market_resolved") {
+                ev.kind = Kind::Resolved;
+                ev.asset = m.str(WinningAssetId);
             }
         }
+        if (ev.kind != Kind::Resolved) pe.ids = {};
         return true;
     }
 
     bool fast(std::string_view text) {
         p_ = text.data(), e_ = text.data() + text.size();
-        pend_.clear(), lv_.clear(), ch_.clear();
+        pend_.clear(), lv_.clear(), ch_.clear(), sv_.clear();
         ws();
         if (peek() == '[') {
             ++p_;
@@ -503,11 +558,13 @@ class Decoder {
     Tape t_;
     std::vector<Level> bids_, asks_;
     std::vector<Change> changes_;
+    std::vector<std::string_view> assets_;
     const char *p_ = nullptr, *e_ = nullptr;
     std::uint64_t fallbacks_ = 0;
     std::vector<Pending> pend_;
     std::vector<Level> lv_;
     std::vector<Change> ch_;
+    std::vector<std::string_view> sv_;
 };
 
 // Dense indices for token ids: open addressing on a hash of the id's ends.

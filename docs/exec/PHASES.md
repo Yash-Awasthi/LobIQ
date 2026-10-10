@@ -88,6 +88,15 @@ Step template: do -> check. "Ask" = stop and ask the owner before continuing.
 - [x] E7.3 README/ROADMAP: measured numbers only; INDEX status -> done.
 - G7: CI green, gates clean. MET 2026-10-10 (run 38064608707: 10 builds, fuzz, gates).
 
+## Audit after G7 (2026-10-10)
+
+Docs read against code; what the design required and was missing:
+- [x] V7/L4: `tick_size_change` and `market_resolved` (F26; 14 and 12 in the reference recording) decoded on both decoder paths and applied in production venue mode (tests: decoder, SimVenue.retick, EngineVenue resolution and tick, executor sets paid on resolution; 10/10 mutations caught). Demo and sweep hashes changed on purpose (RESULTS.md); pm_live baseline unchanged. The G4 run replays clean under the new rules (decision_hash_v2 af5f8390de233231).
+- [x] R12: a stale connection freezes the executor's legs on it.
+- [x] SEC5: token and tag ids from the metadata API must be 1-100 digits; a market with any other id is dropped.
+- [x] A5: unknown_orders, cancel_races_total, leg_incomplete_total{action}, leg_exposure_usd added.
+- [x] Docs: T1-T4, R9, R11, R12, L4, V7, X8, A2, A3, A4.3, A5 now say what the code does.
+
 ## Stop conditions (any phase)
 
 - A venue fact breaks the design (E0) -> ask.

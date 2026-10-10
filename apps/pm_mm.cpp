@@ -92,6 +92,8 @@ int main(int argc, char** argv) {
                 if (seeded[i]) makers[i]->on_trade(ns, e.buy, e.px, e.size);
                 break;
             }
+            case Kind::TickChange:
+            case Kind::Resolved:
             case Kind::Other: break;
         }
     });

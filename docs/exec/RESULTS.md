@@ -36,9 +36,9 @@ Each is one command and checks its decision hash (exit 1 if it differs).
 
 | script | shows | decision_hash_v2 |
 |---|---|---|
-| `scripts/demo/a_clean.sh` | makers and the executor on the reference recording | 3c8be7fa30920873 |
-| `scripts/demo/b_faults.sh` | dropped acks, duplicates, failed settlements, disconnects: 2085 orders went Unknown and were reconciled; 0 illegal reports, 0 mismatches, no kill | 0fa64bdff00983cc |
-| `scripts/demo/c_leg_risk.sh` | 30% dropped acks with the executor: 18 of 19 attempts lost a leg and were completed; 0 residual sets | 2d532f7739e2ba18 |
+| `scripts/demo/a_clean.sh` | makers and the executor on the reference recording, resolutions and tick changes applied | 4e61da7cd2273ae3 |
+| `scripts/demo/b_faults.sh` | dropped acks, duplicates, failed settlements, disconnects: 2059 orders went Unknown and were reconciled; 0 illegal reports, 0 mismatches, no kill | 7573009ce7421dae |
+| `scripts/demo/c_leg_risk.sh` | 30% dropped acks with the executor: 17 of 18 attempts lost a leg and were completed; 0 residual sets | 903aa18eed43b10e |
 | `scripts/demo/d_kill.sh` | a paper run tripped by its KILL file 20 s in: every order cancelled (0 open at the end), 156 later orders refused, kill.log written | 76e7e15544ecbb02 |
 
 `d_kill` replays `~/data/exec/runs/demo-kill`, a 60 s paper run recorded with `pm_exec --paper`.
@@ -46,17 +46,17 @@ Each is one command and checks its decision hash (exit 1 if it differs).
 ## E6.3 Makers and arbitrage at four latencies
 
 `scripts/latency_sweep.sh [recording]`: config/exec.cfg with `arb=1`, one-way latency half the round trip
-(measured 182 ms, D4, and 50, 150, 300 ms). PnL in USD after fees. Sets held are complete event sets
-waiting for resolution; ledger_pnl_usd values every position at the mid marks of the last risk tick.
+(measured 182 ms, D4, and 50, 150, 300 ms). PnL in USD after fees. Markets that resolve during a recording pay out (L4), so event sets bought
+before a resolution end as cash; ledger_pnl_usd values what is still held at the mid marks of the last risk tick.
 
 Reference recording `~/data/pm-live/20261009T160027Z` (2.0M messages):
 
 | rtt_ms | maker_fills | taker_fills | windows | attempts | complete | empty | completed_after_leg_loss | unwound | frozen | residual_groups | merges | realised_usd | sets_held | fees_usd | ledger_pnl_usd | kill | decision_hash_v2 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 182 | 105 | 39 | 305 | 19 | 1 | 0 | 18 | 0 | bound:0,depth:9,retries:0 | 0 | 18 | -12.148430 | 76.85 | 9.315040 | -36.023477 | none | 3c8be7fa30920873 |
-| 50 | 81 | 39 | 305 | 19 | 1 | 0 | 18 | 0 | bound:0,depth:9,retries:0 | 0 | 18 | -11.133820 | 76.85 | 9.357470 | -30.095601 | none | 77b3036398e0ef4c |
-| 150 | 103 | 39 | 305 | 19 | 1 | 0 | 18 | 0 | bound:0,depth:9,retries:0 | 0 | 18 | -12.148430 | 76.85 | 9.315040 | -36.819547 | none | 89d539fa4fb24d04 |
-| 300 | 125 | 36 | 305 | 19 | 1 | 1 | 16 | 0 | bound:0,depth:9,retries:1 | 0 | 16 | -11.301370 | 76.85 | 8.213500 | -30.029654 | none | 12fb9047d649ac7c |
+| 182 | 105 | 39 | 305 | 19 | 1 | 0 | 18 | 0 | bound:0,depth:9,retries:0 | 0 | 18 | -11.756030 | 0.00 | 9.315040 | -36.446152 | none | 4e61da7cd2273ae3 |
+| 50 | 81 | 39 | 305 | 19 | 1 | 0 | 18 | 0 | bound:0,depth:9,retries:0 | 0 | 18 | -10.741420 | 0.00 | 9.357470 | -28.131526 | none | db67b7990c18dbdb |
+| 150 | 103 | 39 | 305 | 19 | 1 | 0 | 18 | 0 | bound:0,depth:9,retries:0 | 0 | 18 | -11.756030 | 0.00 | 9.315040 | -37.242222 | none | bc2afbbaef1f6341 |
+| 300 | 125 | 36 | 305 | 19 | 1 | 1 | 16 | 0 | bound:0,depth:9,retries:1 | 0 | 16 | -10.908970 | 0.00 | 8.213500 | -30.452329 | none | 774dde4fc953a211 |
 
 Windows never attempted, by the filter that last refused them: 182 ms: young:0,stale:189,frozen:0,one_sided:14,self_cross:8,size:0,edge:60; 50 ms: young:0,stale:189,frozen:0,one_sided:14,self_cross:8,size:0,edge:60; 150 ms: young:0,stale:189,frozen:0,one_sided:14,self_cross:8,size:0,edge:60; 300 ms: young:0,stale:189,frozen:0,one_sided:14,self_cross:13,size:0,edge:55.
 
@@ -64,10 +64,10 @@ Recording `~/data/pm-live/20261009T135806Z` (0.7M messages):
 
 | rtt_ms | maker_fills | taker_fills | windows | attempts | complete | empty | completed_after_leg_loss | unwound | frozen | residual_groups | merges | realised_usd | sets_held | fees_usd | ledger_pnl_usd | kill | decision_hash_v2 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 182 | 70 | 4 | 111 | 2 | 0 | 0 | 2 | 0 | bound:0,depth:1,retries:0 | 0 | 2 | -0.081160 | 0.00 | 0.035980 | -63.393429 | none | 92bb9b4665c3433d |
-| 50 | 60 | 4 | 111 | 2 | 0 | 0 | 2 | 0 | bound:0,depth:1,retries:0 | 0 | 2 | -0.057470 | 0.00 | 0.034880 | -63.000244 | none | 99e25986894d1935 |
-| 150 | 71 | 4 | 111 | 2 | 0 | 0 | 2 | 0 | bound:0,depth:1,retries:0 | 0 | 2 | -0.081160 | 0.00 | 0.035980 | -63.043429 | none | defe1bedd4c0fa6b |
-| 300 | 84 | 4 | 111 | 2 | 0 | 0 | 2 | 0 | bound:0,depth:1,retries:0 | 0 | 2 | -0.081160 | 0.00 | 0.035980 | -70.896770 | none | 241d620fe25bc3fe |
+| 182 | 70 | 4 | 111 | 2 | 0 | 0 | 2 | 0 | bound:0,depth:1,retries:0 | 0 | 2 | -0.081160 | 0.00 | 0.035980 | -63.393429 | none | caacb1ff97a6379f |
+| 50 | 60 | 4 | 111 | 2 | 0 | 0 | 2 | 0 | bound:0,depth:1,retries:0 | 0 | 2 | -0.057470 | 0.00 | 0.034880 | -63.000244 | none | 4bfe688a0f98c40d |
+| 150 | 71 | 4 | 111 | 2 | 0 | 0 | 2 | 0 | bound:0,depth:1,retries:0 | 0 | 2 | -0.081160 | 0.00 | 0.035980 | -63.043429 | none | d69b3a596f22477a |
+| 300 | 84 | 4 | 111 | 2 | 0 | 0 | 2 | 0 | bound:0,depth:1,retries:0 | 0 | 2 | -0.081160 | 0.00 | 0.035980 | -70.896770 | none | 3ab044cea0439c7c |
 
 Windows never attempted, by the filter that last refused them: 182 ms: young:0,stale:50,frozen:0,one_sided:3,self_cross:8,size:2,edge:46; 50 ms: young:0,stale:50,frozen:0,one_sided:3,self_cross:7,size:2,edge:47; 150 ms: young:0,stale:50,frozen:0,one_sided:3,self_cross:7,size:2,edge:47; 300 ms: young:0,stale:50,frozen:0,one_sided:3,self_cross:8,size:2,edge:46.
 

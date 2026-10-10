@@ -34,6 +34,11 @@ TEST(PmDecoder, DecodesEachKindAndBatches) {
                 seen.push_back("trade " + std::string(e.price) + (e.buy ? " B " : " S ") + std::to_string(e.size));
                 break;
             case Kind::Other: seen.push_back("other " + std::string(e.type)); break;
+            case Kind::TickChange: seen.push_back("tick " + std::string(e.asset) + " " + std::to_string(e.tick)); break;
+            case Kind::Resolved:
+                seen.push_back("resolved " + std::string(e.asset) + " of " + std::to_string(e.assets.size()) + " " +
+                               std::string(e.assets.empty() ? "" : e.assets[0]));
+                break;
         }
     };
     ASSERT_TRUE(d.decode(R"({"event_type":"book","asset_id":"7","bids":[{"price":"0.36","size":"12.5"}],)"
@@ -44,14 +49,24 @@ TEST(PmDecoder, DecodesEachKindAndBatches) {
                          R"({"event_type":"last_trade_price","asset_id":"7","price":"0.4","size":"2","side":"BUY"},)"
                          R"({"event_type":"best_bid_ask"}])",
                          rec));
-    EXPECT_EQ(d.fallbacks(), 0u);  // both took the single pass
+    // As recorded (spaces after separators).
+    ASSERT_TRUE(d.decode(R"({"market":"0xc1", "asset_id":"11", "old_tick_size":"0.01", "new_tick_size":"0.001", )"
+                         R"("timestamp":"1791568147241", "event_type":"tick_size_change"})",
+                         rec));
+    ASSERT_TRUE(d.decode(R"({"id":"4961360", "market":"0xe8", "assets_ids":["74", "51"], "winning_asset_id":"51", )"
+                         R"("winning_outcome":"No", "event_message":null, "timestamp":"1791560429060", )"
+                         R"("event_type":"market_resolved", "tags":["Sports", "Soccer"]})",
+                         rec));
+    EXPECT_EQ(d.fallbacks(), 0u);  // all took the single pass
     EXPECT_FALSE(d.decode("{\"event_type\":", rec));
     EXPECT_EQ(d.fallbacks(), 1u);
     const std::vector<std::string> want = {"book 7 1/2 tick 100 bid 3600x12.500000",
                                            "chg 7 B 3700x5.000000 0.37",
                                            "chg 8 S 6000x0.000000 ",
                                            "trade 0.4 B 2.000000",
-                                           "other best_bid_ask"};
+                                           "other best_bid_ask",
+                                           "tick 11 10",
+                                           "resolved 51 of 2 74"};
     EXPECT_EQ(seen, want);
 }
 
@@ -68,6 +83,7 @@ std::string dump(const Event& e) {
     for (const auto& c : e.changes)
         s += "|c" + std::string(c.asset) + "," + std::to_string(c.px) + "x" + std::to_string(c.size) + "," +
              std::to_string(c.buy) + "," + std::string(c.best_bid) + "," + std::string(c.best_ask);
+    for (const auto a : e.assets) s += "|i" + std::string(a);
     return s;
 }
 
@@ -79,6 +95,7 @@ rc::Gen<std::string> scalar() {
     return rc::gen::weightedOneOf<std::string>(
         {{30, rc::gen::element<std::string>(R"("0.5")", R"("0.001")", R"("12.34")", R"("7")", R"("8")", R"("BUY")",
                                             R"("SELL")", R"("book")", R"("price_change")", R"("last_trade_price")",
+                                            R"("tick_size_change")", R"("market_resolved")",
                                             R"("_heartbeat")", R"("_reconnect")", R"("1791561630336")", R"("")", "-1",
                                             "3", "0", "12", "true", "null")},
          {1, rc::gen::element<std::string>(R"("a\nb")", R"("x\"y")", "1.5", "1e3", "-0", "01", "+1", "1.", "false",
@@ -89,7 +106,7 @@ rc::Gen<std::string> key() {
     return rc::gen::weightedOneOf<std::string>(
         {{30, rc::gen::element<std::string>("event_type", "event_type", "asset_id", "price", "size", "side", "best_bid",
                                             "best_ask", "tick_size", "bids", "asks", "price_changes", "timestamp",
-                                            "conn", "market", "hash")},
+                                            "conn", "market", "hash", "new_tick_size", "winning_asset_id", "assets_ids")},
          {1, rc::gen::element<std::string>("x", R"(price)")}});
 }
 
@@ -113,6 +130,13 @@ rc::Gen<std::string> value(int depth) {
     if (depth > 3) return scalar();
     return rc::gen::weightedOneOf<std::string>(
         {{6, scalar()},
+         {1, rc::gen::map(rc::gen::mapcat(rc::gen::inRange<std::size_t>(0, 3),
+                                          [](std::size_t n) { return rc::gen::container<std::vector<std::string>>(n, scalar()); }),
+                          [](const std::vector<std::string>& v) {  // arrays of scalars, e.g. assets_ids
+                              std::string s = "[";
+                              for (std::size_t i = 0; i < v.size(); ++i) s += (i ? ", " : "") + v[i];
+                              return s + "]";
+                          })},
          {2, rc::gen::map(rc::gen::mapcat(rc::gen::inRange<std::size_t>(0, 4),
                                           [depth](std::size_t n) {
                                               return rc::gen::container<std::vector<std::string>>(n, object(depth));
@@ -140,7 +164,8 @@ RC_GTEST_PROP(PmDecoder, SizesParseExactlyAsFromChars, ()) {
 std::string event_text() {
     std::string o = *object(0);
     if (*rc::gen::inRange(0, 5) == 0) return o;
-    const std::string t = *rc::gen::element<std::string>("book", "price_change", "last_trade_price", "_heartbeat");
+    const std::string t = *rc::gen::element<std::string>("book", "price_change", "last_trade_price", "_heartbeat",
+                                                         "tick_size_change", "market_resolved");
     const std::string m = "\"event_type\":\"" + t + "\"";
     if (o == "{}") return "{" + m + "}";
     return *rc::gen::arbitrary<bool>() ? "{" + m + "," + o.substr(1) : o.substr(0, o.size() - 1) + "," + m + "}";
