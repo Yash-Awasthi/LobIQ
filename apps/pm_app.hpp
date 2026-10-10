@@ -37,6 +37,7 @@
 #include "pm/gamma.hpp"
 #include "pm/reader.hpp"
 #include "pm/session.hpp"
+#include "pm/report.hpp"
 
 namespace fs = std::filesystem;
 using namespace hft;
@@ -67,6 +68,7 @@ struct Options {
     double seconds = 0, record_cap_gb = 20;
     fs::path record, replay, dump_fills;  // dump_fills: replay writes every maker fill there
     fs::path run;       // pm_exec: summary.tsv, kill.log; KILL there trips the switch (live)
+    fs::path report;    // pm_exec replay: report.html, timeline.csv, summary.csv
     fs::path kill_latch;  // pm_exec paper: created on a kill; the next run refuses to start (D11)
 };
 
@@ -503,7 +505,7 @@ std::string hex(std::uint64_t v) {
 }
 
 // Venue runs: the exec line, and summary.tsv in the run directory.
-void exec_summary(const Options& o, const Engine& e, const DecisionHash& dh) {
+std::vector<std::pair<std::string, std::string>> exec_summary(const Options& o, const Engine& e, const DecisionHash& dh) {
     exec::Hash64 v2;
     v2.add(dh.h, e.exec_hash());
     const exec::Ledger& l = e.ledger();
@@ -518,7 +520,7 @@ void exec_summary(const Options& o, const Engine& e, const DecisionHash& dh) {
     for (std::size_t f = 1; f < static_cast<std::size_t>(exec::ArbFilter::kCount); ++f)
         filtered += (f > 1 ? "," : "") + std::string(kFilterNames[f]) + ":" + std::to_string(a.filtered[f]);
     const std::size_t residual = e.arb_exec().residual_groups();
-    const std::pair<const char*, std::string> rows[] = {
+    const std::vector<std::pair<std::string, std::string>> rows = {
         {"events", std::to_string(e.events())},
         {"orders", std::to_string(v.orders)},
         {"risk_rejects", risk_rejects},
@@ -558,11 +560,12 @@ void exec_summary(const Options& o, const Engine& e, const DecisionHash& dh) {
     std::FILE* f = o.run.empty() ? nullptr : std::fopen((o.run / "summary.tsv").c_str(), "w");
     std::string line = "exec";
     for (const auto& [k, val] : rows) {
-        line += std::string(" ") + k + " " + val;
-        if (f) std::fprintf(f, "%s\t%s\n", k, val.c_str());
+        line += " " + k + " " + val;
+        if (f) std::fprintf(f, "%s\t%s\n", k.c_str(), val.c_str());
     }
     if (f) std::fclose(f);
     std::fprintf(stderr, "%s\n", line.c_str());
+    return rows;
 }
 
 void summary(Engine& e, const DecisionHash& dh, std::FILE* out) {
@@ -586,6 +589,8 @@ int replay(const Options& o) {
     Histogram parse, engine;
     std::vector<MakerFill> fills;
     if (!o.dump_fills.empty()) e.set_fill_log(&fills);
+    std::vector<ReportSample> samples;  // every 10 s of recording time, for --report
+    std::int64_t t0 = 0, next_sample = 0;
     const std::int64_t wall0 = tsc::mono_ns();
     const auto st = read_lines(o.replay, [&](std::int64_t ns, std::string_view text) {
         const std::uint64_t a = tsc::start();
@@ -598,6 +603,14 @@ int replay(const Options& o) {
         parse.record(tsc::stop() - a - in_engine), engine.record(in_engine);
         dh.drain(e);
         if (!kill_seen && e.exec_risk().killed()) kill_log(o, e), kill_seen = true;
+        if (!o.report.empty() && ns >= next_sample) {
+            if (!t0) t0 = ns;
+            next_sample = ns + 10'000'000'000;
+            const exec::SimStats& v = e.venue_stats();
+            samples.push_back({static_cast<double>(ns - t0) / 6e10, static_cast<double>(e.exec_pnl()) / exec::kDollar,
+                               static_cast<double>(e.ledger().fees()) / exec::kDollar, v.maker_fills, v.taker_fills,
+                               e.oms().open_orders()});
+        }
         return ok;
     });
     const double wall_s = static_cast<double>(tsc::mono_ns() - wall0) * 1e-9;
@@ -638,7 +651,22 @@ int replay(const Options& o) {
             std::fprintf(f, "%lld %u %c %d %.6f\n", static_cast<long long>(m.ns), m.token, m.buy ? 'B' : 'S', m.px, m.qty);
         std::fclose(f);
     }
-    if (e.venue()) exec_summary(o, e, dh);
+    if (e.venue()) {
+        const auto rows = exec_summary(o, e, dh);
+        if (!o.report.empty()) {
+            std::vector<ReportLatency> lat;
+            auto add = [&](const char* name, const Histogram& h) {
+                lat.push_back({name, h.percentile(50) * ns, h.percentile(99) * ns, h.percentile(99.9) * ns, h.count()});
+            };
+            add("parse", parse), add("engine", engine);
+            if (const Engine::Profile* p = e.profile()) add("submit", p->submit), add("deliver", p->deliver), add("venue", p->venue);
+            std::vector<ReportGroup> groups;
+            for (const auto& g : e.arb().stats())
+                if (g.windows) groups.push_back({g.name, g.windows, g.open_seconds, g.max_edge});
+            write_pm_report(o.report, o.replay.filename().string(), rows, samples, lat, groups);
+            std::fprintf(stderr, "report: %s\n", (o.report / "report.html").c_str());
+        }
+    }
     summary(e, dh, stdout);
     return 0;
 }
