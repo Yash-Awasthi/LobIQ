@@ -1,0 +1,37 @@
+name: image
+
+# Builds the container (tests run inside the build) on every pull request; on main and on version
+# tags it also publishes ghcr.io/<owner>/hft.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: build
+        run: |
+          IMG=ghcr.io/$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')/hft
+          echo "IMG=$IMG" >> "$GITHUB_ENV"
+          docker build -t "$IMG:${GITHUB_SHA::12}" .
+      - name: demos in the image
+        run: |
+          mkdir -p out && chmod 777 out
+          docker run --rm -v "$PWD/out:/hft/out" "$IMG:${GITHUB_SHA::12}"
+          test -s out/paper/report.html && test -s out/backtest/naive/report.html
+      - name: publish
+        if: github.event_name == 'push'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "$IMG:${GITHUB_SHA::12}"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then tag="$GITHUB_REF_NAME"; else tag=latest; fi
+          docker tag "$IMG:${GITHUB_SHA::12}" "$IMG:$tag"
+          docker push "$IMG:$tag"
