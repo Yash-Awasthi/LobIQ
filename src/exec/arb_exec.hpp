@@ -1,9 +1,7 @@
 #pragma once
 
-// Arbitrage executor (DESIGN X): turns an open window on a group of outcome tokens, exactly one
-// of which pays 1, into orders, and handles sets that end up incomplete. The decisions are pure
-// functions of the books: which windows to take (X2), at what size (X4) and net edge (X3), and
-// whether to complete or unwind an incomplete set (X7, R10). ArbExec runs attempts with them.
+// Arbitrage on groups where exactly one token pays 1. Decisions are pure functions of the books:
+// which windows (X2), size (X4), net edge (X3), complete or unwind (X7, R10).
 
 #include <cstddef>
 #include <cstdint>
@@ -128,11 +126,8 @@ inline Usd walk(const LegView& v, bool buy, Qty q, Px* limit) {
     return q > 0 ? -1 : u;
 }
 
-// X13: the attempt's value if one leg trades nothing and every other leg is reversed at the
-// visible book (sold at the bids on the buy side; on the sell side bought back at the asks and
-// merged with the unsold leg), fees included; the worst over the legs. Completing the missed leg
-// is no bound: its price at completion time is not known now. kNoExit if a reversal finds no
-// depth within the collar.
+// X13: worst attempt value if one leg trades nothing and the others are reversed at the visible book, fees
+// included. Completing the missed leg is no bound (its later price is unknown). kNoExit: no depth in the collar.
 inline Usd exit_value(bool buy, const LegView* legs, std::size_t n, Qty size) {
     Usd worst = INT64_MAX;
     for (std::size_t j = 0; j < n; ++j) {
@@ -159,9 +154,8 @@ struct Choice {
     Usd value;  // attempt PnL after the action, sets valued at 1
 };
 
-// X7: legs hold `held` shares and the attempt's cash flow so far is `cash`. Completing buys
-// every leg up to the largest holding, unwinding sells every leg down to the smallest; the one
-// worth more wins, unless even that loses more than `bound` (R10) or neither is possible.
+// X7: complete (buy up to the largest holding) or unwind (sell down to the smallest), whichever is worth
+// more, unless it loses more than `bound` (R10) or neither is possible.
 inline Choice choose(const Qty* held, const LegView* legs, std::size_t n, Usd cash, Usd bound) {
     Qty hi = held[0], lo = held[0];
     for (std::size_t i = 1; i < n; ++i) hi = held[i] > hi ? held[i] : hi, lo = held[i] < lo ? held[i] : lo;
@@ -196,13 +190,8 @@ struct ArbStats {
     Usd realised = 0;  // attempts that ended flat: their whole cash flow, merges included
 };
 
-// Runs one attempt per group at a time (X9). The driver reports orders and settlements as they
-// happen and calls process() after delivering venue reports: decisions are taken there, never
-// inside the order manager's callbacks. Ctx gives the executor its view and its actions:
-//   const pm::TokenBook& book(token); LegView view(token);
-//   std::uint64_t submit(token, side, tif, px, qty, tag, delay) (0: risk refused; sent `delay` later);
-//   void cancel(cl); void split(yes, no, qty); void merge(yes, no, qty); Usd cash(); Usd room(token);
-//   void kill().
+// One attempt per group (X9). Decisions are taken in process(), after reports are delivered,
+// never inside the order manager's callbacks; Ctx supplies books, leg views and actions.
 class ArbExec {
    public:
     enum class State : std::uint8_t { Idle, Split, Legs, Resolve, Merge, Frozen };

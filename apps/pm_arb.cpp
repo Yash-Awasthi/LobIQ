@@ -1,15 +1,5 @@
-// Replays pm_live recordings through the books and the arbitrage scanner only (no makers)
-// and lists every window in which an event's Yes asks summed below 1 or its bids above 1,
-// or a market's Yes and No did.
-//
-//   pm_arb [--min-ms M] <run-dir | dir of run dirs> ... > windows.tsv
-//
-// Windows shorter than M milliseconds (default 1) are dropped: they come from the two halves
-// of one price change arriving in separate messages, not from a price anyone could trade.
-//
-// stdout: one row per window. stderr: per-group totals over all runs. Edges are gross, in
-// units of 0.0001 per set of shares; fees and the cost of hitting several books in turn
-// are not counted.
+// Replays pm_live recordings through books and the arbitrage scanner and lists every window (gross edge,
+// no fees). Windows under --min-ms (default 1) are two halves of one price change, not tradeable.
 
 #include <algorithm>
 #include <cstdio>

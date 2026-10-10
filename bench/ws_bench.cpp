@@ -1,6 +1,5 @@
-// Feed-thread cost per WebSocket message: TLS output lands in a buffer, whole messages come out,
-// each is copied into the ring. 600-byte text frames (the recorded median is ~500 bytes) in
-// 16 kB reads, as TLS records arrive.
+// Feed-thread cost per WebSocket message: 600-byte text frames (recorded median ~500 bytes)
+// in 16 kB reads, as TLS records arrive.
 
 #include <benchmark/benchmark.h>
 

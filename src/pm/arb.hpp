@@ -1,10 +1,7 @@
 #pragma once
 
-// Finds moments when a set of outcome tokens, exactly one of which pays 1, can be bought for
-// less than 1 in total (best asks summing below 1) or sold for more (best bids summing above
-// 1, done in practice by buying every No). Each such window is tracked from the first book
-// change that opens it to the one that closes it. Fees and the cost of hitting several books
-// in turn are not modelled; the edge is gross.
+// Tracks windows where a group's best asks sum below 1 or best bids above 1 (exactly one token pays 1),
+// from the book change that opens one to the one that closes it. Edge is gross: no fees, no sweep cost.
 
 #include <algorithm>
 #include <cstdint>

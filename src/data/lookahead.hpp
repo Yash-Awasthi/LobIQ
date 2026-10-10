@@ -1,9 +1,7 @@
 #pragma once
 
-// Delays a MergedReader by N messages so the consumer can prefetch what the next N will touch.
-// The merged stream is already in memory a window ahead; this keeps copies of the next N
-// records and hands each one back to a callback the moment it is read, then returns them
-// in order. Replay is bound by cache misses on the order-ID table, which the prefetches hide.
+// Delays a MergedReader by N messages so the consumer can prefetch what they will touch:
+// replay is bound by cache misses on the order-ID table.
 
 #include <array>
 #include <cstddef>
@@ -21,9 +19,8 @@ class Lookahead {
    public:
     explicit Lookahead(MergedReader& rd) : rd_(rd) {}
 
-    // `warm(locate, data, len)` runs once per record as it enters the window and returns a
-    // tag that comes back with the record. `late(tag, data, len)` runs when the record is
-    // kLate positions from the front.
+    // `warm` runs as a record enters the window and returns a tag that comes back with it;
+    // `late` runs kLate positions from the front.
     template <class Warm, class Late>
     bool next(Record& out, std::uint16_t& locate, std::uint32_t& tag, Warm&& warm, Late&& late) {
         while (count_ < N && !eof_) {

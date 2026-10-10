@@ -1,8 +1,7 @@
 #pragma once
 
-// Price-time matching engine for one symbol, over the L3 book. Handles limit, market and IOC
-// orders, post-only orders with a configurable lock/cross policy, self-trade prevention and
-// maker/taker fees. Output goes to a sink callable with each Event, so nothing allocates.
+// Price-time matching for one symbol: limit, market, IOC, post-only, self-trade prevention, fees.
+// Output goes to a sink callable per Event, so nothing allocates.
 
 #include <algorithm>
 #include <cstdint>

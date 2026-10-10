@@ -1,11 +1,7 @@
 #pragma once
 
-// Event-driven backtest of one symbol (DESIGN.md section 4). Real market events apply to
-// the exchange-side book at exchange time; the strategy sees them a market-data latency
-// later, through its own book and features; its orders reach the exchange after the
-// processing and order-entry latencies, and reports come back one order-entry latency after
-// the exchange produced them. At equal timestamps real market events go first. Accounting
-// marks to the real-order mid at exchange time and checks the PnL identity after every event.
+// Event-driven backtest of one symbol. At equal timestamps real market events go first;
+// the PnL identity is checked after every event.
 
 #include <algorithm>
 #include <cmath>

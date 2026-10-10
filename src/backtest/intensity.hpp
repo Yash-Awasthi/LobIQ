@@ -6,10 +6,8 @@
 
 namespace hft::backtest {
 
-// Online fill intensity lambda(d) = A exp(-k d) at quote distance d (ticks): exposure seconds
-// and fills per one-tick distance bin, forgotten with time constant tau, fitted by Poisson
-// maximum likelihood. The prior A0, k0 enters as `prior_s` seconds of pseudo-exposure per bin
-// with its expected fills; it is not forgotten, so the fit falls back to it without data.
+// Online fill intensity A exp(-k d), Poisson ML over decayed exposure and fills per tick bin.
+// The prior is never forgotten, so the fit falls back to it without data.
 class IntensityEstimator {
    public:
     static constexpr int kBins = 32;

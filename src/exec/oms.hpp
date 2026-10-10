@@ -1,14 +1,7 @@
 #pragma once
 
-// Order manager: one record per order, an explicit state machine (DESIGN S1-S18), reservations
-// in the ledger and the risk exposure, timeouts that freeze a token until the venue confirms
-// its orders, and reconciliation by asking the venue to resend an order's fills. Index-addressed
-// and allocation-free once its pools have grown.
-//
-// Rules that keep it honest:
-// - a fill is applied by quantity and at most once (fill ids remembered per order);
-// - cumulative fill only grows and never passes the order size;
-// - any report the machine cannot explain is counted and trips the kill switch.
+// Explicit state machine (S1-S18). A fill applies by quantity at most once; cumulative fill never
+// passes the order size; any report it cannot explain is counted and trips the kill switch.
 
 #include <cstdint>
 #include <utility>

@@ -1,8 +1,7 @@
 #pragma once
 
-// WebSocket (RFC 6455) framing without any I/O: SHA-1 and base64 for the opening handshake,
-// a client frame writer, and an incremental parser for server frames. The socket layer
-// feeds bytes in and takes whole messages out, so everything here is testable on its own.
+// WebSocket (RFC 6455) framing without I/O: handshake helpers, client frame writer and an
+// incremental server-frame parser, so all of it is testable on its own.
 
 #include <array>
 #include <cstddef>
@@ -101,10 +100,8 @@ struct WsView {
     std::string_view data;
 };
 
-// Bytes go in with reserve() and commit() (a read straight into the buffer) or push(); whole
-// messages come out with next_view() as views, so a single-frame message is never copied.
-// Masked frames are unmasked in place. Data frames split over several fragments are joined
-// into one message (a copy, rare); control frames come out as they arrive.
+// Single-frame messages come out as views and are never copied (masked ones unmasked in place);
+// only fragmented data messages are joined, by copy.
 class WsParser {
    public:
     static constexpr std::size_t kMaxMessage = 64u << 20;

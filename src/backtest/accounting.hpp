@@ -1,9 +1,7 @@
 #pragma once
 
-// Strategy accounting in integer micro-dollars, so the identity of DESIGN.md section 4
-// holds exactly: total PnL (cash plus inventory at the mid) equals spread capture plus
-// inventory PnL plus fee PnL after every event. Prices are ITCH units ($0.0001, 100
-// micro-dollars) and mids half-units, both exact in micro-dollars.
+// Integer micro-dollars, so total PnL == spread capture + inventory PnL + fee PnL holds exactly
+// after every event; ITCH prices and half-unit mids are exact in micro-dollars.
 
 #include <cstdint>
 #include <deque>

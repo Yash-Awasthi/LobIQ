@@ -311,9 +311,8 @@ void MergedReader::wait_read_ahead() {
     if (error_) std::rethrow_exception(error_);
 }
 
-// Scatters every record with a sequence number in [base, base + kWindow) into the window.
-// base is the smallest next sequence number, and every chunk starting below the window's
-// end is taken first, so each symbol's records for the window are already in memory.
+// Every chunk starting below the window's end is taken first, so each symbol's records
+// for [base, base + kWindow) are already in memory.
 bool MergedReader::fill() {
     if (!retired_.empty()) {
         std::lock_guard lock(mu_);

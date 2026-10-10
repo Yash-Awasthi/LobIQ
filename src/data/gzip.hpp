@@ -8,9 +8,8 @@
 
 namespace hft::data {
 
-// Streaming gunzip of a file with zlib-ng. The decoder verifies the gzip CRC-32 and
-// length; corrupt or truncated input throws. Concatenated gzip members are read as one
-// stream. Also hashes the compressed bytes for the provenance record.
+// Streaming gunzip (zlib-ng): CRC-32 and length verified, corrupt or truncated input throws,
+// concatenated members read as one stream; also hashes the compressed bytes.
 class GzipReader {
    public:
     explicit GzipReader(const std::filesystem::path& path);

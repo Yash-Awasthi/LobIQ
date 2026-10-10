@@ -69,10 +69,8 @@ struct Event {
 
 class Decoder {
    public:
-    // Calls fn(const Event&) for the message's event, or each event of a batch. False if
-    // the text is not JSON. Messages in the shape the exchange sends take a single pass over
-    // the bytes; anything else (escapes, deep nesting, unusual numbers) goes through the tape,
-    // which gives the same events.
+    // False if not JSON. The exchange's usual shapes take one pass; anything else (escapes,
+    // deep nesting, unusual numbers) goes through the tape, which gives the same events.
     template <class Fn>
     bool decode(std::string_view text, Fn&& fn) {
         if (!fast(text)) return ++fallbacks_, decode_tape(text, fn);
@@ -238,8 +236,7 @@ class Decoder {
         Event ev;
         Range bids, asks, chg, ids;
     };
-    // First occurrence of each known member: whether it was seen, and its contents if a string.
-    // s[f] is written only for string members and read only through str(), so it is left
+    // s[f] is written only for string members and read only through str(), so it stays
     // uninitialised: zeroing it was a measurable share of each object's cost.
     struct Members {
         struct Sv {

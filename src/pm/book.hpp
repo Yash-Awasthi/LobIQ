@@ -1,11 +1,7 @@
 #pragma once
 
-// Level-2 book of one prediction-market outcome token, rebuilt from the exchange's snapshot
-// ("book") and delta ("price_change") messages. Prices are integers in units of 0.0001
-// (the contract pays 1.0000), sizes are shares.
-//
-// Every price on the grid has a slot; a two-level bitmap of non-empty slots gives the best
-// price with one leading/trailing-zero count per level.
+// Level-2 book of one outcome token; prices in 1e-4 (the contract pays 10000). Every grid price has
+// a slot and a two-level bitmap gives the best price in one bit scan per level.
 
 #include <cstdint>
 #include <string_view>

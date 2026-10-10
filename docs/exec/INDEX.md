@@ -5,9 +5,8 @@ Terse reference docs; ids are stable, cite them in commits and code comments whe
 
 ## Status
 
-- Current: done. E0-E7, gates G0-G7 met 2026-10-10, plus the audit in PHASES (V7/L4, R12, SEC5, A5). Results: RESULTS.md. Optional items V8, V12, V13 and X11 done after the audit.
-- Branch: `exec-layer` (from `phase1-hotpath`).
-- Baseline hashes (must stay equal unless a step says otherwise):
+- Final. E0-E7 and gates G0-G7 met 2026-10-10; the audit after G7 and the steps after it (D30-D32, V8, V12, V13, X11, X13, PERF R7-R9) done; merged into `main` 2026-10-11. Final verification: PHASES "Wrap-up". Results: RESULTS.md. Nothing is open; what is not planned is listed in docs/ROADMAP.md.
+- Baseline hashes (held through the final verification):
   - `pm_live --replay ~/data/pm-live/20261009T160027Z` -> `decision_hash 6facf575ad8d84bc`
   - `pm_stats ~/data/ref/pm-snap` (frozen copy, 44 files) -> `~/data/ref/pm_stats.tsv`, sha256 `dafd558b45dc3a1a...`
 
@@ -34,4 +33,4 @@ Terse reference docs; ids are stable, cite them in commits and code comments whe
 - Commit message: normal prose subject+body, max 3 lines, no attribution lines.
 - Build: `wsl.exe -e bash -lc 'cd ~/hft && export VCPKG_ROOT=~/vcpkg && cmake --build build/<preset>'`.
 - Presets to keep green: release, native, asan, ubsan, tsan, clang (+ fuzz targets).
-- Edit via `\\wsl.localhost\Ubuntu\home\yash\hft\...`; multi-line scripts as files in `\\wsl.localhost\Ubuntu\tmp\`.
+- Edit via `\\wsl.localhost\Ubuntu\home\yash\hft\...`; multi-line scripts as files in `~/scratch`.

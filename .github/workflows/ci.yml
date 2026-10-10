@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [main, exec-layer]
+    branches: [main]
   pull_request:
 
 jobs:

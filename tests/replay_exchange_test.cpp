@@ -130,9 +130,8 @@ TEST(ReplayExchange, HiddenPrintsIgnoreTheSideField) {
     EXPECT_EQ(l.filled(bid), 5u);
 }
 
-// A mirrored real order leaves the replayed book and lives on as a virtual order at the same
-// queue position: its own executions in the data become fills of the virtual order, its
-// cancels reduce it, and orders behind it are untouched.
+// A mirrored real order lives on as a virtual order at the same queue position: its executions fill
+// it, its cancels reduce it, orders behind it are untouched.
 TEST(ReplayExchange, MirroredOrderReproducesItsExecutions) {
     ReplayExchange<> x({}, FillRule::Queue);
     Log l;

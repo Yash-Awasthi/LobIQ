@@ -1,6 +1,5 @@
-// Determinism on the committed synthetic fixture: the generator reproduces it byte for byte,
-// every book gives the same BBO stream, and the engine's event stream has a fixed hash on
-// every compiler. Golden hashes change only with a deliberate change of behaviour.
+// The generator reproduces the committed fixture byte for byte; BBO and engine event hashes are fixed
+// on every compiler and change only with a deliberate change of behaviour.
 
 #include <gtest/gtest.h>
 #include <zstd.h>
