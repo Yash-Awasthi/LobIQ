@@ -2,12 +2,15 @@
 // accounted in integer micro-dollars. Strategies come from strategies/*.cpp (docs/STRATEGIES.md).
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <mutex>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "backtest/registry.hpp"
@@ -47,9 +50,90 @@ std::uint16_t find_locate(const std::filesystem::path& store, const std::string&
     throw std::runtime_error("symbol " + sym + " not in store");
 }
 
+// Venue, latency and risk settings from the key=value arguments.
+void configure(backtest::RunSpec& r, const backtest::Params& p) {
+    backtest::Config& c = r.config;
+    c = backtest::Config{};
+    c.exchange.tick = static_cast<std::uint32_t>(p.get("tick", 100));
+    c.exchange.maker_rebate = static_cast<std::int64_t>(p.get("maker_rebate", 0));
+    c.exchange.taker_fee = static_cast<std::int64_t>(p.get("taker_fee", 0));
+    c.fill_rule = p.get("fill_rule", 0) != 0 ? engine::FillRule::TradeThrough : engine::FillRule::Queue;
+    c.market_data_ns = static_cast<std::uint64_t>(p.get("market_data_ns", 0));
+    c.order_entry_ns = static_cast<std::uint64_t>(p.get("order_entry_ns", 0));
+    c.processing_ns = static_cast<std::uint64_t>(p.get("processing_ns", 0));
+    c.start_ns = static_cast<std::uint64_t>(p.get("start_ns", static_cast<double>(c.start_ns)));
+    c.stop_ns = static_cast<std::uint64_t>(p.get("stop_ns", static_cast<double>(c.stop_ns)));
+    c.end_ns = static_cast<std::uint64_t>(p.get("end_ns", static_cast<double>(c.end_ns)));
+    c.sec_fee_per_million = static_cast<std::int64_t>(p.get("sec_fee_per_million", 0));
+    c.taf_per_share = static_cast<std::int64_t>(p.get("taf_per_share", 0));
+    c.taf_max = static_cast<std::int64_t>(p.get("taf_max", 0));
+    c.risk.max_position = static_cast<std::int64_t>(p.get("max_position", 1000));
+    c.risk.max_order = static_cast<std::uint32_t>(p.get("max_order", 500));
+    c.risk.collar_ticks = static_cast<std::uint32_t>(p.get("collar_ticks", 20));
+    r.hysteresis = static_cast<std::uint32_t>(p.get("hysteresis_ticks", 0));
+}
+
+// --sweep key=a,b,c, repeated: every combination of the listed values, one run each on a thread pool.
+int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, const backtest::Params& p,
+          const std::vector<std::pair<std::string, std::vector<double>>>& axes, const std::string& symbol,
+          const std::string& strategy, const std::string& report_dir) {
+    std::vector<backtest::SweepRun> runs(1);
+    for (const auto& [key, values] : axes) {
+        std::vector<backtest::SweepRun> next;
+        for (const backtest::SweepRun& run : runs)
+            for (const double v : values) {
+                backtest::SweepRun x = run;
+                x.params.emplace_back(key, v);
+                next.push_back(std::move(x));
+            }
+        runs = std::move(next);
+    }
+    if (runs.size() > 1024) throw std::runtime_error("sweep has " + std::to_string(runs.size()) + " runs; at most 1024");
+    std::atomic<std::size_t> next{0};
+    std::string error;
+    std::mutex error_lock;
+    auto worker = [&] {
+        for (std::size_t i; (i = next++) < runs.size();) {
+            backtest::Params q = p;
+            for (const auto& [k, v] : runs[i].params) q.kv[k] = v;
+            backtest::RunSpec r = base;
+            configure(r, q);
+            try {
+                runs[i].summary = entry.run(r, q);
+                if (!report_dir.empty()) backtest::write_report(report_dir + "/" + runs[i].label(), symbol, strategy, r.config, runs[i].summary);
+            } catch (const std::exception& e) {
+                const std::lock_guard g(error_lock);
+                error = e.what();
+            }
+        }
+    };
+    const char* env = std::getenv("THREADS");
+    const unsigned n = std::max(1u, std::min<unsigned>(env ? static_cast<unsigned>(std::atoi(env)) : std::thread::hardware_concurrency(),
+                                                        static_cast<unsigned>(runs.size())));
+    std::vector<std::thread> pool;
+    for (unsigned t = 0; t < n; ++t) pool.emplace_back(worker);
+    for (std::thread& t : pool) t.join();
+    if (!error.empty()) throw std::runtime_error(error);
+    for (const auto& [k, v] : axes) std::printf("%s\t", k.c_str());
+    std::printf("total_usd\tspread_usd\tinventory_usd\tfees_usd\tfills\tmax_abs_inventory\tdiverted_shares\n");
+    for (const backtest::SweepRun& run : runs) {
+        for (const auto& [k, v] : run.params) std::printf("%g\t", v);
+        const backtest::Summary& s = run.summary;
+        std::printf("%.2f\t%.2f\t%.2f\t%.2f\t%llu\t%lld\t%llu\n", backtest::usd(s.total), backtest::usd(s.spread),
+                    backtest::usd(s.inventory_pnl), backtest::usd(s.fees), (unsigned long long)s.fills,
+                    (long long)s.max_abs_inventory, (unsigned long long)s.divergence.diverted);
+    }
+    if (!report_dir.empty()) {
+        backtest::write_sweep_report(report_dir, symbol, strategy, runs);
+        std::fprintf(stderr, "report: %s/index.html\n", report_dir.c_str());
+    }
+    return 0;
+}
+
 int usage() {
     std::fprintf(stderr,
                  "usage: itch_backtest <store-dir> <symbol|locate> <strategy> [key=value ...] [--report DIR]\n"
+                 "                     [--sweep key=v1,v2,... (repeatable; every combination, THREADS=N)]\n"
                  "                     [--fills FILE] [--minutes FILE] [--index LOC,...]\n"
                  "strategies:\n");
     for (const auto& e : backtest::strategies())
@@ -68,13 +152,24 @@ int main(int argc, char** argv) {
     const std::string strategy = argv[3];
     backtest::Params p;
     std::string fills_path, minutes_path, report_dir;
+    std::vector<std::pair<std::string, std::vector<double>>> axes;
     backtest::RunSpec r;
     r.store = argv[1];
     for (int i = 4; i < argc; ++i) {
         const std::string a = argv[i];
-        if ((a == "--fills" || a == "--minutes" || a == "--index" || a == "--report") && i + 1 < argc) {
+        if ((a == "--fills" || a == "--minutes" || a == "--index" || a == "--report" || a == "--sweep") && i + 1 < argc) {
             const std::string v = argv[++i];
-            if (a == "--fills") fills_path = v;
+            if (a == "--sweep") {
+                const std::size_t eq = v.find('=');
+                if (eq == std::string::npos || eq + 1 == v.size()) return usage();
+                std::vector<double> values;
+                for (std::size_t at = eq + 1; at <= v.size();) {
+                    const std::size_t comma = std::min(v.find(',', at), v.size());
+                    values.push_back(std::atof(v.substr(at, comma - at).c_str()));
+                    at = comma + 1;
+                }
+                axes.emplace_back(v.substr(0, eq), std::move(values));
+            } else if (a == "--fills") fills_path = v;
             else if (a == "--minutes") minutes_path = v;
             else if (a == "--report") report_dir = v;
             else
@@ -99,27 +194,11 @@ int main(int argc, char** argv) {
     }
     if (entry->takes_arg) p.arg = strategy.substr(entry->name.size() + 1);
 
-    backtest::Config& c = r.config;
-    c.exchange.tick = static_cast<std::uint32_t>(p.get("tick", 100));
-    c.exchange.maker_rebate = static_cast<std::int64_t>(p.get("maker_rebate", 0));
-    c.exchange.taker_fee = static_cast<std::int64_t>(p.get("taker_fee", 0));
-    c.fill_rule = p.get("fill_rule", 0) != 0 ? engine::FillRule::TradeThrough : engine::FillRule::Queue;
-    c.market_data_ns = static_cast<std::uint64_t>(p.get("market_data_ns", 0));
-    c.order_entry_ns = static_cast<std::uint64_t>(p.get("order_entry_ns", 0));
-    c.processing_ns = static_cast<std::uint64_t>(p.get("processing_ns", 0));
-    c.start_ns = static_cast<std::uint64_t>(p.get("start_ns", static_cast<double>(c.start_ns)));
-    c.stop_ns = static_cast<std::uint64_t>(p.get("stop_ns", static_cast<double>(c.stop_ns)));
-    c.end_ns = static_cast<std::uint64_t>(p.get("end_ns", static_cast<double>(c.end_ns)));
-    c.sec_fee_per_million = static_cast<std::int64_t>(p.get("sec_fee_per_million", 0));
-    c.taf_per_share = static_cast<std::int64_t>(p.get("taf_per_share", 0));
-    c.taf_max = static_cast<std::int64_t>(p.get("taf_max", 0));
-    c.risk.max_position = static_cast<std::int64_t>(p.get("max_position", 1000));
-    c.risk.max_order = static_cast<std::uint32_t>(p.get("max_order", 500));
-    c.risk.collar_ticks = static_cast<std::uint32_t>(p.get("collar_ticks", 20));
-    r.hysteresis = static_cast<std::uint32_t>(p.get("hysteresis_ticks", 0));
+    configure(r, p);
 
     try {
         r.target = find_locate(r.store, argv[2]);
+        if (!axes.empty()) return sweep(*entry, r, p, axes, argv[2], strategy, report_dir);
         const auto t0 = std::chrono::steady_clock::now();
         const backtest::Summary s = entry->run(r, p);
         const double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();

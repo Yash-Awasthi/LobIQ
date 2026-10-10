@@ -96,7 +96,24 @@ itch_backtest <store> INTC imbalance threshold=0.5 maker_rebate=2000 taker_fee=3
 
 `itch_backtest` with no arguments lists every registered strategy and its keys. `--report DIR`
 writes `report.html` (PnL, inventory and fills as charts) plus `fills.csv`, `pnl_minutes.csv`
-and `summary.csv`. No data yet? `scripts/demo/backtest.sh` builds a synthetic store and runs one.
+and `summary.csv`. No data yet? `scripts/demo/backtest.sh` builds a synthetic store and runs one:
+
+```
+gen_day 7 390 | ingest /tmp/qrsim                # a synthetic 6.5-hour session, symbol QRSIM
+itch_backtest /tmp/qrsim QRSIM imbalance --report out/imbalance
+```
+
+Tuning: `--sweep key=v1,v2,...` (repeatable) runs every combination of the listed values on a
+thread pool (`THREADS=N`, default all cores) and prints one row per run; with `--report DIR` it
+writes `DIR/index.html`, the runs ranked by total PnL with their curves overlaid and a link to each
+run's own report. Any key works, strategy or venue:
+
+```
+itch_backtest /tmp/qrsim QRSIM imbalance --sweep threshold=0.2,0.4,0.6,0.8,1 --sweep size=100,200 --report out/sweep
+```
+
+Ten runs of a full synthetic day take about 0.4 s on 20 threads. Pick parameters on some days and
+check them on others: the best row of one day is partly luck.
 
 ### What the simulation does and does not model
 
