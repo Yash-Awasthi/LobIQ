@@ -1,7 +1,8 @@
 # Status
 
-Complete (2026-10-11). Every phase in [docs/ROADMAP.md](docs/ROADMAP.md) is done; what is
-deliberately left out is listed there under "Not planned". The research-phase log is in
+v1.1 (2026-10-11). Every phase in [docs/ROADMAP.md](docs/ROADMAP.md) is done; what is deliberately
+left out is listed there under "Not planned". Changes per version: [CHANGELOG.md](CHANGELOG.md).
+The research-phase log is in
 [STATUS-research.md](https://github.com/Yash-Awasthi/hft/blob/research-archive/archive/docs/STATUS-research.md) at the research-archive tag.
 
 ## What runs
@@ -13,15 +14,22 @@ Ctrl-C or SIGTERM):
     scripts/pm_supervise.sh ~/data/pm --cap-gb 50 --per-tag 8
     scripts/pm_live_supervise.sh ~/data/pm-live --record-cap-gb 20 --port 8088 --seconds 21600
 
-## Final verification (2026-10-11, merged `main`)
+On GitHub, CI builds and tests every pull request; on main it also publishes the container image
+(`ghcr.io/yash-awasthi/hft`) and the demo reports (https://yash-awasthi.github.io/hft/); a `v*`
+tag publishes a release with Linux binaries.
 
-- Tests: release, native and Clang 291 each (alloc_test included), asan, ubsan and tsan 287;
-  one test skips without hardware performance counters.
+## Verification (2026-10-11, main before v1.1)
+
+- Tests: release, native and Clang 306 each (alloc_test included), asan, ubsan and tsan 302;
+  one test skips without hardware performance counters. The sweeps also ran under TSan.
 - `scripts/check_parity.sh`: SAME on all seven recordings. `scripts/fault_campaign.sh` and
-  `scripts/arb_fault_campaign.sh`: zero illegal reports, zero residual sets. `scripts/demo/*.sh`:
-  expected hashes. `scripts/check_cli.sh`, `scripts/security_gates.sh`: clean.
+  `scripts/arb_fault_campaign.sh`: zero illegal reports, zero residual sets. `scripts/demo/*.sh`
+  and `scripts/demo/all.sh`: expected hashes and totals. `scripts/check_cli.sh`,
+  `scripts/security_gates.sh`: clean.
 - Fuzzers itch, tape, oms and ws, 60 s each: no crash.
 - Baselines: `pm_live --replay ~/data/pm-live/20261009T160027Z` gives decision_hash
   6facf575ad8d84bc; `pm_stats ~/data/ref/pm-snap | sha256sum` starts dafd558b45dc3a1a.
+- The container image builds and passes the same tests under GCC 13 (Ubuntu 24.04); the dev
+  container's setup command builds and runs the demos.
 
 Details: docs/exec/PHASES.md "Wrap-up"; measured results: docs/exec/RESULTS.md.

@@ -79,7 +79,18 @@ cycle counts come from Cachegrind and `rdtscp`.
 - `pm_live --record` ran next to the recorder over two days; makers and the arbitrage
   executor are reported per recording at four latencies in docs/exec/RESULTS.md.
 
-The project is complete: every phase above is done and nothing is open.
+## P9. Usable by others (done, v1.1)
+
+- Strategies for the backtester and quote models for the prediction-market maker plug in by name
+  (`strategies/`, docs/STRATEGIES.md), with a template script; the built-in quote model as a
+  plug-in reproduces the built-in decision hashes exactly.
+- HTML report per run; parameter sweeps and several symbols in parallel, ranked.
+- Runs without setup: container image (ghcr.io), dev container, synthetic Nasdaq sessions
+  (`gen_day`), a bundled real recording; demo reports published on every commit.
+- Found on the way: an outcome counted twice, two undefined reads in the decoder, a race on pool
+  counters, a GCC 13 warning in the allocation test.
+
+Every phase above is done and nothing is open.
 
 ## Not planned
 

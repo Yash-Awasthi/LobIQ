@@ -1,0 +1,43 @@
+name: release
+
+# On a v* tag: build and test the release preset, package Linux x86-64 binaries with the scripts,
+# config and sample data, and publish a GitHub Release with that version's CHANGELOG section.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
+          sudo git -C "$VCPKG_INSTALLATION_ROOT" fetch origin master
+          sudo git -C "$VCPKG_INSTALLATION_ROOT" checkout -qf "$(jq -r '.["builtin-baseline"]' vcpkg.json)"
+      - run: cmake --preset release && cmake --build build/release && ctest --test-dir build/release --output-on-failure
+      - run: scripts/demo/all.sh out
+      - name: package
+        run: |
+          name="hft-$GITHUB_REF_NAME-linux-x86_64"
+          mkdir -p "$name/bin"
+          find build/release/apps -maxdepth 1 -type f -executable -exec cp {} "$name/bin/" \;
+          cp -r scripts config data README.md CHANGELOG.md LICENSE "$name/"
+          cp docs/STRATEGIES.md "$name/"
+          {
+            echo "Linux x86-64, Ubuntu 24.04 or newer (glibc 2.39, OpenSSL 3)."
+            echo "Demos: HFT_BIN=bin scripts/demo/all.sh out, then open out/index.html."
+            echo "Tools are in bin/; each prints its usage when run without arguments."
+          } > "$name/RUN.txt"
+          tar czf "$name.tar.gz" "$name"
+          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+          echo "PKG=$name" >> "$GITHUB_ENV"
+      - name: publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          awk -v v="## $GITHUB_REF_NAME " 'index($0, v) == 1 {on = 1; next} /^## / {on = 0} on' CHANGELOG.md > notes.md
+          gh release create "$GITHUB_REF_NAME" "$PKG.tar.gz" "$PKG.tar.gz.sha256" --title "$GITHUB_REF_NAME" --notes-file notes.md

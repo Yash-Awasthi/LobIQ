@@ -54,7 +54,7 @@ Each is one command and checks its decision hash (exit 1 if it differs).
 before a resolution end as cash; ledger_pnl_usd values what is still held at the mid marks of the last risk tick.
 
 All complete recordings at the measured round trip (182 ms). Skipped: `20261009T135737Z` (a 29 s start-up
-run, 1,671 messages, no windows) and the recording still being written.
+run, 1,671 messages, no windows).
 
 | recording | messages | windows | attempts | complete | empty | completed_after_leg_loss | unwound | residual_groups | realised_usd | fees_usd | ledger_pnl_usd | kill |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -63,6 +63,7 @@ run, 1,671 messages, no windows) and the recording still being written.
 | `20261010T084623Z` | 123,707 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0.000000 | 0.000000 | 0.000000 | none |
 | `20261010T111523Z` | 36,183 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0.000000 | 0.000000 | 0.000000 | none |
 | `20261010T112758Z` | 2,541,915 | 381 | 29 | 1 | 4 | 24 | 0 | 0 | -51.622270 | 18.017470 | -115.266560 | none |
+| `20261010T172810Z` | 1,178,505 | 238 | 12 | 1 | 1 | 8 | 1 | 0 | -3.599340 | 2.663040 | 9.969122 | none |
 
 Recording `~/data/pm-live/20261009T135806Z` (0.7M messages):
 
@@ -97,22 +98,34 @@ Recording `~/data/pm-live/20261010T112758Z` (2.5M messages):
 
 Windows never attempted, by the filter that last refused them: 182 ms: young:0,stale:72,frozen:0,one_sided:7,self_cross:33,size:10,edge:204,leg_risk:9; 50 ms: young:0,stale:72,frozen:0,one_sided:7,self_cross:21,size:10,edge:214,leg_risk:9; 150 ms: young:0,stale:72,frozen:0,one_sided:7,self_cross:30,size:10,edge:207,leg_risk:9; 300 ms: young:0,stale:72,frozen:0,one_sided:7,self_cross:39,size:10,edge:198,leg_risk:9.
 
+Recording `~/data/pm-live/20261010T172810Z` (1.2M messages):
+
+| rtt_ms | maker_fills | taker_fills | windows | attempts | complete | empty | completed_after_leg_loss | unwound | frozen | residual_groups | merges | realised_usd | sets_held | fees_usd | ledger_pnl_usd | kill | decision_hash_v2 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 182 | 30 | 24 | 238 | 12 | 1 | 1 | 8 | 1 | bound:0,depth:7,retries:1 | 0 | 10 | -3.599340 | 0.00 | 2.663040 | 9.969122 | none | c71b2ba91cb34c08 |
+| 50 | 28 | 23 | 238 | 12 | 1 | 1 | 9 | 0 | bound:0,depth:7,retries:1 | 0 | 9 | -5.884190 | 0.00 | 2.840290 | -0.461728 | none | 5297cbc6cd7ac8d9 |
+| 150 | 30 | 24 | 238 | 12 | 1 | 1 | 8 | 1 | bound:0,depth:7,retries:1 | 0 | 9 | -3.599340 | 0.00 | 2.663040 | 9.319122 | none | daec1f9c4cb9f478 |
+| 300 | 32 | 22 | 238 | 12 | 1 | 1 | 9 | 0 | bound:0,depth:7,retries:1 | 0 | 9 | -1.428260 | 0.00 | 2.978900 | 14.140202 | none | b8553977ab5e3fdb |
+
+Windows never attempted, by the filter that last refused them: 182 ms: young:0,stale:19,frozen:0,one_sided:4,self_cross:9,size:3,edge:161,leg_risk:20; 50 ms: young:0,stale:19,frozen:0,one_sided:4,self_cross:7,size:3,edge:163,leg_risk:20; 150 ms: young:0,stale:19,frozen:0,one_sided:4,self_cross:8,size:3,edge:162,leg_risk:20; 300 ms: young:0,stale:19,frozen:0,one_sided:4,self_cross:11,size:3,edge:159,leg_risk:20.
+
 `20261010T084623Z`: 6 windows, no attempts, no fills at any latency (filters at 182 ms: young:0,stale:0,frozen:0,one_sided:0,self_cross:0,size:0,edge:6,leg_risk:0); decision_hash_v2 at 182/50/150/300 ms: d0e9c9ca90a08098, 4143a6d371302803, cb7d2bf0ad8616cf, 00ceed3c557c1dc8.
 
 `20261010T111523Z`: 0 windows, no attempts, no fills at any latency (filters at 182 ms: young:0,stale:0,frozen:0,one_sided:0,self_cross:0,size:0,edge:0,leg_risk:0); decision_hash_v2 at 182/50/150/300 ms: bb701e5d9c06096a, feced489d5056ac1, b9ccb9cc54571590, b9e5cd72e466343f.
 
 Reading: most windows on these recordings sit on books that have not changed for 2 s (stale) or do
-not clear fees and allowances (edge). Of the 49 attempts at 182 ms, one completed as planned, four
-filled nothing, and the other 44 lost a leg and were then completed at a loss; the attempts traced
-(scratch trace, 25 ms one way) were on near-resolved pairs, one leg at 0.007-0.04 and the other at
-0.95-0.99, where the cheap leg's ask had moved by arrival. Realised arbitrage PnL over the five
-recordings at 182 ms: -63.85 USD after 26.15 USD fees. The outcomes change little across the four
-latencies. No threshold was changed to improve these numbers (D12).
+not clear fees and allowances (edge). Of the 61 attempts at 182 ms, two completed as planned, five
+filled nothing, 52 lost a leg and were then completed at a loss, one was unwound, and one has no
+counted outcome but left no residual set; the attempts traced (scratch trace, 25 ms one way) were on near-resolved
+pairs, one leg at 0.007-0.04 and the other at 0.95-0.99, where the cheap leg's ask had moved by
+arrival. Realised arbitrage PnL over the six recordings at 182 ms: -67.45 USD, with 28.81 USD of
+fees. The outcomes change little across the four latencies. No threshold was changed to improve
+these numbers (D12).
 
 Leg-risk check (X13, on by default): a window is taken only if its net edge covers the loss of
 reversing the other legs at the visible book should one leg fill nothing. On the reference recording
 it refused no window outright and moved realised PnL at 182 ms from -11.76 to -12.15 USD (a window it
-refused at first was taken later on a worse book); on `20261010T112758Z` it refused 9 windows. The losses here come from how often a leg misses
+refused at first was taken later on a worse book); it refused 9 windows on `20261010T112758Z` and 20 on `20261010T172810Z`. The losses here come from how often a leg misses
 (nearly every attempt: the cheap leg's quote has moved by arrival), not from the size of a miss,
 which X13 bounds. A miss probability would need a model estimated on some days and tested on later
 ones; not planned (ROADMAP, D12).
