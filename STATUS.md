@@ -6,11 +6,12 @@ README "Performance"; the research-phase log is in
 
 ## Running
 
-- Recorder (`pm_record`), started by the Windows logon task: 32 markets (64 tokens), hourly
-  zstd files in `~/data/pm`, 50 GB cap, health in `status.json`.
-- `pm_live` under `scripts/pm_live_supervise.sh ~/data/pm-live --record-cap-gb 20 --port 8088
-  --seconds 21600`, started by hand (a reboot stops it). Dashboard at http://127.0.0.1:8088/.
-  To stop it, kill the supervisor first, then `pm_live`.
+Nothing. Recorder and `pm_live` were stopped on 2026-10-10 and nothing starts at logon
+(`C:\Users\Yash\hft\pm_start.ps1` does nothing; `pm_start.ps1.on` is the old version).
+Their recordings stay in `~/data/pm` and `~/data/pm-live`. To run them by hand:
+
+    scripts/pm_supervise.sh ~/data/pm --cap-gb 50 --per-tag 8
+    scripts/pm_live_supervise.sh ~/data/pm-live --record-cap-gb 20 --port 8088 --seconds 21600
 
 ## Open
 
@@ -24,7 +25,6 @@ README "Performance"; the research-phase log is in
 
 ## Needs the owner
 
-- A Windows logon task for `pm_live`, like the recorder's, so it survives a reboot.
 - A bare-Linux run for hardware counters and futex wake latency (WSL2: about 135 µs).
 - Real order entry: an account, signing keys and the decision to trade.
 - Hosting for a results page, if one is wanted.
