@@ -211,25 +211,26 @@ class WsClient {
         conn_.write_all(ws_client_frame(op, s, mask));
     }
 
-    // Waits up to timeout_ms for a data message; answers pings itself.
-    Status read(std::string& text, int timeout_ms) {
-        WsMessage m;
+    // Waits up to timeout_ms for a data message; answers pings itself. `text` views the
+    // message in place and stays valid until the next read.
+    Status read(std::string_view& text, int timeout_ms) {
+        WsView m;
         for (;;) {
-            while (parser_.next(m)) {
+            while (parser_.next_view(m)) {
                 if (m.op == kPing) {
                     send(kPong, m.data);
                 } else if (m.op == kClose) {
                     return Status::Closed;
                 } else if (m.op == kText || m.op == kBinary) {
-                    text = std::move(m.data);
+                    text = m.data;
                     return Status::Message;
                 }
             }
             if (!conn_.readable(timeout_ms)) return Status::Timeout;
-            char buf[65536];
-            const std::size_t n = conn_.read(buf, sizeof buf);
+            constexpr std::size_t kRead = 65536;
+            const std::size_t n = conn_.read(parser_.reserve(kRead), kRead);  // decrypted straight into the parser
             if (n == 0) return Status::Closed;
-            parser_.push(buf, n);
+            parser_.commit(n);
         }
     }
 

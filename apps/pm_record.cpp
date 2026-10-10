@@ -89,7 +89,7 @@ class HourlyWriter {
     }
     ~HourlyWriter() { rotate(""); }
 
-    void write(std::int64_t ns, const std::string& msg) {
+    void write(std::int64_t ns, std::string_view msg) {
         const std::string h = utc(static_cast<std::time_t>(ns / 1'000'000'000), "%Y%m%dT%H");
         if (h != hour_) {
             rotate(h);
@@ -169,7 +169,7 @@ void conn_loop(int idx, std::vector<std::string> tokens, const fs::path& root, s
             log.write(who, "connected tokens=" + std::to_string(tokens.size()));
             backoff = 1;
             auto last_rx = Clock::now(), last_ping = last_rx;
-            std::string msg;
+            std::string_view msg;
             while (!stop && !g_stop && !cap_hit) {
                 const auto s = ws.read(msg, 1000);
                 const auto now = Clock::now();

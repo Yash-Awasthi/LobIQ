@@ -101,7 +101,7 @@ Docs read against code; what the design required and was missing:
 
 - [x] D30: production venue runs use only the ledger limits.
 - [x] Settlement failing after resolution: undone exactly against the payout (ledger, executor, maker); 5/5 mutations caught.
-- [ ] No-copy feed path: WebSocket frames decoded straight into the ring.
+- [x] No-copy feed path: TLS decrypts into the WebSocket parser's buffer; each message is copied once, into the ring (PERF R7: 84.7 -> 44.5 ns, allocations 2 -> 0 per message); ws_fuzz added.
 - [ ] Kernel receive timestamps (SO_TIMESTAMPNS) as the message receive time.
 - [ ] Optional faults V8 (spurious reject), V12 (reorder), V13 (delay past the order manager's timeout); X11 batch skew.
 

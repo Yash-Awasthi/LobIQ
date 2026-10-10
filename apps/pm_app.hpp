@@ -134,7 +134,7 @@ void feed_loop(Feed& f) {
             first = false;
             backoff = 1;
             auto last_rx = Clock::now(), last_ping = last_rx, last_beat = last_rx;
-            std::string msg;
+            std::string_view msg;
             bool overflow = false;
             while (!g_stop && !overflow) {
                 const auto s = ws.read(msg, 200);

@@ -3,7 +3,10 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdlib>
+#include <cstring>
+#include <string>
 #include <new>
 #include <random>
 #include <vector>
@@ -12,6 +15,7 @@
 #include "exec/oms.hpp"
 #include "book/tick_book.hpp"
 #include "feed/itch.hpp"
+#include "net/ws_frames.hpp"
 
 namespace {
 std::uint64_t g_news = 0;
@@ -166,6 +170,31 @@ TEST(Alloc, SteadyStateOrderFlowDoesNotAllocate) {
     EXPECT_EQ(accepted, 50'000u);
     EXPECT_EQ(oms.illegal_count(), 0u);
     EXPECT_FALSE(risk.killed());
+}
+
+TEST(Alloc, SteadyStateWebSocketFramesDoNotAllocate) {
+    // A feed thread's loop: bytes land in the parser's buffer, messages come out as views.
+    std::string frame = std::string("\x81\x7e\x02\x58", 4) + std::string(600, 'm');  // 600-byte text frame
+    std::string burst;
+    for (int i = 0; i < 50; ++i) burst += frame;
+    net::WsParser p;
+    std::size_t bytes = 0;
+    auto cycle = [&](int n) {
+        for (int k = 0; k < n; ++k) {
+            for (std::size_t i = 0; i < burst.size(); i += 16384) {  // TLS records of up to 16 kB
+                const std::size_t m = std::min<std::size_t>(16384, burst.size() - i);
+                std::memcpy(p.reserve(m), burst.data() + i, m), p.commit(m);
+                net::WsView v;
+                while (p.next_view(v)) bytes += v.data.size();
+            }
+        }
+    };
+    cycle(100);  // warm-up: the buffer reaches its working size
+    const std::uint64_t news = g_news;
+    cycle(1'000);
+    const std::uint64_t new_news = g_news - news;
+    EXPECT_EQ(new_news, 0u);
+    EXPECT_EQ(bytes, 1'100u * 50 * 600);
 }
 
 TEST(Alloc, CounterSeesAllocations) {
