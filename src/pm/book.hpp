@@ -12,7 +12,8 @@ namespace hft::pm {
 inline std::int32_t parse_price(std::string_view s) {
     std::int32_t whole = 0, frac = 0, digits = 0;
     std::size_t i = 0;
-    for (; i < s.size() && s[i] >= '0' && s[i] <= '9'; ++i) whole = whole * 10 + (s[i] - '0');
+    for (; i < s.size() && s[i] >= '0' && s[i] <= '9'; ++i)
+        if (whole <= 1) whole = whole * 10 + (s[i] - '0');  // past 1 it is invalid anyway: no overflow
     if (i < s.size() && s[i] == '.') {
         for (++i; i < s.size() && s[i] >= '0' && s[i] <= '9'; ++i)
             if (digits < 4) frac = frac * 10 + (s[i] - '0'), ++digits;

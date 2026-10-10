@@ -16,7 +16,7 @@ go to `~/data/exec/runs`.
 
 ## Final verification (2026-10-11, merged `main`)
 
-- Tests: release, native and Clang 289 each (alloc_test included), asan, ubsan and tsan 285;
+- Tests: release, native and Clang 291 each (alloc_test included), asan, ubsan and tsan 287;
   one test skips without hardware performance counters.
 - `scripts/check_parity.sh`: SAME on all seven recordings. `scripts/fault_campaign.sh` and
   `scripts/arb_fault_campaign.sh`: zero illegal reports, zero residual sets. `scripts/demo/*.sh`:

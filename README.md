@@ -117,7 +117,7 @@ replay is unchanged within noise. A lookahead prefetch on the per-symbol path wa
 
 ## Tests
 
-`ctest` runs 289 GoogleTest and RapidCheck tests (285 under the sanitizers, which leave out
+`ctest` runs 291 GoogleTest and RapidCheck tests (287 under the sanitizers, which leave out
 `alloc_test`); one (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine
 exposes no hardware performance counters.
 
