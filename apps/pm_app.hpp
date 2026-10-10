@@ -63,6 +63,7 @@ struct Options {
     EngineParams engine;
     int events = 40, max_tokens = 200, tokens_per_conn = 50, port = 8088, cpu = -1;
     bool spin = false;  // busy-poll the rings instead of sleeping on the doorbell
+    bool spin_feeds = false;  // feed threads busy-poll their sockets instead of sleeping in poll(2): one core each
     double seconds = 0, record_cap_gb = 20;
     fs::path record, replay, dump_fills;  // dump_fills: replay writes every maker fill there
     fs::path run;       // pm_exec: summary.tsv, kill.log; KILL there trips the switch (live)
@@ -118,7 +119,7 @@ bool put(Feed& f, std::string_view text, std::int64_t kernel_ns = 0) {
     return false;
 }
 
-void feed_loop(Feed& f) {
+void feed_loop(Feed& f, bool spin) {
     std::string sub = "{\"assets_ids\":[";
     for (std::size_t i = 0; i < f.ids.size(); ++i) sub += (i ? ",\"" : "\"") + f.ids[i] + "\"";
     sub += "],\"type\":\"market\",\"custom_feature_enabled\":true}";
@@ -141,7 +142,8 @@ void feed_loop(Feed& f) {
             std::string_view msg;
             bool overflow = false;
             while (!g_stop && !overflow) {
-                const auto s = ws.read(msg, 200);
+                const auto s = ws.read(msg, spin ? 0 : 200);
+                if (spin && s == net::WsClient::Status::Timeout) __builtin_ia32_pause();
                 const auto now = Clock::now();
                 if (s == net::WsClient::Status::Closed) break;
                 if (s == net::WsClient::Status::Message) {
@@ -665,7 +667,7 @@ int live(const Options& o) {
         feeds[static_cast<std::size_t>(t.conn)]->ids.push_back(t.id);
     }
     std::vector<std::thread> threads;
-    for (auto& f : feeds) threads.emplace_back([&f] { feed_loop(*f); });
+    for (auto& f : feeds) threads.emplace_back([&f, &o] { feed_loop(*f, o.spin_feeds); });
 
     Names names;
     {

@@ -1,7 +1,7 @@
 // Live paper trading on the prediction-market order-book stream, and replay of its recordings.
 //
 //   pm_live [--events N] [--max-tokens N] [--tokens-per-conn N] [--port P] [--record DIR [--record-cap-gb G]]
-//           [--seconds S] [--cpu C] [--spin] [--no-quote] [maker and risk options]
+//           [--seconds S] [--cpu C] [--spin] [--spin-feeds] [--no-quote] [maker and risk options]
 //   pm_live --replay DIR [maker and risk options]
 //
 // Live: picks the most traded events in which exactly one market resolves Yes and every open
@@ -59,6 +59,7 @@ int main(int argc, char** argv) {
         else if (a == "--cpu") o.cpu = static_cast<int>(num());
         else if (a == "--no-quote") o.engine.quote = false;
         else if (a == "--spin") o.spin = true;
+        else if (a == "--spin-feeds") o.spin_feeds = true;
         else if (a == "--gamma") o.engine.maker.gamma = num();
         else if (a == "--k") o.engine.maker.k = num();
         else if (a == "--size") o.engine.maker.size = num();

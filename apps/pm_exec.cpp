@@ -3,7 +3,7 @@
 //
 //   pm_exec --replay DIR [--config FILE]... [--set KEY=VALUE]... [--run OUT] [--profile]
 //   pm_exec --paper --run OUT --config FILE [--set KEY=VALUE]... [--seconds S] [--port P] [--cpu C]
-//           [--spin] [--events N] [--max-tokens N] [--tokens-per-conn N] [--record-cap-gb G]
+//           [--spin] [--spin-feeds] [--events N] [--max-tokens N] [--tokens-per-conn N] [--record-cap-gb G]
 //           [--exec-dir DIR] [--reset-kill]
 //
 // Replay: the venue's reports are a function of the recording, the config and its seed, so the
@@ -49,7 +49,7 @@ int usage() {
     std::fprintf(stderr,
                  "usage: pm_exec --replay DIR [--config FILE]... [--set KEY=VALUE]... [--run OUT] [--profile]\n"
                  "       pm_exec --paper --run OUT --config FILE [--set KEY=VALUE]... [--seconds S] [--port P]\n"
-                 "               [--cpu C] [--spin] [--events N] [--max-tokens N] [--tokens-per-conn N]\n"
+                 "               [--cpu C] [--spin] [--spin-feeds] [--events N] [--max-tokens N] [--tokens-per-conn N]\n"
                  "               [--record-cap-gb G] [--exec-dir DIR] [--reset-kill]\n");
     return 2;
 }
@@ -84,6 +84,7 @@ int main(int argc, char** argv) {
         else if (a == "--port") o.port = static_cast<int>(num());
         else if (a == "--cpu") o.cpu = static_cast<int>(num());
         else if (a == "--spin") o.spin = true;
+        else if (a == "--spin-feeds") o.spin_feeds = true;
         else if (a == "--events") o.events = static_cast<int>(num());
         else if (a == "--max-tokens") o.max_tokens = static_cast<int>(num());
         else if (a == "--tokens-per-conn") o.tokens_per_conn = std::max(1, static_cast<int>(num()));

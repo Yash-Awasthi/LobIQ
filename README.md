@@ -192,6 +192,7 @@ queue-ahead count per order, so its fills are conservative.
 ```
 pm_live --record data/live --seconds 3600          # dashboard on http://127.0.0.1:8088/
 pm_live --record data/live --spin --cpu 4          # busy-poll a pinned core for latency
+pm_live --record data/live --spin --spin-feeds     # feed threads busy-poll too: one core per connection
 pm_live --replay data/live                         # same decisions, same hash
 scripts/pm_live_supervise.sh data/pm-live --seconds 21600   # restart every 6 h, one directory per run
 ```

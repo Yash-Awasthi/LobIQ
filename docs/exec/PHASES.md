@@ -106,7 +106,7 @@ Docs read against code; what the design required and was missing:
 - [x] Optional faults V8 (spurious reject), V12 (reorder), V13 (delay past the order manager's timeout); X11 batch skew. Late fills accepted (D31). Executor campaign at 20-30%: zero illegal reports, zero residual sets; 20% spurious rejects trip R13 (designed). All fills reordered by 200 ms: 18 late fills, 0 illegal, 0 mismatches. 8/8 mutations caught.
 
 - [x] X13 leg-risk check (D32): exit_value and filter `leg_risk`, config `arb_leg_risk_pct`; 6/6 mutations caught; demo hashes a and c changed on purpose.
-- [ ] Feed threads spin as an option (`--spin`), measured on kernel_to_ring.
+- [x] Feed threads spin as an option (`--spin-feeds`), measured on kernel_to_ring (PERF R9: p50 173 -> 31 us; with --spin too, wire to decision about 39 us p50).
 
 ## Stop conditions (any phase)
 
