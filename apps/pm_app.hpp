@@ -530,6 +530,7 @@ void exec_summary(const Options& o, const Engine& e, const DecisionHash& dh) {
         {"unknown_timeouts", std::to_string(e.oms().timeouts())},
         {"oms_mismatches", std::to_string(e.oms().mismatches())},
         {"cancel_races", std::to_string(e.oms().cancel_races())},
+        {"late_fills", std::to_string(e.oms().late_fills())},
         {"position_mismatches", std::to_string(e.position_mismatches())},
         {"kill", kKillNames[static_cast<int>(e.exec_risk().kill_reason())]},
         {"open_orders", std::to_string(e.oms().open_orders())},

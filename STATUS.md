@@ -15,8 +15,7 @@ binary with `install`, never `cp`. Paper runs of `pm_exec` go to `~/data/exec/ru
 
 ## Open
 
-1. Execution layer (docs/exec): done through E7 and the post-G7 audit. Optional: faults V8, V12,
-   V13; batch skew for groups over 15 legs (X11).
+1. Execution layer (docs/exec): done through E7, the post-G7 audit and the optional faults.
 2. Arbitrage on the recordings (RESULTS.md E6.3): most windows are stale or below fees; attempts
    mostly lose a leg on near-resolved pairs. More recording days give a larger sample.
 3. After about two weeks of recorder data: `pm_stats` and `pm_mm` over the full recording.

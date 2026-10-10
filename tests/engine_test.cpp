@@ -608,3 +608,32 @@ TEST(EngineArb, ALegFailingAfterResolutionCorrectsTheSetsCash) {
     EXPECT_EQ(e.arb_exec().stats().realised, 0);  // both legs failed: no trade, no payout, fees back
     EXPECT_EQ(e.ledger().cash(), e.ledger().capital());
 }
+
+namespace {
+
+// An event with 16 outcomes at 0.05 (0.80 a set, fees included it clears); the 16th outcome's ask moves 5 ms after the
+// window opens. Returns the arbitrage stats after the attempt.
+hft::exec::ArbStats sixteen_legs(hft::exec::Ns batch_gap) {
+    auto p = arb_params();
+    p.arb.batch_gap = batch_gap;
+    Engine e(p);
+    std::vector<std::string> ids;
+    for (int i = 0; i < 16; ++i) ids.push_back("T" + std::to_string(i));
+    e.add_group("ev", ids);
+    std::vector<Line> l;
+    for (int i = 0; i < 16; ++i) l.push_back({kS + i, book2(ids[i].c_str(), "0.04", "100", "0.05", "100")});
+    l.push_back({kS + 5 * kMs, book2("T15", "0.04", "100", "0.09", "100")});
+    l.push_back({kS + 200 * kMs, control("_heartbeat", 0)});
+    feed(e, l);
+    return e.arb_exec().stats();
+}
+
+}  // namespace
+
+TEST(EngineArb, LegsBeyondFifteenGoInALaterBatch) {
+    const auto together = sixteen_legs(0);
+    EXPECT_EQ(together.complete, 1u);  // all 16 at once: every leg at 0.05
+    const auto batched = sixteen_legs(10 * kMs);
+    EXPECT_EQ(batched.complete, 0u);  // the 16th leg left 10 ms later and missed 0.05
+    EXPECT_EQ(batched.completed + batched.unwound + batched.frozen_bound + batched.frozen_depth + batched.frozen_retries, 1u);
+}

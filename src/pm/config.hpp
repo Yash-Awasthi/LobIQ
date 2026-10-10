@@ -55,6 +55,11 @@ inline const Key kKeys[] = {
     {"p_drop_fill", 0, 1, false, [](EngineParams& p, double v) { p.sim.p_drop_fill_ppm = ppm(v); }},
     {"p_dup", 0, 1, false, [](EngineParams& p, double v) { p.sim.p_dup_ppm = ppm(v); }},
     {"disconnect_every_s", 0, 86'400, false, [](EngineParams& p, double v) { p.sim.disc_every = sec(v); }},
+    {"p_spurious_reject", 0, 1, false, [](EngineParams& p, double v) { p.sim.p_spurious_reject_ppm = ppm(v); }},
+    {"p_reorder", 0, 1, false, [](EngineParams& p, double v) { p.sim.p_reorder_ppm = ppm(v); }},
+    {"reorder_ms", 0, 60'000, false, [](EngineParams& p, double v) { p.sim.reorder_delay = ms(v); }},
+    {"p_late_ack", 0, 1, false, [](EngineParams& p, double v) { p.sim.p_late_ack_ppm = ppm(v); }},
+    {"late_ms", 0, 600'000, false, [](EngineParams& p, double v) { p.sim.late_delay = ms(v); }},
     {"disconnect_for_s", 0, 3'600, false, [](EngineParams& p, double v) { p.sim.disc_for = sec(v); }},
     {"compat", 0, 1, true, compat},
     {"session", 1, 65'535, true, [](EngineParams& p, double v) { p.session = static_cast<std::uint16_t>(v); }},
@@ -94,6 +99,7 @@ inline const Key kKeys[] = {
     {"arb_leg_timeout_ms", 1, 600'000, false, [](EngineParams& p, double v) { p.arb.leg_timeout = ms(v); }},
     {"arb_hold_limit_s", 0.1, 86'400, false, [](EngineParams& p, double v) { p.arb.hold_limit = sec(v); }},
     {"merge_ms", 0, 600'000, false, [](EngineParams& p, double v) { p.arb.merge_delay = ms(v); }},
+    {"batch_gap_ms", 0, 10'000, false, [](EngineParams& p, double v) { p.arb.batch_gap = ms(v); }},
     // engine
     {"stale_s", 0.1, 3'600, false, [](EngineParams& p, double v) { p.stale_s = v; }},
 };

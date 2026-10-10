@@ -28,12 +28,17 @@ struct SimConfig {
     Ns settle_delay = 2'000'000'000;
     std::uint32_t p_settle_fail_ppm = 0, p_drop_ack_ppm = 0, p_drop_fill_ppm = 0, p_dup_ppm = 0;
     Ns disc_every = 0, disc_for = 0;  // a disconnect of disc_for every disc_every: reports held
+    std::uint32_t p_spurious_reject_ppm = 0;  // V8: a valid order rejected anyway
+    std::uint32_t p_reorder_ppm = 0;          // V12: a fill delivered late on its own stream, overtaken by later reports
+    Ns reorder_delay = 20'000'000;
+    std::uint32_t p_late_ack_ppm = 0;         // V13: an ack delivered after the order manager's timeout
+    Ns late_delay = 6'000'000'000;
     std::uint64_t seed = 1;
 };
 
 struct SimStats {
     std::uint64_t orders = 0, rejects = 0, taker_fills = 0, maker_fills = 0, expired = 0, cancels = 0;
-    std::uint64_t dropped = 0, duplicated = 0, held = 0, settle_failed = 0;
+    std::uint64_t dropped = 0, duplicated = 0, held = 0, settle_failed = 0, spurious = 0, reordered = 0, late = 0;
     Qty taker_qty = 0, maker_qty = 0;
 };
 
@@ -41,7 +46,7 @@ struct SimStats {
 template <class BookOf>
 class SimVenue {
    public:
-    enum Reason : std::uint16_t { kNone, kTick, kSize, kClosed, kPostOnlyCross, kDuplicate, kNotFound, kFilled };
+    enum Reason : std::uint16_t { kNone, kTick, kSize, kClosed, kPostOnlyCross, kDuplicate, kNotFound, kFilled, kSpurious };
 
     SimVenue(const SimConfig& c, BookOf book)
         : c_(c), book_(book), rng_(c.seed, 0, 0), q_(4096), orders_(256), idx_(256), fills_(256), reqs_(64), rpts_(256) {}
@@ -241,6 +246,8 @@ class SimVenue {
             return void(++stats_.dropped);
         Ns d = at + c_.lat_out + jitter(n, 2);
         if (c_.disc_every > 0 && d % c_.disc_every < c_.disc_for) d += c_.disc_for - d % c_.disc_every, ++stats_.held;
+        if (ordered && r.kind == VenueRpt::Fill && chance(c_.p_reorder_ppm, n, 8)) d += c_.reorder_delay, ordered = false, ++stats_.reordered;
+        if (ordered && r.kind == VenueRpt::Ack && chance(c_.p_late_ack_ppm, n, 9)) d += c_.late_delay, ordered = false, ++stats_.late;
         if (ordered) {
             if (d < last_delivery_) d = last_delivery_;
             last_delivery_ = d;
@@ -310,6 +317,7 @@ class SimVenue {
         else if (r.px <= 0 || r.px >= kPxOne || r.px % tick) why = kTick;
         else if (r.qty < k.rules.min_qty || r.qty % (kShare / 100)) why = kSize;
         else if (r.post_only && marketable(o)) why = kPostOnlyCross;
+        else if (chance(c_.p_spurious_reject_ppm, static_cast<std::uint32_t>(o.vid), 7)) why = kSpurious, ++stats_.spurious;
         if (why != kNone) {
             o.state = kDone;
             ++stats_.rejects;

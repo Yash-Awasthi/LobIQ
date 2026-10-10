@@ -94,9 +94,9 @@ const int kNext[9][kEv] = {
     /*Partial */ {int(S::Partial),     X,                    int(S::Partial),    int(S::Filled),     int(S::Cancelled),     int(S::Partial),       int(S::Expired),     int(S::Partial),     int(S::Partial),     int(S::Partial)},
     /*PendCxl */ {int(S::PendingCancel), X,                  int(S::PendingCancel), int(S::Filled),  int(S::Cancelled),     int(S::Live),          int(S::Expired),     int(S::PendingCancel), int(S::PendingCancel), int(S::PendingCancel)},
     /*Filled  */ {int(S::Filled),      X,                    X,                  X,                  X,                     int(S::Filled),        X,                   int(S::Filled),      int(S::Filled),      int(S::Filled)},
-    /*Cancelld*/ {int(S::Cancelled),   X,                    X,                  X,                  int(S::Cancelled),     int(S::Cancelled),     X,                   int(S::Cancelled),   int(S::Cancelled),   int(S::Cancelled)},
+    /*Cancelld*/ {int(S::Cancelled),   X,                    int(S::Cancelled),  int(S::Cancelled),  int(S::Cancelled),     int(S::Cancelled),     X,                   int(S::Cancelled),   int(S::Cancelled),   int(S::Cancelled)},
     /*Rejected*/ {X,                   int(S::Rejected),     X,                  X,                  X,                     int(S::Rejected),      X,                   int(S::Rejected),    int(S::Rejected),    int(S::Rejected)},
-    /*Expired */ {int(S::Expired),     X,                    X,                  X,                  X,                     int(S::Expired),       int(S::Expired),                   int(S::Expired),     int(S::Expired),     int(S::Expired)},
+    /*Expired */ {int(S::Expired),     X,                    int(S::Expired),    int(S::Expired),    X,                     int(S::Expired),       int(S::Expired),                   int(S::Expired),     int(S::Expired),     int(S::Expired)},
     /*Unknown */ {int(S::Live),        int(S::Rejected),     int(S::Unknown),    int(S::Filled),     int(S::Cancelled),     int(S::Live),          int(S::Expired),     int(S::Live),        int(S::Cancelled),   int(S::Rejected)},
 };
 
@@ -143,7 +143,7 @@ RC_GTEST_PROP(Oms, MatchesANaiveReferenceUnderRandomReports, ()) {
         Side side;
         Px px;
         Qty qty, cum = 0;
-        bool done = false, unknown = false;
+        bool done = false, unknown = false, cut = false;  // cut: finished by a cancel ack or expiry
         std::vector<std::uint64_t> fills;
     };
     Rig g;
@@ -162,7 +162,7 @@ RC_GTEST_PROP(Oms, MatchesANaiveReferenceUnderRandomReports, ()) {
             const Qty q = *rc::gen::elementOf(std::vector<Qty>{5 * kShare, 10 * kShare, 20 * kShare});
             const Qty qq = sell ? std::min(q, g.ledger.available_pos(0) / 10'000 * 10'000) : q;
             const auto cl = g.oms.submit({0, sell ? Side::Sell : Side::Buy, Tif::Gtc, false, 0, px, qq, 0}, g.mv, now, g.sink());
-            if (cl) ids.push_back(cl), ref[cl] = {sell ? Side::Sell : Side::Buy, px, qq, 0, false, false, {}};
+            if (cl) ids.push_back(cl), ref[cl] = {sell ? Side::Sell : Side::Buy, px, qq, 0, false, false, false, {}};
             continue;
         }
         const std::uint64_t cl = *rc::gen::elementOf(ids);
@@ -176,7 +176,7 @@ RC_GTEST_PROP(Oms, MatchesANaiveReferenceUnderRandomReports, ()) {
                 const Qty q = *rc::gen::elementOf(std::vector<Qty>{kShare, 3 * kShare, 5 * kShare, 30 * kShare});
                 const Px p = r.side == Side::Buy ? r.px - *rc::gen::element<Px>(0, 0, 10, -10) : r.px + *rc::gen::element<Px>(0, 0, 10, -10);
                 const bool seen = std::find(r.fills.begin(), r.fills.end(), fid) != r.fills.end();
-                const bool ok = !seen && !r.done && r.cum + q <= r.qty && (r.side == Side::Buy ? p <= r.px : p >= r.px);
+                const bool ok = !seen && (!r.done || r.cut) && r.cum + q <= r.qty && (r.side == Side::Buy ? p <= r.px : p >= r.px);
                 g.oms.on_report({VenueRpt::Fill, VenueRpt::None, 0, p, q, 0, cl, 9, fid, 0}, now, on);
                 if (ok) {
                     r.fills.push_back(fid), r.cum += q;
@@ -189,7 +189,7 @@ RC_GTEST_PROP(Oms, MatchesANaiveReferenceUnderRandomReports, ()) {
             case 6: case 7: {
                 const auto k = op == 6 ? VenueRpt::CancelAck : VenueRpt::Expired;
                 g.oms.on_report({k, VenueRpt::None, 0, 0, 0, 0, cl, 9, 0, 0}, now, on);
-                if (!r.done) r.done = true, r.unknown = false;
+                if (!r.done) r.done = true, r.cut = true, r.unknown = false;
                 break;
             }
             case 8: g.oms.on_report({VenueRpt::CancelReject, VenueRpt::None, 0, 0, 0, 0, cl, 9, 0, 0}, now, on); r.unknown = false; break;
@@ -359,4 +359,23 @@ TEST(Oms, FillsRacingACancelAndUnknownOrdersAreCounted) {
     EXPECT_EQ(g.oms.unknown_orders(), 1u);
     g.status(b, VenueRpt::Live);
     EXPECT_EQ(g.oms.unknown_orders(), 0u);
+}
+
+TEST(Oms, AFillArrivingAfterTheCancelAckCountsWithoutReleasingTwice) {
+    // Fills come on their own stream (the user channel), so one can arrive after the cancel ack.
+    Rig g;
+    const std::uint64_t cl = g.buy();
+    g.ack(cl);
+    g.oms.cancel(cl, kSec, g.sink());
+    g.plain(cl, VenueRpt::CancelAck);
+    ASSERT_EQ(g.ledger.available_cash(), g.ledger.cash());  // everything released at the cancel
+    g.fill(cl, 4 * kShare);
+    EXPECT_EQ(g.oms.illegal_count(), 0u);
+    EXPECT_EQ(g.oms.late_fills(), 1u);
+    EXPECT_EQ(g.oms.order(cl)->state, OrdState::Cancelled);
+    EXPECT_EQ(g.oms.order(cl)->cum, 4 * kShare);
+    EXPECT_EQ(g.ledger.pos(0), 4 * kShare);
+    EXPECT_EQ(g.ledger.available_cash(), g.ledger.cash());  // no second release
+    g.fill(cl, 7 * kShare);  // past the order's size: still illegal
+    EXPECT_EQ(g.oms.illegal_count(), 1u);
 }

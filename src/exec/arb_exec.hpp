@@ -28,6 +28,7 @@ struct ArbParams {
     Ns leg_timeout = 5'000'000'000;     // X6: legs not finished by then are cancelled
     Ns hold_limit = 60'000'000'000;     // R15: leg exposure above attempt_bound for longer trips the kill switch
     Ns merge_delay = 0;                 // L6: relayer latency for merge and split
+    Ns batch_gap = 0;                   // X11: the venue takes 15 orders per batch (D19); later batches leave this much later
 };
 
 enum class ArbFilter : std::uint8_t { Pass, Young, Stale, Frozen, OneSided, SelfCross, Size, Edge, kCount };
@@ -164,7 +165,7 @@ struct ArbStats {
 // happen and calls process() after delivering venue reports: decisions are taken there, never
 // inside the order manager's callbacks. Ctx gives the executor its view and its actions:
 //   const pm::TokenBook& book(token); LegView view(token);
-//   std::uint64_t submit(token, side, tif, px, qty, tag) (0: risk refused);
+//   std::uint64_t submit(token, side, tif, px, qty, tag, delay) (0: risk refused; sent `delay` later);
 //   void cancel(cl); void split(yes, no, qty); void merge(yes, no, qty); Usd cash(); Usd room(token);
 //   void kill().
 class ArbExec {
@@ -264,6 +265,7 @@ class ArbExec {
         g.filled = true;
         if (side == Side::Buy) add(g, i, q), g.cash -= notional(px, q) + fee;
         else add(g, i, -q), g.cash += notional(px, q) - fee;
+        mark(tag >> 8);  // a late fill (after the order finished) can unbalance a finished attempt
     }
     void on_done(std::uint32_t tag, std::uint64_t cl) {
         Group& g = groups_[tag >> 8];
@@ -380,8 +382,8 @@ class ArbExec {
     }
 
     template <class Ctx>
-    void send(Group& g, std::uint32_t gi, std::uint32_t i, Side side, Tif tif, Px px, Qty q, Ctx& c) {
-        g.legs[i].cl = px > 0 && q > 0 ? c.submit(g.legs[i].token, side, tif, px, q, gi << 8 | i) : 0;
+    void send(Group& g, std::uint32_t gi, std::uint32_t i, Side side, Tif tif, Px px, Qty q, Ctx& c, Ns delay = 0) {
+        g.legs[i].cl = px > 0 && q > 0 ? c.submit(g.legs[i].token, side, tif, px, q, gi << 8 | i, delay) : 0;
         if (!g.legs[i].cl) mark(gi);  // refused: nothing will report on it
     }
 
@@ -428,7 +430,8 @@ class ArbExec {
                 g.first = thin, g.rest_pending = true;
                 send(g, gi, thin, Side::Buy, Tif::Fok, g.views[thin].book->best_ask(), g.size, c);
             } else {
-                for (std::uint32_t i = 0; i < g.legs.size(); ++i) send(g, gi, i, Side::Buy, Tif::Fak, g.views[i].book->best_ask(), g.size, c);
+                for (std::uint32_t i = 0; i < g.legs.size(); ++i)
+                    send(g, gi, i, Side::Buy, Tif::Fak, g.views[i].book->best_ask(), g.size, c, (i / kBatch) * p_.batch_gap);
             }
             return;
         }
@@ -509,6 +512,7 @@ class ArbExec {
     }
 
     static constexpr std::uint32_t kRounds = 3;     // complete or unwind rounds before a set is frozen
+    static constexpr std::uint32_t kBatch = 15;     // orders per venue batch (D19, VENUE F11)
     static constexpr Ns kRetry = 1'000'000'000;     // a frozen set is looked at again this often
 
     ArbParams p_;

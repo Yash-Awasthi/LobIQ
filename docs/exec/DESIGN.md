@@ -31,6 +31,7 @@ States: PendingNew, Live, Partial, PendingCancel, Filled, Cancelled, Rejected, E
 | S13 | any | overfill, report for terminal order (not dup), unknown cl_id | unchanged | illegal++, log, kill |
 | S14 | any | duplicate fill_id; the same final report again (CancelAck on Cancelled, Expired on Expired, Reject on Rejected) | unchanged | dup++, ignore |
 | S14b | PendingCancel never acked | Reject | Rejected | a cancel can go out before the ack |
+| S22 | Cancelled, Expired | Fill, new id, within size and limit | unchanged | late fill (D31): position and cash only, reservations already released; late_fills++ |
 
 - S18 Settlement (D16): each fill is Matched on arrival; Settled -> confirmed; SettleFailed -> the ledger reverses the fill (opposite fill, fee refunded). The order's cum and state are not changed: the venue considers the order filled. Counted (settle_failures).
 - S15 Fill application is by quantity, idempotent by fill_id. Every fill id of an order is kept (list in a shared index-addressed pool, freed with the order). An 8-entry ring was tried first; the property test showed a duplicate of an older fill slipping through (order filled in > 8 pieces).
@@ -94,7 +95,7 @@ Matching:
 Faults (each config prob or schedule; Philox, seed in exec.cfg):
 
 - Core (D14, D16): V18 settlement failure (a matched fill later fails, configurable probability and delay); V9 drop ack; V10 drop fill report (fill happened; found at reconcile); V11 duplicate report; V14 disconnect T s (reports after reconnect in order, or lost -> reconcile).
-- Optional: V8 spurious reject; V12 reorder (cancel ack before earlier fill); V13 delay > OMS timeout.
+- Optional, implemented: V8 spurious reject (`p_spurious_reject`, reason kSpurious); V12 reorder: a fill delivered on its own lane `reorder_ms` later, so later reports overtake it (`p_reorder`); V13 an ack delivered `late_ms` late, past the order manager's timeout (`p_late_ack`).
 
 Invariants (checked every event; abort in tests):
 
@@ -131,5 +132,5 @@ Limits (print in every report): L2 has no order ids (queue estimated); others do
 - X8 Log per attempt: window id, policy, legs filled, cause (fault id or market), action, cost, net PnL, capital-days. Implemented as counters (ArbStats, summary.tsv, metrics), not a per-attempt log: a log would allocate on the trading thread.
 - X9 One attempt per group at a time; no new attempt while a group has residual exposure.
 - X10 Pair completion: buy side merges the set (L6) when both legs are confirmed or matched per config; sell side splits first (L6) then sells both legs; a failed sell leg leaves inventory to unwind (X7).
-- X11 Batches: event legs in batches of 15 (D19); policy P sends batches back to back. Not modelled: every leg is sent in the same instant (largest group recorded: 25 legs, two batches at the venue).
+- X11 Batches: event legs in batches of 15 (D19); policy P sends batches back to back. Implemented: leg i is sent floor(i/15) * batch_gap later (`batch_gap_ms`, default 0: back to back; largest group recorded: 25 legs).
 - X12 Implementation (D29): ArbExec states Idle, Split, Legs, Resolve, Merge, Frozen per group. Order and settlement reports are recorded inside the order manager callback; decisions run after each round of venue reports (Engine::pump), so no order is placed from inside Oms::on_report. Legs carry OrderIntent.strategy 1 and tag group<<8|leg; settlements are routed by the order's tag (finished orders are kept past the settlement delay). Merge and split move the ledger and the venue's position together (V30), so R14 compares like with like.

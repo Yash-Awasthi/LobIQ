@@ -516,15 +516,16 @@ class Engine {
                     [](const void* v, std::uint32_t tk, bool bid, exec::Px px) { return static_cast<const exec::SimVenue<BookOf>*>(v)->taken(tk, bid, px); },
                     &e.sim_, t, e.p_.risk.collar_ticks * (e.rules_[t].tick > 0 ? e.rules_[t].tick : 1)};
         }
-        std::uint64_t submit(std::uint32_t t, exec::Side side, exec::Tif tif, exec::Px px, exec::Qty q, std::uint32_t tag) {
+        std::uint64_t submit(std::uint32_t t, exec::Side side, exec::Tif tif, exec::Px px, exec::Qty q, std::uint32_t tag, exec::Ns delay) {
             const Tok& k = *e.toks_[t];
             const exec::OrderIntent in{t, side, tif, false, kArb, px, q, tag};
             const exec::MarketView mv{k.maker.book.best_bid(), k.maker.book.best_ask(), k.seeded, !k.seeded, &e.rules_[t]};
             exec::Reject why;
             const std::uint64_t t0 = e.prof_ ? tsc::start() : 0;
-            const std::uint64_t cl = e.oms_.submit(in, mv, ns, [&](const exec::VenueReq& r) { e.send(r, ns); }, &why);
+            const std::uint64_t cl = e.oms_.submit(in, mv, ns, [&](const exec::VenueReq& r) { e.send(r, ns + delay); }, &why);
             if (e.prof_) e.prof_->submit.record(tsc::stop() - t0);
             e.xh_.add(ns, t, side, px, q, why, kArb);
+            if (delay) e.xh_.add(delay);
             return cl;
         }
         void cancel(std::uint64_t cl) { e.oms_.cancel(cl, ns, [&](const exec::VenueReq& r) { e.send(r, ns); }); }

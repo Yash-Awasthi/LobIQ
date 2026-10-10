@@ -348,3 +348,43 @@ TEST(SimVenue, CoarserTickCancelsRestingOrdersOffTheNewGrid) {
     g.run(3);
     EXPECT_EQ(g.of(late, VenueRpt::Reject)[0].reason, g.v.kTick);
 }
+
+TEST(SimVenue, SpuriousRejectsRefuseValidOrders) {  // V8
+    SimConfig c;
+    c.p_spurious_reject_ppm = 1'000'000;
+    Rig g(c);
+    const auto cl = g.send(Side::Buy, 3900, 10);
+    g.run(1);
+    ASSERT_EQ(g.of(cl, VenueRpt::Reject).size(), 1u);
+    EXPECT_EQ(g.of(cl, VenueRpt::Reject)[0].reason, g.v.kSpurious);
+}
+
+TEST(SimVenue, AReorderedFillArrivesAfterTheCancelAck) {  // V12
+    SimConfig c;
+    c.p_reorder_ppm = 1'000'000;
+    c.reorder_delay = 20 * kMs;
+    Rig g(c);
+    const auto cl = g.send(Side::Buy, 4000, 10);  // joins the 0.40 bid behind 100
+    g.run(1);
+    g.v.on_trade(0, 3990, 5, false, 2);  // a trade through our price fills us
+    g.ask(VenueReq::Cancel, cl, 3);
+    g.run(100 * kMs);
+    std::vector<VenueRpt::Kind> order;
+    for (const auto& r : g.got)
+        if (r.cl_id == cl && (r.kind == VenueRpt::Fill || r.kind == VenueRpt::CancelAck || r.kind == VenueRpt::CancelReject)) order.push_back(r.kind);
+    ASSERT_EQ(order.size(), 2u);
+    EXPECT_NE(order[0], VenueRpt::Fill);  // the cancel answer overtook the fill
+    EXPECT_EQ(order[1], VenueRpt::Fill);
+}
+
+TEST(SimVenue, ALateAckArrivesAfterTheGivenDelay) {  // V13
+    SimConfig c;
+    c.p_late_ack_ppm = 1'000'000;
+    c.late_delay = 6'000 * kMs;
+    Rig g(c);
+    const auto cl = g.send(Side::Buy, 3900, 10);
+    g.run(5'000 * kMs);
+    EXPECT_TRUE(g.of(cl, VenueRpt::Ack).empty());
+    g.run(7'000 * kMs);
+    EXPECT_EQ(g.of(cl, VenueRpt::Ack).size(), 1u);
+}
