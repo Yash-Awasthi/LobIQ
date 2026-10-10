@@ -79,12 +79,12 @@ inline std::string chart(const std::string& title, const std::string& xlabel, co
     for (double y = std::ceil(y0 / ys) * ys; y <= y1; y += ys) {
         o += "<line class=\"grid\" x1=\"" + num(L, 1) + "\" x2=\"" + num(W - R, 1) + "\" y1=\"" + num(py(y), 1) + "\" y2=\"" +
              num(py(y), 1) + "\"/>";
-        o += "<text class=\"axis\" x=\"" + num(L - 6, 1) + "\" y=\"" + num(py(y) + 4, 1) + "\" text-anchor=\"end\">" + num(y, yp) +
+        o += "<text class=\"axis\" x=\"" + num(L - 6, 1) + "\" y=\"" + num(py(y) + 4, 1) + "\" text-anchor=\"end\">" + num(std::fabs(y) < ys * 1e-6 ? 0.0 : y, yp) +
              "</text>";
     }
     for (double x = std::ceil(x0 / xs) * xs; x <= x1; x += xs)
         o += "<text class=\"axis\" x=\"" + num(px(x), 1) + "\" y=\"" + num(H - B + 16, 1) + "\" text-anchor=\"middle\">" +
-             num(x, xp) + "</text>";
+             num(std::fabs(x) < xs * 1e-6 ? 0.0 : x, xp) + "</text>";
     if (zero_line && y0 < 0 && y1 > 0)
         o += "<line class=\"zero\" x1=\"" + num(L, 1) + "\" x2=\"" + num(W - R, 1) + "\" y1=\"" + num(py(0), 1) + "\" y2=\"" +
              num(py(0), 1) + "\"/>";

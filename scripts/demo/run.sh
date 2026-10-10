@@ -4,7 +4,9 @@
 cd "$(dirname "$0")/../.."
 want=$1 fields=$2
 shift 2
-out=$(build/native/apps/pm_exec "$@" 2>&1 >/dev/null)
+B=${HFT_BIN:-build/native/apps}
+[ -x "$B/pm_exec" ] || B=build/release/apps
+out=$("$B/pm_exec" "$@" 2>&1 >/dev/null)
 line=$(echo "$out" | grep "^exec")
 [ -n "$line" ] || { echo "$out" | tail -3; exit 1; }
 for f in $fields; do echo "$line" | grep -o "\b$f [^ ]*"; done

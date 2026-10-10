@@ -31,6 +31,8 @@ jobs:
         run: scripts/check_cli.sh build/release/apps
       - if: matrix.preset == 'release'
         run: scripts/demo/backtest.sh
+      - if: matrix.preset == 'release'
+        run: HFT_BIN=build/release/apps scripts/demo/paper.sh
 
   gates:
     runs-on: ubuntu-24.04

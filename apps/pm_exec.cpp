@@ -33,7 +33,7 @@ std::uint16_t next_session(const fs::path& dir) {
 
 int usage() {
     std::fprintf(stderr,
-                 "usage: pm_exec --replay DIR [--config FILE]... [--set KEY=VALUE]... [--run OUT] [--profile]\n"
+                 "usage: pm_exec --replay DIR [--config FILE]... [--set KEY=VALUE]... [--run OUT] [--profile] [--report DIR]\n"
                  "       pm_exec --paper --run OUT --config FILE [--set KEY=VALUE]... [--seconds S] [--port P]\n"
                  "               [--cpu C] [--spin] [--spin-feeds] [--events N] [--max-tokens N] [--tokens-per-conn N]\n"
                  "               [--record-cap-gb G] [--exec-dir DIR] [--reset-kill]\n"
@@ -78,12 +78,13 @@ int main(int argc, char** argv) {
         else if (a == "--tokens-per-conn") o.tokens_per_conn = std::max(1, static_cast<int>(num()));
         else if (a == "--record-cap-gb") o.record_cap_gb = num();
         else if (a == "--profile") o.engine.profile = true;
+        else if (a == "--report") o.report = val();
         else {
             std::fprintf(stderr, "unknown option %s\n", a.c_str());
             return usage();
         }
     }
-    if (paper == !o.replay.empty() || (paper && (o.run.empty() || configs.size() != 1))) return usage();
+    if (paper == !o.replay.empty() || (paper && (o.run.empty() || configs.size() != 1 || !o.report.empty()))) return usage();
 
     std::signal(SIGINT, on_signal);
     std::signal(SIGTERM, on_signal);
