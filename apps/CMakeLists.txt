@@ -16,6 +16,9 @@ target_link_libraries(checkpoint PRIVATE hft_core hft_data)
 add_executable(itch_dump itch_dump.cpp)
 target_link_libraries(itch_dump PRIVATE hft_core)
 
+add_executable(gen_day gen_day.cpp)
+target_link_libraries(gen_day PRIVATE hft_core)
+
 add_executable(gen_fixture gen_fixture.cpp)
 target_link_libraries(gen_fixture PRIVATE hft_core zstd::libzstd)
 
@@ -37,7 +40,7 @@ target_link_libraries(pm_live PRIVATE hft_core zstd::libzstd OpenSSL::SSL OpenSS
 add_executable(pm_exec pm_exec.cpp)
 target_link_libraries(pm_exec PRIVATE hft_core zstd::libzstd OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
 
-add_executable(itch_backtest itch_backtest.cpp)
+add_executable(itch_backtest itch_backtest.cpp ${HFT_STRATEGY_SOURCES})
 target_link_libraries(itch_backtest PRIVATE hft_core hft_data)
 
 add_executable(pm_arb pm_arb.cpp)

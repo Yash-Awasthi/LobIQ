@@ -5,6 +5,8 @@
 #include <fstream>
 #include <iterator>
 
+#include "backtest/registry.hpp"
+#include "backtest/report.hpp"
 #include "backtest/strategies.hpp"
 #include "data/gzip.hpp"
 #include "data/store.hpp"
@@ -306,4 +308,53 @@ TEST(Backtest, NaiveJoinQuotesAtTheHalfPennyTick) {
     const Summary r = bt.run(dir.path.string(), 1, {});
     EXPECT_EQ(r.rejects, 0u);
     EXPECT_GT(r.fills, 0u);
+}
+
+TEST(Registry, FindsStrategiesByNameAndPrefix) {
+    ASSERT_NE(find_strategy("naive"), nullptr);
+    ASSERT_NE(find_strategy("imbalance"), nullptr);
+    const StrategyEntry* dp = find_strategy("dp:some/policy.bin");
+    ASSERT_NE(dp, nullptr);
+    EXPECT_EQ(dp->name, "dp");
+    EXPECT_EQ(find_strategy("dp"), nullptr);  // a prefix strategy needs its argument
+    EXPECT_EQ(find_strategy("nope"), nullptr);
+}
+
+TEST(Registry, ARegisteredStrategyRunsLikeTheTypeItself) {
+    FixtureStore fx;
+    RunSpec r;
+    r.config = window();
+    r.store = fx.dir.path.string();
+    r.target = 1;
+    r.index = {3};
+    Params p;
+    p.kv["size"] = 100;
+    const Summary via = find_strategy("naive")->run(r, p);
+    NaiveJoin n{100, 500};
+    const Summary direct = run_strategy(r, n);
+    EXPECT_GT(via.fills, 10u);
+    EXPECT_EQ(via.total, direct.total);
+    EXPECT_EQ(via.fill_ts, direct.fill_ts);
+    const Summary imb = find_strategy("imbalance")->run(r, p);
+    EXPECT_EQ(imb.total, imb.spread + imb.inventory_pnl + imb.fees);
+    EXPECT_EQ(imb.end_inventory, 0);
+}
+
+TEST(Report, WritesTheReportAndItsData) {
+    FixtureStore fx;
+    NaiveJoin n;
+    Backtest<NaiveJoin> bt(window(), n);
+    const Summary s = bt.run(fx.dir.path.string(), 1, {3});
+    TempDir out{"bt_report"};
+    write_report(out.path.string(), "SYM", "naive", window(), s);
+    for (const char* f : {"report.html", "fills.csv", "pnl_minutes.csv", "summary.csv"})
+        EXPECT_TRUE(std::filesystem::exists(out.path / f)) << f;
+    std::ifstream h(out.path / "fills.csv");
+    std::size_t lines = 0;
+    for (std::string l; std::getline(h, l);) ++lines;
+    EXPECT_EQ(lines, s.fills + 1);
+    std::ifstream page(out.path / "report.html");
+    const std::string html((std::istreambuf_iterator<char>(page)), {});
+    EXPECT_NE(html.find("<svg"), std::string::npos);
+    EXPECT_EQ(html.find("<script"), std::string::npos);  // self-contained, nothing to execute
 }
