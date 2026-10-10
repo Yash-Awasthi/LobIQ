@@ -1,19 +1,5 @@
-// Runs one strategy on one symbol-day of an ITCH store through the event-driven backtest
-// (latencies, virtual orders in the real queues, fees, risk, PnL identity every event) and
-// prints a summary.
-//
-//   itch_backtest <store-dir> <symbol|locate> <strategy> [key=value ...] [--fills FILE]
-//                 [--minutes FILE] [--index LOC,LOC,...]
-//
-// Strategies: zero, naive, random_taker, random_passive, perfect_foresight,
-// avellaneda_stoikov, dp:<policy.bin>, ext:<policy.bin>.
-// Strategy keys: size, max_inventory, hysteresis_ticks, rate, horizon_ns, cost_ticks, gamma,
-//   A, k, glft, online, max_dist_ticks, online_tau_s, online_prior_s, toxicity, taking,
-//   vol_limit, take_margin.
-// Venue keys: tick, maker_rebate, taker_fee (micro-dollars per share), fill_rule (0 queue,
-//   1 trade-through), market_data_ns, order_entry_ns, processing_ns, start_ns, stop_ns, end_ns,
-//   sec_fee_per_million, taf_per_share, taf_max, max_position, max_order, collar_ticks.
-// Money is printed in dollars; the accounting itself is in integer micro-dollars.
+// One strategy on one symbol-day through the event-driven backtest; money printed in dollars,
+// accounted in integer micro-dollars. Run without arguments for strategies and keys.
 
 #include <algorithm>
 #include <chrono>
@@ -84,7 +70,14 @@ int main(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr,
                      "usage: itch_backtest <store-dir> <symbol|locate> <strategy> [key=value ...] "
-                     "[--fills FILE] [--minutes FILE] [--index LOC,...]\n");
+                     "[--fills FILE] [--minutes FILE] [--index LOC,...]\n"
+                     "strategies: zero naive random_taker random_passive perfect_foresight avellaneda_stoikov\n"
+                     "            dp:<policy.bin> ext:<policy.bin>\n"
+                     "strategy keys: size max_inventory hysteresis_ticks rate horizon_ns cost_ticks gamma A k glft\n"
+                     "               online max_dist_ticks online_tau_s online_prior_s toxicity taking vol_limit take_margin\n"
+                     "venue keys: tick maker_rebate taker_fee (micro-dollars per share) fill_rule (0 queue, 1 trade-through)\n"
+                     "            market_data_ns order_entry_ns processing_ns start_ns stop_ns end_ns sec_fee_per_million\n"
+                     "            taf_per_share taf_max max_position max_order collar_ticks\n");
         return 2;
     }
     const std::string store = argv[1], strategy = argv[3];

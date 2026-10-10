@@ -407,10 +407,8 @@ std::pair<std::string, std::string> render(const State& x, const Lat& lat, const
     return {t, j};
 }
 
-// Hand-off between the trading thread and the HTTP thread. Once a second the trading thread
-// swaps its State and its window of histograms for the ones the HTTP thread prepared, under a
-// lock it only tries, so it never waits and never scans or clears a histogram itself. The HTTP
-// thread folds the full window into the run totals and clears it for the next swap.
+// Once a second the trading thread swaps State and its histogram window under a try-lock, so it
+// never waits or scans a histogram; the HTTP thread folds and clears what it got.
 class Metrics {
    public:
     Metrics(Latency& spare, double tpn) : spare_(&spare), tpn_(tpn) {}

@@ -1,8 +1,5 @@
-// Splits a BinaryFILE ITCH stream into the per-symbol store (LZ4-HC chunks, or zstd with --codec zstd).
-// Usage: ingest <empty-output-dir> [day.gz]
-// With a .gz argument the file is decompressed in-process, the gzip CRC is verified and the
-// SHA-256 of the compressed file is recorded in <output-dir>/source.sha256. Without it the
-// raw stream is read from stdin.
+// Splits a BinaryFILE ITCH stream (stdin, or a .gz with CRC check and SHA-256 recorded) into the store.
+// Usage: ingest <empty-output-dir> [day.gz] [--codec lz4|zstd]
 
 #include <cstdio>
 #include <algorithm>

@@ -1,13 +1,7 @@
 #pragma once
 
-// Simulated venue for paper trading and replay (DESIGN V1-V30). It reads the same level-2 books
-// the strategies see, matches our orders against them with a latency model, fills resting
-// orders from recorded trades behind a queue-ahead count, settles fills later (some may fail),
-// and can drop, duplicate or hold its reports. Every random decision is a Philox draw
-// addressed by message number, so a seed reproduces a run exactly.
-//
-// Limits, stated with every result: level-2 data has no order ids (queue position is an
-// estimate); other traders do not react to our orders; latency is a model.
+// Every random decision is a Philox draw addressed by message number, so a seed reproduces a run.
+// Limits: level-2 data has no order ids (queue position estimated), no reaction to us, modelled latency.
 
 #include <cstdint>
 #include <vector>
@@ -236,9 +230,8 @@ class SimVenue {
         return ppm && rng_.draw(n, purpose)[1] % 1'000'000 < ppm;
     }
 
-    // Reports leave the venue at `at` and arrive in order (a single connection): never before
-    // the previous report, held to the end of a disconnect window if one is open. Settlement
-    // comes from the chain on its own stream (`ordered` false) and does not hold the rest back.
+    // Reports arrive in order (one connection), held to the end of a disconnect window; settlement
+    // comes on its own stream (`ordered` false) and does not hold the rest back.
     void report(Ns at, const VenueRpt& r, bool ordered = true) {
         const std::uint32_t n = ++nrpt_;
         if ((r.kind == VenueRpt::Ack && chance(c_.p_drop_ack_ppm, n, 3)) ||
@@ -421,9 +414,8 @@ class SimVenue {
         orders_.reserve(used_ + 1);
         return used_++;
     }
-    // ponytail: venue order records are kept for the whole session (Status may ask about any);
-    // about 80 bytes per order, so a busy maker adds tens of MB per hour. Free old finished
-    // orders if sessions get long.
+    // ponytail: records kept for the whole session (~80 B per order, tens of MB per busy hour);
+    // free old finished orders if sessions get long.
     std::uint32_t alloc_req() {
         if (free_req_ != book::kNoOrder) {
             const std::uint32_t i = free_req_;

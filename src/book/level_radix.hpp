@@ -1,9 +1,7 @@
 #pragma once
 
-// Price levels of one book side keyed by tick index (< 2^24), in a three-level radix tree
-// of 256-way nodes: a fixed top, mid nodes and pages of 256 levels, each with a bitmap of
-// non-empty children, so the best level is a few lzcnt/tzcnt and every node is reached by
-// index, never by pointer. Pages and mid nodes are freed when they empty.
+// Price levels keyed by tick index (< 2^24) in a 3-level, 256-way radix tree with child bitmaps:
+// best level by lzcnt/tzcnt, nodes by index, never pointer; empty nodes are freed.
 
 #include <bit>
 #include <cstddef>

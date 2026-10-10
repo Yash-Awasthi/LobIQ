@@ -1,8 +1,7 @@
 #pragma once
 
-// Order storage for TickBook, index-addressed. The fields touched on every update (price,
-// quantity, queue links) sit in 16-byte hot records; reference, arrival sequence and owner
-// sit apart in cold records.
+// Fields touched on every update (price, quantity, queue links) sit in 16-byte hot records;
+// reference, arrival sequence and owner sit apart in cold records.
 
 #include <cstddef>
 #include <cstdint>

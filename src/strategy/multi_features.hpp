@@ -1,9 +1,7 @@
 #pragma once
 
-// Features for a set of symbols fed in feed order, with cross-asset features from index
-// symbols (SPY, QQQ): each index's mid against its own clock-time EMA, in basis points, at
-// the moment the target symbol's event happens. The same object serves batch export and the
-// live loop, so the two cannot diverge.
+// Cross-asset features from index symbols (mid against its own clock-time EMA, in bp) at the target's event.
+// One object serves batch export and the live loop, so the two cannot diverge.
 
 #include <algorithm>
 #include <array>

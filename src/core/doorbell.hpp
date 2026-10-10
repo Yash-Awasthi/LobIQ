@@ -1,10 +1,7 @@
 #pragma once
 
-// Wakes a consumer that sleeps when its queues are empty, without a syscall on the producer
-// side while the consumer is awake. Producer: publish, then ring(). Consumer: snapshot(),
-// re-check the queues, then wait(snapshot, timeout). The sequence counter and the waiting
-// flag are both seq_cst, so either the producer sees the flag or the consumer sees the new
-// sequence (a lost wake-up needs both to miss).
+// Producer: publish, then ring(). Consumer: snapshot(), re-check, wait(snapshot). Counter and flag are
+// seq_cst, so a lost wake-up would need both sides to miss: no syscall while the consumer is awake.
 
 #include <linux/futex.h>
 #include <sys/syscall.h>

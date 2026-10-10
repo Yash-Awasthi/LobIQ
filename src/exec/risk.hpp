@@ -1,8 +1,7 @@
 #pragma once
 
-// Pre-trade checks on every order and cancel, post-trade checks on every risk tick, and the
-// kill switch (DESIGN R1-R16). Checks run cheapest first and return the first failure. The kill
-// switch has no reset: a killed session stays killed until the process restarts (D11).
+// Pre-trade checks (cheapest first, first failure returned), post-trade checks and the kill switch,
+// which has no reset: a killed session stays killed until the process restarts (D11).
 
 #include <cstdint>
 #include <vector>
@@ -66,9 +65,8 @@ class Exposure {
             ++k.sells;
         }
     }
-    // `remaining` of the order is no longer open (filled or cancelled); `done` when the order
-    // itself has gone. Own best prices reset when a side has no open orders left; with several
-    // orders on a side they stay at the most aggressive price seen, which only over-rejects.
+    // With several orders on a side, own best price stays at the most aggressive seen until the side
+    // has no open orders: it can only over-reject.
     void on_reduce(const OrderIntent& o, Qty remaining) {
         if (o.side == Side::Buy) {
             const Usd u = notional(o.px, remaining);

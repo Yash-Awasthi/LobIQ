@@ -1,6 +1,5 @@
-// Rewrites a store with another chunk codec, keeping chunk boundaries so checkpoints and
-// sequence ranges stay valid. Symbols run on a pool (THREADS, default all hardware threads).
-// Usage: transcode <src-store> <dst-store> [--codec lz4|zstd]    (default lz4)
+// Rewrites a store in another codec, keeping chunk boundaries so checkpoints stay valid.
+// Usage: transcode <src-store> <dst-store> [--codec lz4|zstd]
 
 #include <algorithm>
 #include <atomic>

@@ -233,9 +233,8 @@ inline StockDirectory read_directory(const std::uint8_t* p, const Header& h) {
 
 }  // namespace detail
 
-// Decodes one message of exactly `n` bytes and calls `h` with the decoded struct.
-// Types this decoder does not unpack (Y, L, V, W, K, J, h, N, O) call `h(const Header&)`.
-// Never reads past `p + n`; any length or type mismatch is reported, not decoded.
+// Never reads past `p + n`; a length or type mismatch is reported, not decoded.
+// Types not unpacked (Y L V W K J h N O) call `h(const Header&)`.
 template <class Handler>
 Status dispatch(const std::uint8_t* p, std::size_t n, Handler& h) {
     using namespace detail;

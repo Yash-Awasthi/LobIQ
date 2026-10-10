@@ -1,12 +1,7 @@
 #pragma once
 
-// Trading core shared by live and replay runs: per-token books and makers, portfolio risk,
-// the arbitrage scanner and a decision log. Its output depends only on the sequence of
-// (receive time, event) it is given, so a recorded session replays to the same decisions.
-//
-// Control events come from the feed layer as ordinary records: "_heartbeat" (the
-// connection is alive) and "_reconnect" (books on the connection are stale until their
-// next snapshot).
+// Output depends only on the (receive time, event) sequence, so a recorded session replays to the same
+// decisions. "_heartbeat" and "_reconnect" (books stale until their next snapshot) arrive as records.
 
 #include <algorithm>
 #include <cmath>
@@ -69,9 +64,8 @@ class Engine {
         if (p.profile) prof_ = std::make_unique<Profile>();
     }
 
-    // Stage timings in tsc ticks: submit = risk checks and order table up to the venue request
-    // (intent to request); deliver = one venue report through the order manager, ledger and its
-    // strategy; venue = matching and scheduling in each venue run that did work.
+    // Tsc ticks. submit: risk and order table up to the venue request; deliver: one report through
+    // order manager, ledger and strategy; venue: each venue run that did work.
     struct Profile {
         Histogram submit, deliver, venue;
     };
@@ -317,9 +311,8 @@ class Engine {
         const TokenBook& operator()(std::uint32_t t) const { return e->toks_[t]->maker.book; }
     };
 
-    // Venue mode: brings our orders in line with the maker's quotes. A side whose quote went
-    // away or was placed again is cancelled first (both sides, so a new bid never meets our old
-    // ask), then new orders go in; the venue answers at once at zero latency.
+    // A side whose quote moved is cancelled on both sides first, so a new bid never meets our
+    // old ask; the venue answers at once at zero latency.
     void sync(std::uint32_t i, std::int64_t ns) {
         if (!p_.venue) return;
         Tok& t = *toks_[i];
@@ -348,9 +341,8 @@ class Engine {
         }
         pump(ns);
     }
-    // Delivers everything the venue has due at `ns` to the order manager; fills reach their
-    // strategy. The arbitrage executor decides after each round of reports (never inside the
-    // order manager's callback), which may send more orders, delivered by the next round.
+    // The executor decides after each round of reports, never inside the order manager's callback;
+    // orders it sends then are delivered by the next round.
     void pump(std::int64_t ns) {
         for (int round = 0; round < 64; ++round) {
             if (prof_) {
@@ -414,9 +406,8 @@ class Engine {
     // ignores tick changes and resolutions (D25).
     bool production() const { return p_.venue && !p_.sim.compat_side; }
 
-    // The market resolved (L4, V7): the venue cancels our orders and closes the token, every
-    // position pays 1 or 0 (ledger, venue view, executor, maker), and the token is not quoted
-    // again. A fill still settling that fails later is undone against the payout (Ledger::failed).
+    // Resolution (L4, V7): orders cancelled, token closed, positions pay 1 or 0 everywhere, no more quotes.
+    // A fill still settling that fails later is undone against the payout (Ledger::failed).
     void resolve(std::uint32_t t, bool won, std::int64_t ns) {
         Tok& k = *toks_[t];
         if (k.closed) return;
@@ -478,9 +469,8 @@ class Engine {
         return c;
     }
 
-    // Before the first event: risk groups are events (tokens joined by any group: a market's Yes
-    // and No, an event's Yes tokens), and the arbitrage executor learns the groups. A group of two
-    // whose token belongs to no other group is a market's pair; the rest are events.
+    // Risk groups are events (tokens joined by any group). A group of two whose token is in no
+    // other group is a market's pair; the rest are events.
     void setup() {
         ready_ = true;
         if (!p_.venue) return;

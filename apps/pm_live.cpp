@@ -1,25 +1,15 @@
-// Live paper trading on the prediction-market order-book stream, and replay of its recordings.
-//
-//   pm_live [--events N] [--max-tokens N] [--tokens-per-conn N] [--port P] [--record DIR [--record-cap-gb G]]
-//           [--seconds S] [--cpu C] [--spin] [--spin-feeds] [--no-quote] [maker and risk options]
-//   pm_live --replay DIR [maker and risk options]
-//
-// Live: picks the most traded events in which exactly one market resolves Yes and every open
-// market trades, subscribes to all their tokens, and runs one thread per WebSocket connection
-// (receive, timestamp, copy into a lock-free byte ring), one trading thread (parse, books,
-// logit Avellaneda-Stoikov makers with paper fills against live trades, portfolio risk,
-// arbitrage scanner), one recording thread and one HTTP thread on 127.0.0.1 serving
-// /metrics (Prometheus text), /metrics.json and a dashboard at /. No order is ever sent.
-// An idle trading thread sleeps on a futex that the feed threads ring; --spin busy-polls
-// instead (lowest latency, one core at 100%), best combined with --cpu.
-//
-// Replay: runs the same trading code on a recording made with --record and prints the same
-// summary; identical input gives identical decisions (the summary ends with their hash).
-//
-// Maker and risk options: --gamma G --k K --size S --max-inv N --horizon-s T
-//                         --loss-stop USD --max-gross N --stale-s S
+// Live paper trading on the prediction-market stream (no order is ever sent) and replay of its
+// recordings, which gives the same decisions and hash. Options: kUsage.
 
 #include "pm_app.hpp"
+
+constexpr const char* kUsage =
+    "usage: pm_live [--events N] [--max-tokens N] [--tokens-per-conn N] [--port P] [--record DIR [--record-cap-gb G]]\n"
+    "               [--seconds S] [--cpu C] [--spin] [--spin-feeds] [--no-quote] [options]\n"
+    "       pm_live --replay DIR [options]\n"
+    "maker and risk: --gamma G --k K --size S --max-inv N --horizon-s T --loss-stop USD --max-gross N --stale-s S\n"
+    "venue (replay): --venue | --venue-compat, --lat-ms M --jitter-ms M --seed N --drop-ack P --drop-fill P\n"
+    "                --dup P --settle-fail P --disconnect EVERY_S:FOR_S --dump-fills FILE";
 
 int main(int argc, char** argv) {
     Options o;
@@ -69,7 +59,7 @@ int main(int argc, char** argv) {
         else if (a == "--max-gross") o.engine.max_gross_shares = num();
         else if (a == "--stale-s") o.engine.stale_s = num();
         else {
-            std::fprintf(stderr, "unknown option %s\n", a.c_str());
+            std::fprintf(stderr, "unknown option %s\n%s\n", a.c_str(), kUsage);
             return 2;
         }
     }

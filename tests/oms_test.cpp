@@ -134,10 +134,8 @@ TEST(Oms, EveryStateAndEventFollowsTheTable) {
         }
 }
 
-// Random interleavings of submits, acks, fills (including duplicates, over-fills and fills past
-// the limit), cancels, cancel answers, expiries, status replies and timeouts, against a naive
-// reference: an order map with the accept rules restated. After every step the order manager's
-// fills, positions, reservations, exposure and frozen tokens must match the reference.
+// Random interleavings of every report kind against a naive reference with the accept rules restated;
+// after every step fills, positions, reservations, exposure and frozen tokens must match.
 RC_GTEST_PROP(Oms, MatchesANaiveReferenceUnderRandomReports, ()) {
     struct RefOrder {
         Side side;

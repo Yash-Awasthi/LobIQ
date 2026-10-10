@@ -91,12 +91,8 @@ struct PerfectForesight {
 
 namespace hft::backtest {
 
-// Avellaneda-Stoikov baseline (DESIGN.md section 3), prices in ticks. Reservation price
-// r = m - q gamma sigma^2 (T - t) and distance d = ln(1 + gamma/k)/gamma + gamma sigma^2 (T - t)/2;
-// with `glft` the Gueant-Lehalle-Fernandez-Tapia asymptotic quotes for bounded inventory
-// replace them. sigma^2 (ticks^2 per second) is an EWMA of squared mid changes over time; A
-// and k (fill intensity A exp(-k d), per second and per tick) come from the fill model, and
-// with `online` are refitted after each of our fills from the exposure and fills by distance.
+// Avellaneda-Stoikov in ticks (GLFT bounded-inventory quotes with `glft`); sigma^2 is an EWMA of
+// squared mid changes, A and k come from the fill model (refitted after each fill with `online`).
 struct AvellanedaStoikov {
     double gamma = 0.1, A = 1.0, k = 1.5;
     bool glft = true;
@@ -181,9 +177,8 @@ struct AvellanedaStoikov {
 
 namespace hft::backtest {
 
-// Serves a quoting policy solved offline by archive/research/run_dp.py (research-archive tag): one table lookup per decision
-// (DESIGN.md section 3). State: inventory in lots, queue bucket of our bid and ask (from the
-// shares ahead of our orders in the strategy's own feed), imbalance, spread and signal buckets.
+// Serves a quoting policy solved offline (research-archive tag): one table lookup per decision
+// over inventory, queue, imbalance, spread and signal buckets.
 struct DpPolicy {
     std::int32_t Q = 0, n_queue = 0, n_imb = 0, n_spread = 0, n_sig = 0, k = 0;
     std::vector<double> imb_edges, spread_edges, sig_edges, means, stds, weights;
@@ -274,10 +269,8 @@ struct DpPolicy {
 
 namespace hft::backtest {
 
-// Strategy 5: the DP policy with signals plus extensions of DESIGN.md section 3, each one
-// switchable for the ablation table. Toxicity guard: no resting quotes while realized
-// volatility (feature 19, ticks per event) is above its limit. Aggressive taking: cross when
-// the signal exceeds half the spread plus the taker fee and a margin.
+// DP policy plus switchable extensions: no resting quotes while volatility is above its limit;
+// cross when the signal exceeds half the spread plus taker fee and margin.
 struct Extended {
     DpPolicy dp;
     bool toxicity = true, taking = true;

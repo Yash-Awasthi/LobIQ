@@ -1,10 +1,7 @@
 #pragma once
 
-// Main L3 book. Price levels live in a dense window of kLevels ticks per side with a
-// two-level bitmap of non-empty levels, so the best level is two lzcnt or tzcnt. Levels on
-// the tick grid but outside the window go to a radix tree (level_radix.hpp); the rare
-// prices off the grid sit in a small sorted array. Orders are index-addressed, split into
-// hot and cold records (order_store.hpp); order ids resolve through an open-addressing map.
+// L3 book: dense window of kLevels ticks per side with a two-level bitmap; on-grid prices outside it
+// go to level_radix, off-grid ones to a small sorted array.
 
 #include <algorithm>
 #include <bit>
@@ -203,9 +200,8 @@ class TickBook {
         return ahead;
     }
 
-    // Every level non-empty with quantity equal to the sum of its orders, links consistent,
-    // bitmaps matching the levels, overflow sorted and holding only prices the window cannot,
-    // and every order reachable through the ID map exactly once.
+    // Levels non-empty and equal to the sum of their orders, links and bitmaps consistent,
+    // overflow sorted and outside the window, every order in the ID map exactly once.
     bool check() const {
         std::size_t n = 0;
         auto level_ok = [&](const Level& l, int s, std::uint32_t px) {

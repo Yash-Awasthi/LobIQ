@@ -1,8 +1,7 @@
 #pragma once
 
-// Bounded single-producer single-consumer ring. Each side owns one index on its own cache
-// line and keeps a cached copy of the other side's, so the shared line is read only when
-// the ring looks full (producer) or empty (consumer).
+// Each side owns its index on its own cache line and caches the other's, so the shared line is read
+// only when the ring looks full (producer) or empty (consumer).
 
 #include <sched.h>
 
@@ -66,10 +65,8 @@ class SpscRing {
     alignas(64) T slots_[N]{};
 };
 
-// Single-producer single-consumer ring of variable-length records: a fixed header and the
-// payload, 8-byte aligned, written in place. A record that would straddle the end of the
-// buffer is preceded by a wrap marker and starts again at offset 0, so every payload is
-// contiguous and the consumer reads it without a copy.
+// Variable-length records written in place, 8-byte aligned. A record that would straddle the end starts
+// again at 0 after a wrap marker, so every payload is contiguous and read without a copy.
 class SpscBytes {
    public:
     struct Rec {

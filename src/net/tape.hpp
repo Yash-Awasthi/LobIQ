@@ -1,11 +1,7 @@
 #pragma once
 
-// JSON parsed into a flat tape of nodes with no allocation once its buffers have grown.
-// Stage 1 finds structural characters 64 bytes at a time (AVX2 compares, escaped quotes
-// by the odd-backslash-run rule, string interiors by a carry-less multiply prefix xor);
-// stage 2 walks only those positions. Strings stay as views into the input with escapes
-// unresolved; `decode` resolves them when needed. SIMD through GCC vector types and builtins,
-// not <immintrin.h>, which alone costs every includer ~55k preprocessed lines.
+// Allocation-free once grown. Stage 1 finds structural characters 64 bytes at a time, stage 2 walks only those.
+// GCC vector types and builtins, not <immintrin.h>, which alone costs every includer ~55k preprocessed lines.
 
 #include <charconv>
 #include <cstdlib>
@@ -177,9 +173,8 @@ class JsonTape {
         return (even ^ (even_seq << 1)) & follows;
     }
 
-    // Records one 64-byte block's token positions: operators and quotes outside strings,
-    // plus the first byte of every run of other non-blank bytes (a number, a literal or
-    // garbage), so stage 2 never has to look at the blanks in between.
+    // Operators and quotes outside strings, plus the first byte of each other non-blank run,
+    // so stage 2 never looks at blanks.
     [[gnu::always_inline]] void emit(std::uint64_t quote, std::uint64_t bs, std::uint64_t op, std::uint64_t ws,
                                      std::uint64_t (*prefix)(std::uint64_t), std::size_t base) {
         const std::uint64_t valid = t_.size() - base >= 64 ? ~0ull : (1ull << (t_.size() - base)) - 1;

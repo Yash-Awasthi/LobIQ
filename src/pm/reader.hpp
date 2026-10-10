@@ -1,9 +1,7 @@
 #pragma once
 
-// Reads a pm_record directory: calls `fn(recv_ns, event)` for every event in receive order
-// within each connection (batched messages arrive one event at a time). Connections carry
-// disjoint tokens, so per-token logic needs no ordering between them. A second thread reads
-// and decompresses ahead of the parser, in fixed blocks, so memory stays flat.
+// Events in receive order within each connection; connections carry disjoint tokens, so no order
+// is needed between them. Decompression runs ahead on a second thread in fixed blocks.
 
 #include <zstd.h>
 
@@ -61,10 +59,8 @@ void stream_record_file(const std::filesystem::path& p, Chunk&& chunk) {
     if (last != 0) throw std::runtime_error("truncated frame: " + p.string());
 }
 
-// Compresses a finished hour file `<hour>.jsonl` to `<hour>.jsonl.zst` (or `<hour>_<k>.jsonl.zst`
-// when earlier files for the hour exist) and removes the raw file. Anything after the last newline
-// is dropped: a stop by a signal the recorder cannot catch, or a crash, can leave a torn line or a
-// zero-filled page there. False, with the raw file kept, if compression or the write fails.
+// Anything after the last newline is dropped: an uncatchable stop or a crash can leave a torn line
+// or a zero page. False, with the raw file kept, if compression or the write fails.
 inline bool compress_record_file(const std::filesystem::path& raw) {
     namespace fs = std::filesystem;
     std::string data;

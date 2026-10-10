@@ -58,7 +58,7 @@ Step template: do -> check. "Ask" = stop and ask the owner before continuing.
 - [x] E4.2 Strict config parser (SEC4), hard bounds: src/pm/config.hpp; unknown, repeated, non-numeric, fractional-integer or out-of-bound values refuse the run (6/6 mutations caught). Venue mode now also runs R9 (loss on the worse of mid and best-bid marks), R13 (reject spike) and capital-days every risk tick (4/4 mutations caught); compat mode lifts R13 as the old model had none.
 - [x] E4.3 Decision hash v2 (A4.2); same seed twice -> same hash; different seed with faults -> different hash. Engine::exec_hash covers intents with risk result, requests, reports, ledger after each report, kill; decision_hash_v2 mixes it with the quote hash. Reference recording, config/exec.cfg: seed 1 twice f6aa89e3b71dadac; with faults 2eca2f516dd4264e twice; seed 2 with faults 21bdd233151e321b.
 - [x] E4.4 Paper mode on live feed with inline SimVenue (reuse pm_live feed/ring/recorder). `pm_exec --paper --run OUT`: a 90 s paper run replays (`pm_exec --replay OUT`) to the same three hashes.
-- [x] E4.5 Metrics A5 through existing hand-off; kill via SIGUSR1 and KILL file (D11, D13); SEC3 check. Kill: both triggers tested on paper runs (all orders cancelled, risk rejects Killed after, kill.log, latch refuses the next start, --reset-kill clears it; replay of the killed run reproduces it). SEC3: port on 127.0.0.1 only (ss -ltnp). A5 not yet: unknown_orders, cancel_races, per-operation latency (E6.1 measures it), leg_* (E5).
+- [x] E4.5 Metrics A5 through existing hand-off; kill via SIGUSR1 and KILL file (D11, D13); SEC3 check. Kill: both triggers tested on paper runs (all orders cancelled, risk rejects Killed after, kill.log, latch refuses the next start, --reset-kill clears it; replay of the killed run reproduces it). SEC3: port on 127.0.0.1 only (ss -ltnp). A5 left at this step and added later: per-operation latency (E6.1), leg_* (E5), unknown_orders and cancel_races (audit after G7).
 - [x] E4.5b Known bug: `pm_arb --help` (any unknown argument) throws filesystem_error uncaught; make all apps reject unknown flags with usage and exit 2. apps/args.hpp; scripts/check_cli.sh (8 apps failed before, none after; a missing input directory also exits 2).
 - [x] E4.6 Ask: retire pm_live in favour of pm_exec, or keep both? Default: keep both until E7. Default taken (no fact against it).
 - G4: replay determinism; 1 h paper run: zero illegal transitions, zero reconcile mismatch; TSan 5 min paper run clean. MET 2026-10-10: ~/data/exec/runs/g4-1h-20261010T145022Z (1.86M events, 16832 orders, 64 fills): 0 illegal, 0 mismatches, no kill; its replay on the E6 build gives the same decision_hash_v2 596a69f1d4a9faf7; TSan paper run 300 s, no reports.
@@ -107,6 +107,13 @@ Docs read against code; what the design required and was missing:
 
 - [x] X13 leg-risk check (D32): exit_value and filter `leg_risk`, config `arb_leg_risk_pct`; 6/6 mutations caught; demo hashes a and c changed on purpose.
 - [x] Feed threads spin as an option (`--spin-feeds`), measured on kernel_to_ring (PERF R9: p50 173 -> 31 us; with --spin too, wire to decision about 39 us p50).
+
+## Wrap-up (2026-10-11)
+
+- [x] PR #2 merged into `main` (7032592).
+- [x] Final verification on the merged code, all passing: release, native, clang (289 tests each, alloc_test included) and asan, ubsan, tsan (285, no alloc_test); one test skips where the machine has no hardware counters. check_parity.sh: SAME on all seven recordings, both settings. fault_campaign.sh and arb_fault_campaign.sh: zero illegal reports and zero residual sets in every run; dropped fills end in the mismatch kill; 20% spurious rejects trip R13. Demos a-d print their expected hashes. check_cli.sh and security_gates.sh clean. Fuzzers itch, tape, oms, ws 60 s each, no crash. Baselines unchanged.
+- [x] RESULTS.md re-measured: E6.1 on the final code (PERF R10), E6.3 over every complete recording.
+- [x] Repo hygiene: day_stats removed (it fed the archived research); every script is referenced in docs or CI.
 
 ## Stop conditions (any phase)
 

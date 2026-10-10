@@ -1,9 +1,7 @@
 #pragma once
 
-// Cycle timing with rdtscp. start() fences so earlier work is retired before the read;
-// stop() uses rdtscp, which waits for earlier instructions, then fences so later work does
-// not begin before the read. Compiler builtins instead of <x86intrin.h> and clock_gettime
-// instead of <chrono>: those headers cost every includer ~145k preprocessed lines.
+// start() fences so earlier work retires first; stop() is rdtscp then a fence. Builtins and clock_gettime
+// instead of <x86intrin.h> and <chrono>: those cost every includer ~145k preprocessed lines.
 
 #include <cpuid.h>
 #include <time.h>

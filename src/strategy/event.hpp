@@ -1,8 +1,7 @@
 #pragma once
 
-// A market event as the strategy layer sees it: what happened, to which side and price,
-// and where it sat relative to the best quote before the event. Built from ITCH by
-// MarketFeed, which applies the message to the book; features never touch raw messages.
+// A market event relative to the best quote before it, built by MarketFeed as it applies
+// the message; features never touch raw messages.
 
 #include <cstdint>
 

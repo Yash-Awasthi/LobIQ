@@ -67,16 +67,28 @@ cycle counts come from Cachegrind and `rdtscp`.
   and an arbitrage executor route through them; `pm_exec` for replay and paper runs.
 - Result: README "Paper execution"; docs/exec/RESULTS.md.
 
-## Next
+## P7. Feed path (done)
 
-- Feed path: decode WebSocket frames straight into the ring (no `std::string` copy) and
-  stamp receipt with the kernel's socket timestamp, so wire-to-decision starts at the wire.
-- Build: system zstd, LZ4, zlib-ng and OpenSSL instead of vcpkg; benchmarks on `rdtsc`.
-- Let `pm_live --record` run for days next to the recorder, then report arbitrage windows
-  (count, duration, edge, size) and maker fills per event.
-- Bare-Linux run for hardware counters and futex wake latency without a hypervisor.
+- TLS decrypts into the WebSocket parser's buffer and each message is copied once, into the
+  ring: 84.7 to 44.5 ns per message, no heap allocation (docs/exec/PERF.md R7).
+- Receive time is the kernel's socket timestamp, so wire to decision starts at the wire (R8);
+  `--spin-feeds` lets feed threads busy-poll (R9).
+
+## P8. Recordings and results (done)
+
+- `pm_live --record` ran next to the recorder over two days; makers and the arbitrage
+  executor are reported per recording at four latencies in docs/exec/RESULTS.md.
+
+The project is complete: every phase above is done and nothing is open.
 
 ## Not planned
 
-- Real order entry: needs signing keys and an account, which are the owner's decision.
+- Live order entry: never (docs/exec DECISIONS D1). The code has no order entry and a CI gate
+  keeps it that way.
+- A dedicated or cloud machine (for example a bare-metal cloud instance) for hardware counters,
+  futex wake latency without a hypervisor and spin-mode numbers on isolated cores: the owner's
+  decision; the laptop numbers stand as measured under WSL2.
+- Miss-probability research for the arbitrage executor: would need a model estimated on some
+  days and tested on later ones; a research step, outside this engineering project (D12).
+- System zstd, LZ4, zlib-ng and OpenSSL instead of vcpkg: the vcpkg build works in CI.
 - Bloomberg, FRED, Tiingo, Quiver: daily research data with no use in this pipeline.

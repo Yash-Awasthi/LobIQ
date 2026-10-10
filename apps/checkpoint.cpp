@@ -1,13 +1,5 @@
-// Writes or verifies per-symbol book checkpoints beside the store chunks: the book state at
-// the first chunk boundary after every N messages, plus the end-of-day state, so a book at
-// any time is one checkpoint load and at most N messages plus one chunk of replay away.
-// Symbols with fewer than N messages get none.
-//   <locate>.ckp  concatenated zstd frames, one per checkpoint
-//   <locate>.cki  one CheckpointEntry per checkpoint
-// Usage: checkpoint <store-dir> [--verify] [locate ...]   (no locate: every symbol)
-// Env: CHECKPOINT_EVERY=N (default 1000000).
-// Verify loads each checkpoint, replays up to the next and requires the state to equal it
-// byte for byte.
+// Writes or verifies (--verify: replay to the next one, equal byte for byte) per-symbol book checkpoints
+// every CHECKPOINT_EVERY messages plus end of day. Usage: checkpoint <store-dir> [--verify] [locate ...]
 
 #include <zstd.h>
 

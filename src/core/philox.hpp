@@ -1,8 +1,7 @@
 #pragma once
 
-// Philox4x32-10 counter-based RNG (Salmon et al., SC'11). Draws are addressed by (seed, pair,
-// rollout, event, purpose), so the two arms of an intervention pair draw identical numbers for
-// the same event even when one arm makes more draws than the other.
+// Philox4x32-10 (Salmon et al., SC'11), addressed by (seed, pair, rollout, event, purpose), so both arms
+// of a pair draw the same numbers per event even when one draws more.
 
 #include <array>
 #include <cstdint>

@@ -1,18 +1,7 @@
 #pragma once
 
-// Market maker for one binary-outcome token, simulated on recorded level-2 data.
-//
-// Quotes follow Avellaneda-Stoikov in logit units: with x = ln(p / (1 - p)), inventory q in
-// lots and belief variance s2 (an EWMA of squared logit mid changes per second),
-//   reservation  r = x - q * gamma * s2 * tau
-//   half-spread  d = gamma * s2 * tau / 2 + ln(1 + gamma / k) / gamma
-// and the bid and ask are sigmoid(r - d) and sigmoid(r + d) on the price grid.
-//
-// Recorded data has no order identities, so fills come from trades only: a resting order
-// has `ahead` shares in front of it (the level's displayed size when it was placed), a trade
-// at its price reduces that first, and a trade through its price fills it. A level that
-// shrinks below `ahead` pulls `ahead` down with it. Cancellations ahead of us are not
-// credited, which makes fills conservative.
+// Avellaneda-Stoikov in logit units, x = ln(p / (1 - p)): r = x - q gamma s2 tau, d = gamma s2 tau / 2 + ln(1 + gamma / k) / gamma.
+// No order ids in the data: fills only from trades behind `ahead` shares, cancels ahead not credited (conservative).
 
 #include <algorithm>
 #include <cmath>
