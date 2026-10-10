@@ -73,6 +73,7 @@ TEST(Config, CompatModeLiftsTheLimitsTheOldModelNeverHad) {
 TEST(Config, RefusesAnythingNotExactlyRight) {
     for (const char* bad : {
              "capitl_usd = 5\n",          // unknown key
+             "loss_stop_usd = 100\n",     // the makers' own stop: not used with a venue
              "capital_usd = 1e12\n",      // above the hard bound
              "lat_ms = -1\n",             // below it
              "p_dup = 1.5\n",             // a probability above 1

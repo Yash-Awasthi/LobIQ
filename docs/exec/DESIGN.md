@@ -58,7 +58,7 @@ Post-trade / 100 ms tick:
 
 - R9 daily loss: realised + marked PnL <= -daily_stop -> kill. Mark = min(mid mark, liquidation mark). Implemented liquidation mark: the best bid, depth ignored (positions are far below top-of-book size so far).
 - R10 per-attempt loss (arb): attempt PnL <= -attempt_bound -> stop attempt, freeze group.
-- R11 gross inventory cap -> pause new opening orders (closing allowed). Implemented as the makers' gross-share cap (EngineParams.max_gross_shares): all quoting pauses.
+- R11 gross inventory cap -> pause new opening orders (closing allowed). Production venue mode: the gross cap of R5 (USD, per order, D3). The makers' own gross-share cap and loss stop apply only without a venue (pm_live) and in compat runs (D30).
 - R12 stale feed per connection -> cancel that connection's tokens' orders, freeze. Implemented: the makers on that connection pause (their orders are cancelled) and the executor treats its tokens as frozen.
 - R13 reject spike: > K rejects in T s -> kill.
 - R14 reconcile mismatch -> kill. Two checks: Status cumulative fill vs ours (Oms), and every risk tick the venue's position per token vs the ledger's (Engine); a difference lasting longer than settle_delay + 2*(latency + jitter) + disconnect + 1 s is a missing fill. Settlement for an unseen fill id is counted (orphan), the position check decides.

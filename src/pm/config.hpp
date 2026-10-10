@@ -95,8 +95,6 @@ inline const Key kKeys[] = {
     {"arb_hold_limit_s", 0.1, 86'400, false, [](EngineParams& p, double v) { p.arb.hold_limit = sec(v); }},
     {"merge_ms", 0, 600'000, false, [](EngineParams& p, double v) { p.arb.merge_delay = ms(v); }},
     // engine
-    {"loss_stop_usd", 0, kMaxUsd, false, [](EngineParams& p, double v) { p.loss_stop_usd = v; }},
-    {"max_gross_shares", 0, 1e8, false, [](EngineParams& p, double v) { p.max_gross_shares = v; }},
     {"stale_s", 0.1, 3'600, false, [](EngineParams& p, double v) { p.stale_s = v; }},
 };
 

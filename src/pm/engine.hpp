@@ -30,6 +30,7 @@ namespace hft::pm {
 struct EngineParams {
     MakerParams maker;
     bool quote = true;            // run the makers; off: books and scanner only
+    // The makers own limits: pm_live and compat runs (D25); production venue mode uses the ledger (R5, R9).
     double max_gross_shares = 5000;  // sum of |inventory| over tokens before all quoting pauses
     double loss_stop_usd = 100;   // total PnL below -loss_stop halts quoting for the session
     double stale_s = 20;          // a connection silent this long pauses its tokens' quotes
@@ -230,11 +231,11 @@ class Engine {
         double pnl = 0, gross = 0;
         for (const auto& t : toks_) pnl += t->maker.pnl(), gross += std::abs(t->maker.inventory());
         pnl_ = pnl, gross_ = gross;
-        if (!halted_ && pnl < -p_.loss_stop_usd) {
+        if (!halted_ && !production() && pnl < -p_.loss_stop_usd) {
             halted_ = true;
             log_.push_back({Decision::Halt, ns, kAll, 0, 0, gross});
         }
-        const bool gross_ok = gross < p_.max_gross_shares;
+        const bool gross_ok = production() || gross < p_.max_gross_shares;
         for (std::uint32_t i = 0; i < toks_.size(); ++i) {
             Tok& t = *toks_[i];
             const bool stale = t.conn < conns_.size() && conns_[t.conn].stale;

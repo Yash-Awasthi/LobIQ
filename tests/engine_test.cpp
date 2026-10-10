@@ -554,3 +554,18 @@ TEST(EngineArb, LegsOnAStaleConnectionAreNotTraded) {
     EXPECT_EQ(e.arb_exec().stats().attempts, 0u);
     EXPECT_EQ(e.ledger().pos(e.token("Y")), 0);
 }
+
+TEST(EngineVenue, TheLedgerLimitsGovernNotTheMakersOwnStops) {
+    auto p = params();
+    p.venue = true;
+    p.loss_stop_usd = 1;       // the makers own limits, for pm_live: below what follows
+    p.max_gross_shares = 50;
+    Engine e(p);
+    feed(e, {{kS, book("A", "0.48", "0.52")}, {kS + 1, trade("A", "SELL", "0.48", "600")}});  // we buy 100 at 0.48
+    ASSERT_EQ(e.ledger().pos(e.token("A")), 100000000);
+    feed(e, {{2 * kS, change("A", "BUY", "0.48", "0")}, {2 * kS, change("A", "BUY", "0.40", "500")},
+             {3 * kS, control("_heartbeat", 0)}});  // 8 USD down, 100 shares held
+    EXPECT_FALSE(e.halted());
+    EXPECT_TRUE(e.maker(e.token("A")).enabled());
+    EXPECT_FALSE(e.exec_risk().killed());  // far inside the 20,000 USD daily stop
+}
