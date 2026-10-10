@@ -46,14 +46,30 @@ Where to read the code:
 | Arbitrage executor and leg-risk handling | `src/exec/arb_exec.hpp` |
 | Design decisions and their reasons | `docs/exec/DECISIONS.md`, `docs/exec/DESIGN.md` |
 
-Quick start (no data needed; tests use a synthetic ITCH fixture):
+## Try it
+
+With Docker or Podman, on any OS (the image builds and tests everything, then runs the demos):
+
+```
+docker run --rm -v "$PWD/out:/hft/out" ghcr.io/yash-awasthi/hft
+```
+
+That writes HTML reports to `./out`: two strategies backtested on a synthetic Nasdaq session, and
+paper execution replayed on a bundled 20-minute recording of the live prediction-market feed
+(`data/sample`). Each demo checks its result against a fixed value. Build the image yourself with
+`docker build -t hft .`; `--target build` gives the full toolchain for writing strategies.
+
+From source (Linux, C++23 compiler, CMake, Ninja, OpenSSL, vcpkg):
 
 ```
 cmake --preset release && cmake --build build/release && ctest --test-dir build/release
+scripts/demo/all.sh                       # same demos, reports in out/
 ```
 
-Replays need data: an ITCH day from Nasdaq's public sample files (`scripts/ingest_day.sh`), or a
-prediction-market recording made with `pm_live --record`.
+Write your own strategy: [docs/STRATEGIES.md](docs/STRATEGIES.md) (one struct, one registration
+line, run by name, HTML report per run). Real Nasdaq days: `scripts/ingest_day.sh` downloads one
+from Nasdaq's public sample files.
+
 Studies from the earlier research phase (Python, signal and regime reports, transformer
 forecaster, pre-registration) are kept at the [research-archive](https://github.com/Yash-Awasthi/hft/blob/research-archive/archive/) tag.
 

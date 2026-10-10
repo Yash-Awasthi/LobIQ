@@ -55,7 +55,7 @@ inline double tick_step(double lo, double hi, int n) {
 
 inline std::string chart(const std::string& title, const std::string& xlabel, const std::string& ylabel,
                          const std::vector<Series>& series, bool zero_line = true) {
-    constexpr double W = 760, H = 280, L = 70, R = 16, T = 30, B = 44;
+    constexpr double W = 760, H = 270, L = 70, R = 16, T = 14, B = 44;
     double x0 = INFINITY, x1 = -INFINITY, y0 = INFINITY, y1 = -INFINITY;
     for (const Series& s : series)
         for (std::size_t i = 0; i < s.x.size(); ++i) {
@@ -92,7 +92,7 @@ inline std::string chart(const std::string& title, const std::string& xlabel, co
          esc(xlabel) + "</text>";
     o += "<text class=\"axis\" transform=\"translate(14 " + num((T + H - B) / 2, 1) + ") rotate(-90)\" text-anchor=\"middle\">" +
          esc(ylabel) + "</text>";
-    double lx = L + 8;
+    std::string legend;
     for (const Series& s : series) {
         if (s.points) {
             for (std::size_t i = 0; i < s.x.size(); ++i)
@@ -108,13 +108,10 @@ inline std::string chart(const std::string& title, const std::string& xlabel, co
             }
             o += "<path d=\"" + d + "\" fill=\"none\" stroke=\"" + s.color + "\" stroke-width=\"1.6\"/>";
         }
-        if (series.size() > 1) {
-            o += "<rect x=\"" + num(lx, 1) + "\" y=\"10\" width=\"10\" height=\"10\" rx=\"2\" fill=\"" + s.color + "\"/>";
-            o += "<text class=\"axis\" x=\"" + num(lx + 14, 1) + "\" y=\"19\">" + esc(s.name) + "</text>";
-            lx += 24 + 7.0 * static_cast<double>(s.name.size());
-        }
+        if (series.size() > 1)
+            legend += "<span><i style=\"background:" + s.color + "\"></i>" + esc(s.name) + "</span>";
     }
-    return o + "</svg></figure>";
+    return o + "</svg>" + (legend.empty() ? "" : "<div class=\"legend\">" + legend + "</div>") + "</figure>";
 }
 
 inline std::string table(const std::vector<std::string>& head, const std::vector<std::vector<std::string>>& rows) {
@@ -151,7 +148,9 @@ inline std::string page(const std::string& title, const std::string& subtitle, c
            ".card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px}"
            ".k{color:var(--muted);font-size:12px}.v{font-size:18px;font-variant-numeric:tabular-nums}"
            "figure{margin:16px 0;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px}"
-           "figcaption{font-weight:600;margin-bottom:4px}svg{width:100%;height:auto;display:block}"
+           "figcaption{font-weight:600;margin-bottom:4px}svg{width:100%;height:auto;display:block}a{color:var(--s1)}"
+           ".legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-top:4px}"
+           ".legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}"
            ".grid{stroke:var(--line)}.zero{stroke:var(--muted);stroke-dasharray:3 3}.axis{fill:var(--muted);font-size:11px}"
            "table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:13px}"
            "th,td{border-bottom:1px solid var(--line);padding:4px 8px;text-align:right}th:first-child,td:first-child{text-align:left}"

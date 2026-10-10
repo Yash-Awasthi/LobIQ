@@ -1,0 +1,6 @@
+build/
+out/
+vcpkg_installed/
+.git/
+.cache/
+compile_commands.json

@@ -1,11 +1,19 @@
 # Writing a strategy
 
+Two plug-in points, both "write a type, register it with one line, run it by name":
+
+- [Nasdaq backtester](#nasdaq-backtester): a strategy decides quotes and takes on an order-by-order book.
+- [Prediction-market maker](#prediction-market-quoter): a quoter picks bid and ask prices per token for
+  `pm_exec` and `pm_live`, live on paper or replayed from a recording.
+
+## Nasdaq backtester
+
 A strategy for the Nasdaq backtester is a C++ type with one method. Put it in a new file under
 `strategies/`, register it with one line, rebuild, and run it by name. The engine does the rest:
 market-data and order-entry latency, your orders waiting in the real queues, fees, risk limits,
 the end-of-day flatten, and the PnL accounting.
 
-## The whole interface
+### The whole interface
 
 ```cpp
 void decide(const View& v, Desired& d);
@@ -37,7 +45,7 @@ orders and cancels. Resting quotes are post-only.
 
 Leaving `Desired` untouched means "no orders": anything resting is cancelled.
 
-## A complete example
+### A complete example
 
 `strategies/imbalance.cpp` joins the best bid and ask, but steps back from the side that the
 top-of-book size imbalance points against:
@@ -79,7 +87,7 @@ The factory gets the command line's `key=value` pairs (`p.get(key, default)`) an
 settings (`RunSpec`: config, store, symbol). A name ending in `:` takes an argument, as in
 `dp:policy.bin`; the text after the colon is `p.arg`.
 
-## Run it
+### Run it
 
 ```
 cmake --build build/release                      # a new file needs a reconfigure: cmake --preset release
@@ -88,9 +96,26 @@ itch_backtest <store> INTC imbalance threshold=0.5 maker_rebate=2000 taker_fee=3
 
 `itch_backtest` with no arguments lists every registered strategy and its keys. `--report DIR`
 writes `report.html` (PnL, inventory and fills as charts) plus `fills.csv`, `pnl_minutes.csv`
-and `summary.csv`. No data yet? `scripts/demo/backtest.sh` builds a synthetic store and runs one.
+and `summary.csv`. No data yet? `scripts/demo/backtest.sh` builds a synthetic store and runs one:
 
-## What the simulation does and does not model
+```
+gen_day 7 390 | ingest /tmp/qrsim                # a synthetic 6.5-hour session, symbol QRSIM
+itch_backtest /tmp/qrsim QRSIM imbalance --report out/imbalance
+```
+
+Tuning: `--sweep key=v1,v2,...` (repeatable) runs every combination of the listed values on a
+thread pool (`THREADS=N`, default all cores) and prints one row per run; with `--report DIR` it
+writes `DIR/index.html`, the runs ranked by total PnL with their curves overlaid and a link to each
+run's own report. Any key works, strategy or venue:
+
+```
+itch_backtest /tmp/qrsim QRSIM imbalance --sweep threshold=0.2,0.4,0.6,0.8,1 --sweep size=100,200 --report out/sweep
+```
+
+Ten runs of a full synthetic day take about 0.4 s on 20 threads. Pick parameters on some days and
+check them on others: the best row of one day is partly luck.
+
+### What the simulation does and does not model
 
 - **Queue position:** your order joins the queue behind every real order already resting at its
   price, as a new order would. When a recorded trade would have reached your order first, you are
@@ -105,7 +130,7 @@ and `summary.csv`. No data yet? `scripts/demo/backtest.sh` builds a synthetic st
 - **Risk:** position and order-size limits and a price collar reject orders that break them.
 - **Accounting:** total = spread capture + inventory PnL + fees, checked after every event.
 
-## Checking a strategy
+### Checking a strategy
 
 - `zero` must give exactly 0; `random_taker` must lose about half the spread plus fees per share;
   `perfect_foresight` takes on the future mid and must make money. A result far beyond what the
@@ -115,3 +140,50 @@ and `summary.csv`. No data yet? `scripts/demo/backtest.sh` builds a synthetic st
   real days.
 - Add a test next to `tests/backtest_test.cpp` (`Registry.ARegisteredStrategyRunsLikeTheTypeItself`
   shows how to run a strategy by name on the committed fixture).
+
+## Prediction-market quoter
+
+The prediction-market maker quotes every outcome token of the subscribed events. What it quotes is
+a quoter: one object per token, asked for a bid and an ask whenever the token's book changes (at
+most every `requote_s`, after a `warmup_s`). Put it under `strategies/pm/`.
+
+```cpp
+#include "pm/quoter.hpp"
+
+struct Skew final : hft::pm::Quoter {
+    hft::pm::Quote quote(const hft::pm::QuoteInput& in) override {
+        const double mid = in.mid * 1e4;                                         // price units, 1e-4
+        const double shift = std::round(in.inventory / in.params.size) * in.tick;  // lean against inventory
+        return {int(mid - 2 * in.tick - shift), int(mid + 2 * in.tick - shift)};
+    }
+};
+
+HFT_QUOTER("skew", "example: mid +/- 2 ticks, shifted one tick per quote size of inventory",
+           [] { return new Skew; });
+```
+
+`QuoteInput` holds the token's level-2 `book`, `mid` (a probability), signed `inventory` in
+shares, `variance` (EWMA of squared logit-mid changes per second), the maker `params` (`size`,
+`max_inv`, `gamma`, `k`, `horizon_s`, ...), the price `tick` and `elapsed_s`. Return `-1` for a
+side you do not want to quote.
+
+The maker keeps the safety rules whatever the quoter returns: prices go onto the tick grid (bids
+down, asks up), never cross the opposite best (orders are post-only), stay inside (0, 1), and the
+side that would push inventory past `max_inv` is not quoted. In `pm_exec`, every order then goes
+through pre-trade risk, the order manager and the simulated venue like any other.
+
+```
+pm_exec --replay data/sample/pm-20261009T1600-20min --config config/exec.cfg --set arb=1 --quoter skew --report out/skew
+pm_exec --paper --run runs/skew --config config/exec.cfg --quoter skew       # live feed, paper only
+```
+
+A paper run stores the quoter's name in `quoter.txt`, so `pm_exec --replay runs/skew` replays it as
+it ran. `logit_as` is the built-in model written as a plug-in; it gives the same decision hash as
+running without `--quoter` (test `PmQuoter.LogitAsPluginMatchesTheBuiltIn`), which is the check
+that the plug-in point changes nothing by itself. On the bundled sample, `skew` fills 17 times and
+ends at -$2.16; the built-in fills 5 times and ends at +$1.39.
+
+Fills on this venue come from recorded trades: a resting order fills when a trade prints through
+its price, or at its price once the displayed size that was ahead of it has traded. Level-2 data
+has no order ids, so that queue position is an estimate, and other traders never react to our
+quotes.

@@ -97,4 +97,50 @@ inline void write_report(const std::string& dir, const std::string& symbol, cons
                                                           "itch_backtest, ITCH replay with virtual orders in the real queues", body));
 }
 
+// One run of a parameter sweep: the swept values and the result.
+struct SweepRun {
+    std::vector<std::pair<std::string, double>> params;
+    Summary summary;
+    std::string label() const {  // also its report directory: "gamma=0.1,k=1.5"
+        std::string s;
+        for (const auto& [k, v] : params) {
+            char b[32];
+            std::snprintf(b, sizeof b, "%g", v);
+            s += (s.empty() ? "" : ",") + k + "=" + b;
+        }
+        return s;
+    }
+};
+
+// DIR/index.html: runs ranked by total PnL with links to each run's own report, PnL curves overlaid.
+inline void write_sweep_report(const std::string& dir, const std::string& symbol, const std::string& strategy,
+                               std::vector<SweepRun> runs) {
+    std::sort(runs.begin(), runs.end(), [](const SweepRun& a, const SweepRun& b) { return a.summary.total > b.summary.total; });
+    static const char* kColors[] = {"#2563eb", "#dc2626", "#059669", "#d97706", "#7c3aed", "#db2777", "#0891b2", "#65a30d"};
+    std::vector<report::Series> curves;
+    for (std::size_t i = 0; i < runs.size() && i < std::size(kColors); ++i) {
+        report::Series c(runs[i].label(), kColors[i]);
+        for (std::size_t m = 0; m < runs[i].summary.minute_pnl.size(); ++m)
+            c.x.push_back(static_cast<double>(m + 1)), c.y.push_back(usd(runs[i].summary.minute_pnl[m]));
+        curves.push_back(std::move(c));
+    }
+    std::string body = report::chart(runs.size() > std::size(kColors) ? "PnL over the window, best 8 runs (USD)" : "PnL over the window (USD)",
+                                     "minute", "USD", curves);
+    std::string rows;
+    for (const SweepRun& r : runs) {
+        const Summary& s = r.summary;
+        rows += "<tr><td><a href=\"" + report::esc(r.label()) + "/report.html\">" + report::esc(r.label()) + "</a></td><td>" +
+                report::num(usd(s.total)) + "</td><td>" + report::num(usd(s.spread)) + "</td><td>" + report::num(usd(s.inventory_pnl)) +
+                "</td><td>" + report::num(usd(s.fees)) + "</td><td>" + std::to_string(s.fills) + "</td><td>" +
+                std::to_string(s.max_abs_inventory) + "</td><td>" + std::to_string(s.divergence.diverted) + "</td></tr>";
+    }
+    body += "<h2>Runs, best total first</h2><table><thead><tr><th>parameters</th><th>total</th><th>spread</th><th>inventory</th>"
+            "<th>fees</th><th>fills</th><th>max |inv|</th><th>diverted</th></tr></thead><tbody>" +
+            rows + "</tbody></table>";
+    body += "<p class=\"muted\">USD. A parameter that wins on one day can lose on the next: pick on some days, "
+            "confirm on others.</p>";
+    report::write_file(dir + "/index.html",
+                       report::page("Sweep: " + strategy + " on " + symbol, std::to_string(runs.size()) + " runs", body));
+}
+
 }  // namespace hft::backtest

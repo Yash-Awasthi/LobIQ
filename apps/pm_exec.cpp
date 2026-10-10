@@ -34,6 +34,7 @@ std::uint16_t next_session(const fs::path& dir) {
 int usage() {
     std::fprintf(stderr,
                  "usage: pm_exec --replay DIR [--config FILE]... [--set KEY=VALUE]... [--run OUT] [--profile] [--report DIR]\n"
+                 "               [--quoter NAME]\n"
                  "       pm_exec --paper --run OUT --config FILE [--set KEY=VALUE]... [--seconds S] [--port P]\n"
                  "               [--cpu C] [--spin] [--spin-feeds] [--events N] [--max-tokens N] [--tokens-per-conn N]\n"
                  "               [--record-cap-gb G] [--exec-dir DIR] [--reset-kill]\n"
@@ -79,6 +80,7 @@ int main(int argc, char** argv) {
         else if (a == "--record-cap-gb") o.record_cap_gb = num();
         else if (a == "--profile") o.engine.profile = true;
         else if (a == "--report") o.report = val();
+        else if (a == "--quoter") o.engine.quoter = quoter_or_exit(val());
         else {
             std::fprintf(stderr, "unknown option %s\n", a.c_str());
             return usage();
@@ -93,6 +95,11 @@ int main(int argc, char** argv) {
         if (configs.empty()) {
             configs.push_back(o.replay / "exec.cfg");
             if (fs::exists(o.replay / "overrides.cfg")) configs.push_back(o.replay / "overrides.cfg");
+            if (!o.engine.quoter && fs::exists(o.replay / "quoter.txt")) {
+                std::string q = read_file(o.replay / "quoter.txt");
+                while (!q.empty() && q.back() == '\n') q.pop_back();
+                o.engine.quoter = quoter_or_exit(q);
+            }
         }
         o.engine.venue = true;
         for (const fs::path& c : configs) apply_config(o.engine, read_file(c), c.string());
@@ -118,6 +125,7 @@ int main(int argc, char** argv) {
             overrides += "session = " + std::to_string(o.engine.session) + "\n";
             write_file(o.run / "exec.cfg", read_file(configs[0]));
             write_file(o.run / "overrides.cfg", overrides);
+            if (o.engine.quoter) write_file(o.run / "quoter.txt", o.engine.quoter->name + "\n");
             o.record = o.run;
             o.kill_latch = latch;
             std::signal(SIGUSR1, on_kill_signal);
