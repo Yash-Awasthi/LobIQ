@@ -1,9 +1,13 @@
 #include <gtest/gtest.h>
 
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cerrno>
+#include <cstring>
+#include <vector>
 #include <string>
 
 #include "net/json.hpp"
@@ -100,6 +104,72 @@ TEST(Net, ParserRejectsBadFrames) {
         p.push(f.data(), f.size());
         EXPECT_THROW(p.next(m), std::runtime_error);
     }
+}
+
+TEST(Net, ViewsPointIntoTheBufferAndSurviveOnlyUntilTheNextRead) {
+    // Server frames: unmasked text, a masked one (unmasked in place), a fragmented message, a ping.
+    const std::array<std::uint8_t, 4> mask{0x12, 0x34, 0x56, 0x78};
+    std::string wire = std::string("\x81\x05hello", 7) + ws_client_frame(kText, "masked", mask) +
+                       std::string("\x01\x03Hel", 5) + std::string("\x89\x01!", 3) + std::string("\x80\x02lo", 4);
+    WsParser p;
+    // Bytes arrive straight into the parser's buffer, in two reads.
+    const std::size_t half = wire.size() / 2;
+    std::memcpy(p.reserve(half), wire.data(), half), p.commit(half);
+    WsView v;
+    ASSERT_TRUE(p.next_view(v));
+    EXPECT_EQ(v.op, kText);
+    EXPECT_EQ(v.data, "hello");
+    std::vector<std::string> got{std::string(v.data)};
+    while (p.next_view(v)) got.push_back(std::to_string(v.op) + ":" + std::string(v.data));
+    std::memcpy(p.reserve(wire.size() - half), wire.data() + half, wire.size() - half), p.commit(wire.size() - half);
+    while (p.next_view(v)) got.push_back(std::to_string(v.op) + ":" + std::string(v.data));
+    const std::vector<std::string> want = {"hello", "1:masked", "9:!", "1:Hello"};
+    EXPECT_EQ(got, want);
+}
+
+TEST(Net, ReserveGrowsAndCompactsWithoutLosingAPartialFrame) {
+    WsParser p;
+    std::string big(70'000, 'x');
+    const std::string f = std::string("\x81\x7f", 2) + std::string(5, '\0') + std::string("\x01\x11\x70", 3) + big;  // 70000 = 0x011170
+    for (std::size_t i = 0; i < f.size(); i += 4096) {
+        const std::size_t n = std::min<std::size_t>(4096, f.size() - i);
+        std::memcpy(p.reserve(n), f.data() + i, n), p.commit(n);
+    }
+    WsView v;
+    ASSERT_TRUE(p.next_view(v));
+    EXPECT_EQ(v.data.size(), big.size());
+    EXPECT_EQ(v.data, big);
+}
+
+TEST(Net, ReadsCarryTheKernelReceiveTime) {
+    // TCP over loopback: a listening socket, a client with receive timestamps on, one write.
+    const int ls = ::socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in a{};
+    a.sin_family = AF_INET, a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    socklen_t len = sizeof a;
+    ASSERT_EQ(::bind(ls, reinterpret_cast<sockaddr*>(&a), sizeof a), 0);
+    ASSERT_EQ(::listen(ls, 1), 0);
+    ASSERT_EQ(::getsockname(ls, reinterpret_cast<sockaddr*>(&a), &len), 0);
+    const int c = ::socket(AF_INET, SOCK_STREAM, 0);
+    ASSERT_EQ(::connect(c, reinterpret_cast<sockaddr*>(&a), sizeof a), 0);
+    const int sv = ::accept(ls, nullptr, nullptr);
+    ASSERT_TRUE(hft::net::enable_rx_timestamps(c));
+    // The kernel turns receive stamping on asynchronously after the first request, so the first
+    // packets may come unstamped; production falls back to the reader's clock for those.
+    std::int64_t before = 0, after = 0, ns = 0;
+    char buf[16];
+    for (int i = 0; i < 1000 && ns == 0; ++i) {
+        if (i) ::usleep(1000);
+        before = hft::net::realtime_ns();
+        ASSERT_EQ(::write(sv, "hello", 5), 5);
+        ASSERT_EQ(hft::net::recv_stamped(c, buf, sizeof buf, &ns), 5);
+        after = hft::net::realtime_ns();
+    }
+    ASSERT_NE(ns, 0) << "no receive stamp within 1 s";
+    EXPECT_EQ(std::string_view(buf, 5), "hello");
+    EXPECT_GE(ns, before);  // stamped by the kernel when it arrived, not when we read it
+    EXPECT_LE(ns, after);
+    ::close(sv), ::close(c), ::close(ls);
 }
 
 TEST(Json, ParsesNestedValuesAndEscapes) {

@@ -11,7 +11,7 @@ A low-latency trading system in C++23 with no framework underneath. It has two f
 
 Plan and phases: [docs/ROADMAP.md](docs/ROADMAP.md); working log: [STATUS.md](STATUS.md).
 Studies from the earlier research phase (Python, signal and regime reports, transformer
-forecaster, pre-registration) are kept out of the build under [archive/](archive/).
+forecaster, pre-registration) are kept at the [research-archive](https://github.com/Yash-Awasthi/hft/blob/research-archive/archive/) tag.
 
 ## Architecture
 
@@ -41,7 +41,7 @@ forecaster, pre-registration) are kept out of the build under [archive/](archive
 | Matching engine | `src/engine/matching.hpp` | Price-time; property-tested against a naive reference |
 | Replay exchange | `src/engine/replay_exchange.hpp` | Virtual orders in real queues; queue, trade-through and hidden-print fill rules |
 | Backtest | `src/backtest/` | Event-driven; zero, random, foresight, naive, Avellaneda-Stoikov (GLFT), DP strategies |
-| Network | `src/net/` | TLS socket (OpenSSL for the cipher layer only), HTTP/1.1 GET, WebSocket framing, SHA-1, base64; tape JSON parser with an AVX2 first stage |
+| Network | `src/net/` | TLS socket (OpenSSL for the cipher layer only), HTTP/1.1 GET, WebSocket framing, SHA-1, base64; tape JSON parser with an AVX2 first stage; single-pass message decoder |
 | Prediction markets | `src/pm/`, `apps/pm_*.cpp` | Recorder, typed message decoder, flat bitmap book, book rebuild, logit Avellaneda-Stoikov maker |
 | Core | `src/core/` | Index-addressed pools, SPSC ring, log-linear histogram, `rdtscp` timing, Philox RNG |
 
@@ -64,7 +64,7 @@ Targets were revised once, after the baseline and one optimisation pass. The ori
 targets were set from runs with turbo on (about 4.7 GHz); the baseline fixes the clock at
 about 2.4 GHz so before/after comparisons are stable, which roughly doubles every time figure
 for the same cycles. Old and new targets with the reason for each are in the revision record,
-[archive/docs/DESIGN.md section 9](archive/docs/DESIGN.md#target-revisions).
+[DESIGN.md section 9](https://github.com/Yash-Awasthi/hft/blob/research-archive/archive/docs/DESIGN.md#target-revisions) (research-archive tag).
 
 | Path | Target | Baseline | Now | Cycles (now) | Source |
 |---|---|---|---|---|---|
@@ -176,7 +176,8 @@ pm_mm data/pm > mm.tsv            # logit Avellaneda-Stoikov maker on the record
 ```
 
 Both tools read a recording at about 1M messages per second: zstd decompression runs on a second
-thread, a tape JSON parser with an AVX2 first stage feeds a typed decoder, and each token's book
+thread, a single-pass message decoder (falling back to the tape JSON parser for anything outside
+the shapes the exchange sends) produces typed events, and each token's book
 is a flat price array with a two-level bitmap (on 2.0M messages, `pm_stats` went from 11.0 s and
 469 MB to 1.9 s and 31 MB with identical output).
 
@@ -191,6 +192,7 @@ queue-ahead count per order, so its fills are conservative.
 ```
 pm_live --record data/live --seconds 3600          # dashboard on http://127.0.0.1:8088/
 pm_live --record data/live --spin --cpu 4          # busy-poll a pinned core for latency
+pm_live --record data/live --spin --spin-feeds     # feed threads busy-poll too: one core per connection
 pm_live --replay data/live                         # same decisions, same hash
 scripts/pm_live_supervise.sh data/pm-live --seconds 21600   # restart every 6 h, one directory per run
 ```
@@ -229,6 +231,48 @@ Latency on this laptop (WSL2, one 60 s session each, per message, receive stamp 
 Under WSL2, waking an idle virtual CPU goes through the hypervisor, so the futex wake is
 slow; the default trades latency for an idle core. Ring queueing in spin mode comes from
 bursts: messages arrive back to back faster than they are processed.
+
+Live figures move with the market and the hypervisor, so the trading thread is tuned on a
+fixed recording instead: `pm_live --replay` times parse and engine for every message. On a
+5-hour run (2.0M messages, `native` build, pinned to two cores), against the code before the
+pass:
+
+| Change | Parse p50 / p99 / p99.9 | Engine p50 / p99 | Replay wall time |
+|---|---|---|---|
+| before | 975 / 3,424 / 15,707 ns | 240 / 740 ns | 2.43 s |
+| single-pass decoder (tape fallback on 1.4% of messages) | 545 / 3,122 / 8,379 ns | 232 / 633 ns | |
+| best price kept per book side, one token lookup per snapshot | | 176 / 525 ns | 1.92 s |
+
+The decision hash and `pm_stats` output are unchanged (`pm_stats` on 278 MB of recordings:
+4.17 s to 3.31 s). The decoder's single pass is checked against the tape by a property test
+and by the fuzzer. Metrics no longer render on the trading thread: once a second it swaps a
+snapshot and its window of histograms under a lock it only tries, and the HTTP thread does
+the rest (stall 376 µs to 24 µs at p50, 718 µs to 76 µs at worst, over 60 s live).
+
+## Paper execution
+
+`pm_exec` puts the makers and an arbitrage executor behind pre-trade risk, an order manager
+and a simulated venue (latency, queue position, fees, settlement, faults). Nothing leaves the
+machine: there is no order entry code. Design and decisions: [docs/exec](docs/exec/INDEX.md).
+
+```
+pm_exec --replay data/live --config config/exec.cfg --set arb=1   # summary and hashes
+pm_exec --paper --run runs/today --config config/exec.cfg          # live feed, recorded
+pm_exec --replay runs/today                                        # the paper run's own hashes
+touch runs/today/KILL                                              # or SIGUSR1: cancel all, stop
+```
+
+- A run is a function of the recording, `exec.cfg` and its seed: replays give the same
+  `decision_hash_v2`, and a paper run replays to its own hashes, kill switch included.
+- Dropped acks and fills, duplicates, disconnects and failed settlements at 20-30%: zero
+  illegal reports; a dropped fill ends in the kill switch naming the position mismatch; no
+  arbitrage set is left incomplete without being counted.
+- On the 2.0M-message reference recording, pinned to one vCPU: intent to venue request
+  172 ns p50 / 649 ns p99, engine 556 ns p50 per message, 514k messages/s; in isolation the
+  risk check takes 19.6 ns and each order-manager operation 12 ns.
+- Same recording at a 182 ms round trip: 305 arbitrage windows, 18 attempts; all of them lost a
+  leg and were completed, for -12.15 USD after fees. Full tables and their commands:
+  [docs/exec/RESULTS.md](docs/exec/RESULTS.md); demos with fixed hashes: `scripts/demo/`.
 
 ## License
 

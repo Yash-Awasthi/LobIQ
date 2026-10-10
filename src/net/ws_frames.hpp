@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -94,18 +95,44 @@ struct WsMessage {
     std::string data;
 };
 
-// Feed bytes with push(); take complete messages with next(). Data frames split over
-// several fragments come out as one message; control frames come out as they arrive.
+// A message as a view into the parser's buffer: valid until the next reserve, push or next call.
+struct WsView {
+    int op = kText;
+    std::string_view data;
+};
+
+// Bytes go in with reserve() and commit() (a read straight into the buffer) or push(); whole
+// messages come out with next_view() as views, so a single-frame message is never copied.
+// Masked frames are unmasked in place. Data frames split over several fragments are joined
+// into one message (a copy, rare); control frames come out as they arrive.
 class WsParser {
    public:
     static constexpr std::size_t kMaxMessage = 64u << 20;
 
-    void push(const char* p, std::size_t n) { buf_.append(p, n); }
+    // Room for n more bytes at the end of the buffer; commit(k) adds the k bytes written.
+    char* reserve(std::size_t n) {
+        if (cap_ - len_ < n || !buf_) {  // a real buffer even for n = 0
+            if (off_ > 0) {  // move the unread part to the front first
+                std::memmove(buf_.get(), buf_.get() + off_, len_ - off_);
+                len_ -= off_, off_ = 0;
+            }
+            if (cap_ - len_ < n || !buf_) {
+                std::size_t cap = cap_ ? cap_ : 65536;
+                while (cap - len_ < n) cap *= 2;
+                std::unique_ptr<char[]> b(new char[cap]);
+                if (len_) std::memcpy(b.get(), buf_.get(), len_);
+                buf_ = std::move(b), cap_ = cap;
+            }
+        }
+        return buf_.get() + len_;
+    }
+    void commit(std::size_t n) { len_ += n; }
+    void push(const char* p, std::size_t n) { std::memcpy(reserve(n), p, n), commit(n); }
 
-    bool next(WsMessage& out) {
+    bool next_view(WsView& out) {
         for (;;) {
-            if (buf_.size() - off_ < 2) return compact(), false;
-            const auto* h = reinterpret_cast<const std::uint8_t*>(buf_.data() + off_);
+            if (len_ - off_ < 2) return rewind(), false;
+            auto* h = reinterpret_cast<std::uint8_t*>(buf_.get() + off_);
             const bool fin = h[0] & 0x80;
             const int op = h[0] & 0x0F;
             if (h[0] & 0x70) throw std::runtime_error("ws: reserved bits set");
@@ -113,58 +140,67 @@ class WsParser {
             std::uint64_t len = h[1] & 0x7F;
             std::size_t hdr = 2;
             if (len == 126) {
-                if (buf_.size() - off_ < 4) return compact(), false;
+                if (len_ - off_ < 4) return rewind(), false;
                 len = (std::uint64_t{h[2]} << 8) | h[3];
                 hdr = 4;
             } else if (len == 127) {
-                if (buf_.size() - off_ < 10) return compact(), false;
+                if (len_ - off_ < 10) return rewind(), false;
                 len = 0;
                 for (int i = 0; i < 8; ++i) len = (len << 8) | h[2 + i];
                 hdr = 10;
             }
             if (len > kMaxMessage) throw std::runtime_error("ws: frame too large");
             const std::size_t mask_len = masked ? 4 : 0;
-            if (buf_.size() - off_ < hdr + mask_len + len) return compact(), false;
-            std::string payload(buf_, off_ + hdr + mask_len, static_cast<std::size_t>(len));
+            if (len_ - off_ < hdr + mask_len + len) return rewind(), false;
+            char* payload = buf_.get() + off_ + hdr + mask_len;
+            const auto n = static_cast<std::size_t>(len);
             if (masked)
-                for (std::size_t i = 0; i < payload.size(); ++i)
-                    payload[i] = static_cast<char>(static_cast<std::uint8_t>(payload[i]) ^ h[hdr + i % 4]);
-            off_ += hdr + mask_len + static_cast<std::size_t>(len);
+                for (std::size_t i = 0; i < n; ++i) payload[i] = static_cast<char>(static_cast<std::uint8_t>(payload[i]) ^ h[hdr + i % 4]);
+            off_ += hdr + mask_len + n;
 
             if (op >= 8) {  // control frames are never fragmented
                 if (!fin || len > 125) throw std::runtime_error("ws: bad control frame");
-                out.op = op;
-                out.data = std::move(payload);
+                out = {op, std::string_view(payload, n)};
                 return true;
             }
             if (op != kCont) {
                 if (in_frag_) throw std::runtime_error("ws: new message inside a fragmented one");
+                if (fin) {  // the usual case: one frame, no copy
+                    out = {op, std::string_view(payload, n)};
+                    return true;
+                }
                 frag_op_ = op;
                 frag_.clear();
             } else if (!in_frag_) {
                 throw std::runtime_error("ws: continuation without a message");
             }
-            frag_ += payload;
+            frag_.append(payload, n);
             if (frag_.size() > kMaxMessage) throw std::runtime_error("ws: message too large");
             in_frag_ = !fin;
             if (fin) {
-                out.op = frag_op_;
-                out.data = std::move(frag_);
-                frag_.clear();
+                out = {frag_op_, frag_};
                 return true;
             }
         }
     }
 
-   private:
-    void compact() {
-        if (off_ > 0 && off_ * 2 >= buf_.size()) {
-            buf_.erase(0, off_);
-            off_ = 0;
-        }
+    // Copying form, for callers that keep the message.
+    bool next(WsMessage& out) {
+        WsView v;
+        if (!next_view(v)) return false;
+        out.op = v.op;
+        out.data.assign(v.data);
+        return true;
     }
-    std::string buf_, frag_;
-    std::size_t off_ = 0;
+
+   private:
+    // Nothing unread: start the next read at the front, so the buffer does not creep.
+    void rewind() {
+        if (off_ == len_) off_ = len_ = 0;
+    }
+    std::unique_ptr<char[]> buf_;
+    std::size_t cap_ = 0, len_ = 0, off_ = 0;
+    std::string frag_;
     int frag_op_ = kText;
     bool in_frag_ = false;
 };

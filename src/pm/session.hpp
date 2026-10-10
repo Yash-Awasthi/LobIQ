@@ -4,8 +4,6 @@
 // connection and label) and arbitrage groups, so a replay sets the engine up the same way;
 // the recorder writes the records the trading thread processed, in its order.
 
-#include <zstd.h>
-
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -23,6 +21,7 @@
 #include "core/spsc.hpp"
 #include "pm/engine.hpp"
 #include "pm/gamma.hpp"
+#include "pm/reader.hpp"
 
 namespace hft::pm {
 
@@ -32,6 +31,7 @@ struct Session {
     struct Tok {
         std::string id, label;
         int conn = 0;
+        MarketRules rules;
     };
     struct Group {
         std::string name;
@@ -49,7 +49,11 @@ struct Session {
 
     void save(const std::filesystem::path& p) const {
         std::ofstream f(p);
-        for (const Tok& t : tokens) f << "token\t" << t.id << '\t' << t.conn << '\t' << field(t.label) << '\n';
+        for (const Tok& t : tokens) {
+            const MarketRules& r = t.rules;
+            f << "token\t" << t.id << '\t' << t.conn << '\t' << field(t.label) << '\t' << r.tick << '\t' << r.min_qty << '\t'
+              << r.neg_risk << '\t' << r.fees << '\t' << r.fee_rate_ppm << '\t' << int{r.fee_exp} << '\t' << r.delay_ms << '\n';
+        }
         for (const Group& g : groups) {
             f << "group\t" << field(g.name);
             for (const auto& id : g.ids) f << '\t' << id;
@@ -64,13 +68,30 @@ struct Session {
             std::vector<std::string> c;
             std::stringstream ss(line);
             for (std::string x; std::getline(ss, x, '\t');) c.push_back(x);
-            if (c.size() >= 4 && c[0] == "token") s.tokens.push_back({c[1], c[3], std::atoi(c[2].c_str())});
+            if (c.size() >= 4 && c[0] == "token") {
+                Tok t{c[1], c[3], std::atoi(c[2].c_str()), {}};
+                if (c.size() >= 11) {  // files written before the rules were kept have 4 fields
+                    MarketRules& r = t.rules;
+                    r.tick = std::atoi(c[4].c_str());
+                    r.min_qty = std::atoll(c[5].c_str());
+                    r.neg_risk = c[6] == "1";
+                    r.fees = c[7] == "1";
+                    r.fee_rate_ppm = static_cast<std::uint32_t>(std::atol(c[8].c_str()));
+                    r.fee_exp = static_cast<std::uint8_t>(std::atoi(c[9].c_str()));
+                    r.delay_ms = static_cast<std::uint16_t>(std::atoi(c[10].c_str()));
+                }
+                s.tokens.push_back(std::move(t));
+            }
             else if (c.size() >= 3 && c[0] == "group") s.groups.push_back({c[1], {c.begin() + 2, c.end()}});
         }
         return s;
     }
     void apply(Engine& e) const {
-        for (const Tok& t : tokens) e.set_conn(e.token(t.id), static_cast<std::uint32_t>(t.conn));
+        for (const Tok& t : tokens) {
+            const std::uint32_t i = e.token(t.id);
+            e.set_conn(i, static_cast<std::uint32_t>(t.conn));
+            e.set_rules(i, t.rules);
+        }
         for (const Group& g : groups) e.add_group(g.name, g.ids);
     }
 };
@@ -78,11 +99,12 @@ struct Session {
 // Writes every record the trading thread processed, in its order, as "<ns> <json>" lines in
 // hourly files (by receive time) under DIR/c0, compressing each when its hour ends. One
 // connection directory, so a replay sees exactly the live order. Writing stops, and trading
-// goes on, once the directory reaches the size cap.
+// goes on, once the directory reaches the size cap, or once the ring fills because the disk
+// fell behind: the trading thread never waits, and what was written stays a valid prefix.
 class Recorder {
    public:
-    Recorder(const std::filesystem::path& dir, double cap_gb)
-        : dir_(dir), cap_(static_cast<std::uintmax_t>(cap_gb * 1e9)), ring_(1 << 24) {
+    Recorder(const std::filesystem::path& dir, double cap_gb, std::size_t ring_bytes = 1 << 24)
+        : dir_(dir), cap_(static_cast<std::uintmax_t>(cap_gb * 1e9)), ring_(ring_bytes) {
         std::filesystem::create_directories(dir / "c0");
         thread_ = std::thread([this] { run(); });
     }
@@ -92,9 +114,12 @@ class Recorder {
         rotate(-1);
     }
     void write(std::int64_t ns, std::string_view text) {
-        while (!ring_.try_write(ns, 0, 0, text)) std::this_thread::yield();
+        if (overflowed_ || ring_.try_write(ns, 0, 0, text)) return;
+        overflowed_ = true;
+        std::fprintf(stderr, "recording stopped: the recorder fell behind\n");
     }
     bool capped() const { return capped_; }
+    bool overflowed() const { return overflowed_; }
 
    private:
     void run() {
@@ -119,7 +144,7 @@ class Recorder {
         if (f_) {
             std::fclose(f_);
             f_ = nullptr;
-            compress(path_);
+            compress_record_file(path_);
         }
         hour_ = hour;
         if (hour < 0 || capped_) return;
@@ -137,19 +162,7 @@ class Recorder {
         if (!f_) throw std::runtime_error("cannot write " + path_.string());
         std::setvbuf(f_, nullptr, _IOFBF, 1 << 20);
     }
-    static void compress(const std::filesystem::path& p) {
-        std::ifstream in(p, std::ios::binary);
-        const std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-        std::string out(ZSTD_compressBound(data.size()), '\0');
-        const std::size_t n = ZSTD_compress(out.data(), out.size(), data.data(), data.size(), 6);
-        if (ZSTD_isError(n)) return;  // keep the raw file
-        std::filesystem::path dst = p;
-        dst += ".zst";
-        for (int k = 1; std::filesystem::exists(dst); ++k)  // the same hour reopened after a clock step
-            dst = p.parent_path() / (p.stem().string() + "_" + std::to_string(k) + ".jsonl.zst");
-        std::ofstream(dst, std::ios::binary).write(out.data(), static_cast<std::streamsize>(n));
-        std::filesystem::remove(p);
-    }
+
 
     std::filesystem::path dir_, path_;
     std::uintmax_t cap_;
@@ -158,6 +171,7 @@ class Recorder {
     std::int64_t hour_ = -1;
     std::atomic<bool> done_{false};
     std::atomic<bool> capped_{false};
+    bool overflowed_ = false;  // trading thread only
     std::thread thread_;
 };
 

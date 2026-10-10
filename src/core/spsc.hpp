@@ -4,16 +4,15 @@
 // line and keeps a cached copy of the other side's, so the shared line is read only when
 // the ring looks full (producer) or empty (consumer).
 
-#include <immintrin.h>
+#include <sched.h>
 
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <memory>
 #include <string_view>
-#include <thread>
-#include <utility>
+
+#include "core/pool.hpp"
 
 namespace hft {
 
@@ -28,7 +27,7 @@ class SpscRing {
             head_cache_ = head_.load(std::memory_order_acquire);
             if (t - head_cache_ == N) return false;
         }
-        slots_[t & (N - 1)] = std::move(v);
+        slots_[t & (N - 1)] = static_cast<T&&>(v);
         tail_.store(t + 1, std::memory_order_release);
         return true;
     }
@@ -39,7 +38,7 @@ class SpscRing {
             tail_cache_ = tail_.load(std::memory_order_acquire);
             if (h == tail_cache_) return false;
         }
-        out = std::move(slots_[h & (N - 1)]);
+        out = static_cast<T&&>(slots_[h & (N - 1)]);
         head_.store(h + 1, std::memory_order_release);
         return true;
     }
@@ -56,8 +55,8 @@ class SpscRing {
 
    private:
     static void wait(int spins) {
-        if (spins < 64) _mm_pause();
-        else std::this_thread::yield();
+        if (spins < 64) __builtin_ia32_pause();
+        else sched_yield();
     }
 
     alignas(64) std::atomic<std::size_t> head_{0};  // next slot to read; written by the consumer
@@ -80,9 +79,9 @@ class SpscBytes {
         std::string_view data;  // valid until release()
     };
 
-    explicit SpscBytes(std::size_t capacity_pow2)
-        : cap_(capacity_pow2), buf_(new (std::align_val_t(64)) std::byte[capacity_pow2]) {}
-    ~SpscBytes() { ::operator delete[](buf_, std::align_val_t(64)); }
+    // The buffer is a Pool mapping: 2 MB pages and pre-faulted, so the first lap does not
+    // page-fault on the producer (it did: p99.9 3-6 us, max 160 us per write at 8 MB).
+    explicit SpscBytes(std::size_t capacity_pow2) : cap_(capacity_pow2), mem_(capacity_pow2), buf_(mem_.data()) {}
     SpscBytes(const SpscBytes&) = delete;
     SpscBytes& operator=(const SpscBytes&) = delete;
 
@@ -142,6 +141,7 @@ class SpscBytes {
     static std::size_t round8(std::size_t n) { return (n + 7) & ~std::size_t{7}; }
 
     const std::size_t cap_;
+    Pool<std::byte> mem_;
     std::byte* const buf_;
     alignas(64) std::atomic<std::size_t> head_{0};
     std::size_t tail_cache_ = 0, next_ = 0;
