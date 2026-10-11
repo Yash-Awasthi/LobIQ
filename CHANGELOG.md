@@ -6,7 +6,7 @@
   and emits one decoded message per clock, one clock after its last byte. A Verilator testbench
   checks it field by field against the C++ decoder; CI runs it.
 - **Host tuning measured.** Huge pages cut book p99 about 15%; `isolcpus` under WSL2 had no
-  effect; kernel bypass does not apply here (`docs/exec/HW.md` H13-H16).
+  effect; kernel bypass does not apply here (`docs/exec/HW.md` W13-W16).
 
 ## v1.1 (2026-10-11)
 
