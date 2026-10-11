@@ -10,6 +10,9 @@
 - **Bare-metal Arch.** Book p99 156-159 ns (WSL2: 244-261 ns), worst case 0.33-0.37 ms
   (1-8 ms) (`docs/exec/HW.md` H13-H14). Hardware counters now count on both P- and E-cores;
   the build passes on GCC 16.
+- **Bare-metal performance.** Tick book 5% fewer cycles per event (branchless order unlink);
+  profile-guided `pm_live` parse 9% faster; all five ITCH days replay at about 11M frames/s;
+  lz4 kept over zstd (docs/exec/PERF.md R11-R14).
 
 ## v1.1 (2026-10-11)
 

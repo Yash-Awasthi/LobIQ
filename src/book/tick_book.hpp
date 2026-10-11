@@ -453,10 +453,15 @@ class TickBook {
     }
 
     void drop_if_empty(int s, const Loc& at) {
+        if (at.where == Where::Window) {
+            // Whether the level empties is data-dependent: clear its bit without a branch.
+            std::uint64_t& w = bits_[s][at.at / 64];
+            w &= ~(std::uint64_t{at.l->head == kNoOrder} << (at.at % 64));
+            summary_[s] &= ~(std::uint64_t{w == 0} << (at.at / 64));
+            return;
+        }
         if (at.l->head != kNoOrder) return;
-        if (at.where == Where::Window)
-            clear_bit(s, at.at);
-        else if (at.where == Where::Radix)
+        if (at.where == Where::Radix)
             deep_[s].erase(at.at);
         else
             over_erase(s, over_find(s, at.at));
@@ -667,14 +672,9 @@ class TickBook {
         const Loc at = locate(stored);
         Level& l = *at.l;
         l.qty -= o_.qty(i);
-        if (prev != kNoOrder)
-            o_.next(prev) = next;
-        else
-            l.head = next;
-        if (next != kNoOrder)
-            o_.prev(next) = prev;
-        else
-            l.tail = prev;
+        // Head or tail position is data-dependent; selecting the address avoids a mispredict.
+        *(prev != kNoOrder ? &o_.next(prev) : &l.head) = next;
+        *(next != kNoOrder ? &o_.prev(next) : &l.tail) = prev;
         drop_if_empty(side_of(stored), at);
         const std::size_t hole = ids_.erase_at(id.at);
         o_.next(i) = free_;

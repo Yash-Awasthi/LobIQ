@@ -27,6 +27,7 @@
 #include "book/map_book.hpp"
 #include "book/tick_book.hpp"
 #include "core/histogram.hpp"
+#include "core/perf_counters.hpp"
 #include "core/pool.hpp"
 #include "core/tsc.hpp"
 #include "data/lookahead.hpp"
@@ -229,12 +230,23 @@ void book_variant(const char* name, const std::vector<Event>& ev,
     for (int r = 0; r <= reps; ++r) {
         auto books = make_books<Book>(cap);
         std::uint64_t errors = 0;
+        PerfCounters pc;
+        pc.start();
         const std::uint64_t c0 = tsc::start();
         for (std::size_t i = 0; i < ev.size(); ++i) {
             warm(books, ev, i);
             errors += !apply(*books[ev[i].sym], ev[i], i);
         }
         const std::uint64_t batch = tsc::stop() - c0;
+        pc.stop();
+        if (r > 0 && pc.any()) {
+            std::fprintf(stderr, "counters,%s,%d", name, r);
+            for (int e = 0; e < PerfCounters::kEvents; ++e)
+                std::fprintf(stderr, ",%s/event %.3f", PerfCounters::kNames[e],
+                             static_cast<double>(pc.total(static_cast<PerfCounters::Event>(e))) /
+                                 static_cast<double>(ev.size()));
+            std::fprintf(stderr, "\n");
+        }
 
         books = make_books<Book>(cap);
         h.reset();

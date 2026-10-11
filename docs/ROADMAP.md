@@ -8,14 +8,10 @@ Target machine: i7-13650HX (6 P-cores, 8 E-cores, AVX2, no AVX-512) on bare-meta
 with hardware performance counters and isolated cores (docs/exec/HW.md). Finished phases are
 in [CHANGELOG.md](../CHANGELOG.md) and the git history.
 
-## P10. Bare-metal performance (open)
+## P10. Isolated cores (open, needs a reboot with the new boot line)
 
-- Profile the hot paths (ITCH parse, book, `pm_live` engine) with hardware counters per stage,
-  fix what they show, measure before and after.
-- Profile-guided build (`scripts/pgo.sh`): measure on this machine, adopt only if it wins.
-- Replay all five ITCH days; decide whether lz4 stores pay off.
-- After the reboot with CPUs 4-7 isolated: spin mode and futex wake latency, worst-case
-  latency with and without isolation (HW.md H14).
+- Spin mode and futex wake latency on CPUs 4-7, and worst-case latency with and without
+  isolation (HW.md H14).
 
 ## Not planned
 

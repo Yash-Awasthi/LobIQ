@@ -61,6 +61,11 @@ Laptop on AC power.
 
 ## 6. Check and measure
 
+For `pm_live` runs use the profile-guided build (parse 9% faster, docs/exec/PERF.md R12):
+
+    scripts/pgo.sh ~/data/store-S112825-v50 ~/data/ref/pm-snap
+
+
     build/native/apps/pm_live --replay data/sample/pm-20261009T1600-20min --cpu 4
 
 Decision hash must be `d97079e6c1474af9`. Under WSL2 the engine p99 was 563-950 ns and the
