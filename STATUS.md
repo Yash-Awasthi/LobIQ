@@ -1,7 +1,7 @@
 # Status
 
-v1.1 (2026-10-11). Every phase in [docs/ROADMAP.md](docs/ROADMAP.md) is done; what is deliberately
-left out is listed there under "Not planned". Changes per version: [CHANGELOG.md](CHANGELOG.md).
+v1.1 (2026-10-11), now on bare-metal Arch Linux. Open work: [docs/ROADMAP.md](docs/ROADMAP.md) P10;
+what is deliberately left out is listed there under "Not planned". Changes per version: [CHANGELOG.md](CHANGELOG.md).
 The research-phase log is in
 [STATUS-research.md](https://github.com/Yash-Awasthi/hft/blob/research-archive/archive/docs/STATUS-research.md) at the research-archive tag.
 
@@ -18,7 +18,14 @@ On GitHub, CI builds and tests every pull request; on main it also publishes the
 (`ghcr.io/yash-awasthi/hft`) and the demo reports (https://yash-awasthi.github.io/hft/); a `v*`
 tag publishes a release with Linux binaries.
 
-## Verification (2026-10-11, main before v1.1)
+## Verification (2026-10-12, bare metal, main after the restore)
+
+Same checks as below, all passing: native and release 306 tests each, `check_parity.sh` SAME on
+all 14 runs, both fault campaigns with zero illegal reports and zero residual sets (the two
+dropped-fill runs end in the kill switch, as designed), demos, CLI and security gates, both
+baselines. The PerfCounters test no longer skips: the PMU is present.
+
+## Verification (2026-10-11, WSL2, main before v1.1)
 
 - Tests: release, native and Clang 306 each (alloc_test included), asan, ubsan and tsan 302;
   one test skips without hardware performance counters. The sweeps also ran under TSan.
