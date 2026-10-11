@@ -15,10 +15,8 @@ namespace hft::book {
 namespace detail {
 
 inline void put(std::vector<std::uint8_t>& out, const void* p, std::size_t n) {
-    if (n == 0) return;
-    const std::size_t at = out.size();
-    out.resize(at + n);
-    std::memcpy(out.data() + at, p, n);
+    const auto* b = static_cast<const std::uint8_t*>(p);
+    out.insert(out.end(), b, b + n);
 }
 
 inline bool get(const std::uint8_t*& p, const std::uint8_t* end, void* dst, std::size_t n) {
