@@ -44,12 +44,18 @@ Add to the boot options (GRUB: `GRUB_CMDLINE_LINUX_DEFAULT` in `/etc/default/gru
 
 Reboot, then check: `cat /sys/devices/system/cpu/isolated` prints `4-7`. Do not install irqbalance.
 
+With the BIOS GPU mode set to discrete only, the panel is driven by the Nvidia GPU and
+`acpi_video0` does not change brightness. Add `acpi_backlight=nvidia_wmi_ec` to the same line.
+
 ## 5. Before each benchmark session (resets at reboot)
 
     sudo cpupower frequency-set -g performance
     echo 1 | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo    # stable clock; 0 for speed
     echo madvise | sudo tee /sys/kernel/mm/transparent_hugepage/enabled
     sudo sysctl kernel.perf_event_paranoid=1                           # perf stat counters
+
+Hybrid CPU: plain `perf -e cycles` counts only on one core type; use `cpu_core/cycles/` for
+P-cores and `cpu_atom/cycles/` for E-cores.
 
 Laptop on AC power.
 
@@ -58,8 +64,8 @@ Laptop on AC power.
     build/native/apps/pm_live --replay data/sample/pm-20261009T1600-20min --cpu 4
 
 Decision hash must be `d97079e6c1474af9`. Under WSL2 the engine p99 was 563-950 ns and the
-book replay max 1-8 ms (docs/exec/HW.md H13-H14); compare against those, then update HW.md
+book replay max 1-8 ms (docs/exec/HW.md W13-W14); compare against those, then update HW.md
 for the new machine (H1-H16).
 
-    perf stat -e cycles,instructions,cache-misses,dTLB-load-misses taskset -c 4 \
+    perf stat -e cpu_core/cycles/,cpu_core/instructions/,cpu_core/cache-misses/,cpu_core/dTLB-load-misses/ taskset -c 4 \
         build/native/bench/book_study ~/data/store-S120825-v50 book:tick 5 3 1

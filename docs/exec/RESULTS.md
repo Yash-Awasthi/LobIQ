@@ -1,6 +1,6 @@
 # Results
 
-Measured, not tuned (D12). Machine and conditions: HW.md (turbo off, WSL2, vCPU pinning only, recorders running).
+Measured, not tuned (D12). Machine and conditions: HW.md W1-W16 (turbo off, WSL2, vCPU pinning only, recorders running).
 Build: native preset. Every row names its command; run from the repository root.
 
 ## E6.1 Latency and throughput
