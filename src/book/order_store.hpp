@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <stdexcept>
 #include <vector>
 
 #include "core/pool.hpp"
@@ -17,6 +18,7 @@ namespace detail {
 inline void put(std::vector<std::uint8_t>& out, const void* p, std::size_t n) {
     if (n == 0) return;
     const std::size_t at = out.size();
+    if (n > out.max_size() - at) throw std::length_error("snapshot too large");
     out.resize(at + n);
     std::memcpy(out.data() + at, p, n);
 }
