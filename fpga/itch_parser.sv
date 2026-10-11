@@ -98,7 +98,7 @@ module itch_parser (
   assign in_ready = kept <= 56;
   wire          take = in_valid && in_ready;
   wire  [ 63:0] keep = ~(64'hFFFF_FFFF_FFFF_FFFF << {in_bytes, 3'b0});
-  wire  [511:0] incoming = 512'(in_data & keep);
+  wire  [511:0] incoming = {448'b0, in_data & keep};
 
   always_ff @(posedge clk) begin
     if (rst) begin
