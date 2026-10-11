@@ -84,6 +84,9 @@ Measured on a laptop (i7-13650HX, turbo off, WSL2); sources in the sections belo
 - **Correctness:** zero heap allocations on the hot path in steady state; property tests against
   reference implementations; 306 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
   campaigns at 20-30% dropped, duplicated and delayed reports with zero illegal order states.
+- **FPGA feed parser (simulated):** ITCH 5.0 in SystemVerilog, 8 bytes per clock, one message
+  per clock, output one clock after a message's last byte; field-identical to the C++ decoder in
+  Verilator on a 375k-message synthetic day and 200k random frames.
 - **Honest results:** the obvious arbitrage loses money after fees and latency on recorded data
   (-67.45 USD over 61 attempts); reported as measured, with no thresholds tuned afterwards.
 
@@ -95,6 +98,7 @@ Where to read the code:
 | Virtual orders inside the real queues | `src/engine/replay_exchange.hpp` |
 | Lock-free single-producer single-consumer rings | `src/core/spsc.hpp` |
 | SIMD JSON tape and single-pass message decoder | `src/net/tape.hpp`, `src/pm/msg.hpp` |
+| ITCH parser in SystemVerilog and its Verilator check | `fpga/itch_parser.sv`, `fpga/itch_rtl_test.cpp` |
 | Order manager state machine | `src/exec/oms.hpp` |
 | Simulated venue with fault injection | `src/exec/sim_venue.hpp` |
 | Arbitrage executor and leg-risk handling | `src/exec/arb_exec.hpp` |
@@ -217,6 +221,10 @@ exposes no hardware performance counters.
 - Invariants are checked on every event of 255M book events; there are zero heap allocations in
   steady state (`alloc_test`); checkpoints replay to byte-identical state.
 - The matching engine is checked against a naive reference engine (RapidCheck).
+- The SystemVerilog ITCH parser is compared field by field with `hft::itch::dispatch` on every
+  frame, with random beat sizes and at full rate, including malformed lengths and unknown types:
+  `cmake -S fpga -B build/fpga && cmake --build build/fpga && build/fpga/itch_rtl_test [file]`
+  (needs Verilator 5). Shifting one field offset makes it fail.
 - WebSocket framing, SHA-1, base64 and JSON have known-answer tests.
 - The order manager, ledger, risk checks, simulated venue and arbitrage executor have unit tests,
   each checked by mutating the code it covers (counts in docs/exec/PHASES.md).
@@ -225,7 +233,8 @@ CI (`.github/workflows/ci.yml`) builds and tests GCC and Clang across the `debug
 `release`, `asan`, `ubsan` and `tsan` presets, runs the benchmarks once as a smoke test,
 checks that every app refuses bad arguments (`scripts/check_cli.sh`), runs the security gates
 (`scripts/security_gates.sh`: no order entry code, no secrets, no shell-outs) and fuzzes the
-ITCH decoder, the JSON tape, the order manager and WebSocket framing for 60 s each.
+ITCH decoder, the JSON tape, the order manager and WebSocket framing for 60 s each, and
+lints and simulates the FPGA parser.
 
 Checks on the recordings, run by hand: `scripts/check_parity.sh` (maker fills identical through
 the order manager and venue in compatibility mode), `scripts/fault_campaign.sh` and
