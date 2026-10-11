@@ -5,7 +5,7 @@ Terse reference docs; ids are stable, cite them in commits and code comments whe
 
 ## Status
 
-- Final. E0-E7 and gates G0-G7 met 2026-10-10; the audit after G7 and the steps after it (D30-D32, V8, V12, V13, X11, X13, PERF R7-R9) done; merged into `main` 2026-10-11. Final verification: PHASES "Wrap-up". Results: RESULTS.md. Nothing is open; what is not planned is listed in docs/ROADMAP.md.
+- Final. E0-E7 and gates G0-G7 met 2026-10-10; the audit after G7 and the steps after it (D30-D32, V8, V12, V13, X11, X13, PERF R7-R9) done; merged into `main` 2026-10-11. Final verification: PHASES "Wrap-up". Results: RESULTS.md. Open work and what is not planned: docs/ROADMAP.md.
 - Baseline hashes (held through the final verification):
   - `pm_live --replay ~/data/pm-live/20261009T160027Z` -> `decision_hash 6facf575ad8d84bc`
   - `pm_stats ~/data/ref/pm-snap` (frozen copy, 44 files) -> `~/data/ref/pm_stats.tsv`, sha256 `dafd558b45dc3a1a...`
