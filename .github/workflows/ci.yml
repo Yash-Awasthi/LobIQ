@@ -47,6 +47,15 @@ jobs:
       - uses: actions/checkout@v4
       - run: scripts/security_gates.sh
 
+  fpga:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get install -y verilator
+      - run: cmake -S fpga -B build/fpga -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build/fpga
+      - run: ctest --test-dir build/fpga --output-on-failure
+
   fuzz:
     runs-on: ubuntu-24.04
     steps:
