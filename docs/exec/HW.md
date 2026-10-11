@@ -21,7 +21,7 @@ before 2026-10-12 ran under WSL2 and cite the W entries below.
 ### Host tuning
 
 - H13 Huge pages still matter. `book_study book:tick` vs `book:tick-4k` (S120825-v50, 5 symbols, 44.6M events, CPU 4, two runs of 3 reps each): p99 156-159 ns vs 176-180 ns, total 2.03-2.04 s vs 2.15-2.16 s, max 0.33-0.37 ms vs 0.57-0.59 ms. dTLB load misses over the whole run 48.0M vs 126.5M. IPC 1.34 (`perf stat`, cpu_core PMU).
-- H14 Without core isolation (current boot), CPU 4: `pm_live --replay` sample engine p50/p99/p99.9 174-177/476-829/1297-1752 ns, decision hash d97079e6c1474af9. Book max latency fell from 1-8 ms under WSL2 (W14) to 0.33-0.37 ms. The boot line now has `isolcpus=nohz,domain,managed_irq,4-7 nohz_full=4-7 rcu_nocbs=4-7 irqaffinity=0-3,8-19`; its effect is measured after the next reboot.
+- H14 Without core isolation (current boot), CPU 4: `pm_live --replay` sample engine p50/p99/p99.9 174-177/476-829/1297-1752 ns, decision hash d97079e6c1474af9. Book max latency fell from 1-8 ms under WSL2 (W14) to 0.33-0.37 ms. Doorbell wake-up (`bench/wake_bench <producer> <consumer> <futex|spin> 50000 100`, gaps 50-150 us), p50/p99/p99.9/max: CPUs 4->6 futex 2.1/5.0/82 us/2.8 ms, spin 151/240/254 ns/2.6 us; CPUs 0->2 futex 2.5/5.1/7.1 us/0.8 ms, spin 182/214/218 ns/5.0 us. The boot line now has `isolcpus=nohz,domain,managed_irq,4-7 nohz_full=4-7 rcu_nocbs=4-7 irqaffinity=0-3,8-19`; its effect is measured after the next reboot.
 - H15 Kernel bypass still does not apply: the NICs are Wi-Fi and a Realtek r8169 port, neither supported by ef_vi, and the venue is a TLS WebSocket at about 200 ms (H12).
 - H16 Next: measure H14 again with CPUs 4-7 isolated, then a kernel-bypass NIC only for a colocated venue. The FPGA path is simulation only (`fpga/itch_parser.sv`).
 
