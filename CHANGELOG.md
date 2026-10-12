@@ -1,7 +1,13 @@
 # Changelog
 
-## Unreleased
+## v1.3 (2026-10-13)
 
+A microstructure lab on the stored Nasdaq days, every result scored out of sample with its
+uncertainty, plus peak-performance numbers and more testing.
+
+- **Hardening.** End-to-end tests for `itch_leadlag` and the study's accounting identities (lead-lag
+  found no moves on feeds without trading-state messages); the research tools ran clean under ASan
+  and UBSan on real data; longer fuzzing found nothing.
 - **VPIN.** `volume_buckets` (tested) and a VPIN section in `itch_study`: no volatility signal.
 - **Intraday pattern.** Activity, spread, depth and branching ratio per half-hour window.
 - **Volatility signature.** `itch_study` compares realized variance at 1-60 s with 300 s sampling.
