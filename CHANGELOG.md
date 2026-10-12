@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **VPIN.** `volume_buckets` (tested) and a VPIN section in `itch_study`: no volatility signal.
 - **Intraday pattern.** Activity, spread, depth and branching ratio per half-hour window.
 - **Volatility signature.** `itch_study` compares realized variance at 1-60 s with 300 s sampling.
 - **Trade costs.** `itch_study` splits every execution's effective spread into realized spread and

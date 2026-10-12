@@ -267,4 +267,30 @@ inline HawkesFit fit_hawkes(const std::vector<double>& t, double horizon) {
     return best;
 }
 
+// VPIN (Easley, Lopez de Prado and O'Hara 2012) on exact trade signs: executions filled into
+// buckets of equal volume; each bucket's order imbalance |buy - sell| / V and the mid at its close.
+struct SignedTrade {
+    double shares;
+    int dir;     // +1 the taker bought
+    double mid;  // mid before the trade
+};
+struct VolumeBucket {
+    double imbalance, mid;
+};
+inline std::vector<VolumeBucket> volume_buckets(const std::vector<SignedTrade>& trades, double volume) {
+    std::vector<VolumeBucket> out;
+    double room = volume, buy = 0, sell = 0;
+    for (const SignedTrade& t : trades)
+        for (double q = t.shares; q > 0;) {
+            const double take = std::min(q, room);
+            (t.dir > 0 ? buy : sell) += take;
+            q -= take, room -= take;
+            if (room <= 1e-9 * volume) {
+                out.push_back({std::abs(buy - sell) / volume, t.mid});
+                room = volume, buy = sell = 0;
+            }
+        }
+    return out;
+}
+
 }  // namespace hft::strategy::micro

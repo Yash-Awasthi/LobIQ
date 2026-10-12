@@ -133,3 +133,15 @@ TEST(Hawkes, APoissonProcessHasNoExcitation) {
     EXPECT_LT(f.alpha / f.beta, 0.05);
     EXPECT_NEAR(f.mu, 3.0, 0.2);
 }
+
+// VPIN buckets: trades split across fixed-volume buckets; imbalance |buy - sell| / V per bucket.
+TEST(Vpin, BucketsSplitTradesAndMeasureImbalance) {
+    const std::vector<SignedTrade> t = {{150, +1, 10}, {50, -1, 11}, {300, +1, 12}, {100, -1, 13}, {30, +1, 14}};
+    const auto b = volume_buckets(t, 200);
+    ASSERT_EQ(b.size(), 3u);                  // 630 shares: three full buckets, 30 left over
+    EXPECT_DOUBLE_EQ(b[0].imbalance, 0.5);    // 150 buy + 50 sell
+    EXPECT_DOUBLE_EQ(b[0].mid, 11);           // mid of the trade that closed it
+    EXPECT_DOUBLE_EQ(b[1].imbalance, 1.0);    // 200 of the 300 buy
+    EXPECT_DOUBLE_EQ(b[2].imbalance, 0.0);    // 100 buy + 100 sell
+    EXPECT_DOUBLE_EQ(b[2].mid, 13);
+}

@@ -40,7 +40,9 @@ constexpr std::uint64_t kStart = 10 * 3600 * kSec;          // 10:00 ET: the ope
 constexpr std::uint64_t kEnd = (15 * 3600 + 30 * 60) * kSec;  // 15:30 ET: before the closing cross
 constexpr std::uint64_t kInterval = 10 * kSec;               // OFI aggregation interval (as in the paper)
 constexpr std::uint64_t kWindow = 30 * 60 * kSec;            // half-hour regression windows
-constexpr std::uint64_t kHorizon = kSec;                     // time target for the micro-price
+constexpr std::uint64_t kHorizon = kSec;
+constexpr double kVpinBuckets = 500;    // volume buckets per symbol-day
+constexpr std::size_t kVpinWindow = 50; // buckets averaged into one VPIN value                     // time target for the micro-price
 using namespace strategy::micro;
 
 struct Interval {
@@ -135,13 +137,16 @@ struct Trade {
 struct TradeTrack {
     const book::TickBook& book;
     std::deque<Trade>& pending;
+    std::vector<SignedTrade>& signed_trades;
     std::uint64_t ts = 0;
     double mid = 0;  // before the message; 0 outside the window or without two-sided quotes
     void exec(std::uint64_t ref, std::uint32_t shares, double px) {
         if (mid <= 0) return;
         const auto o = book.order(ref);
         if (!o) return;
-        pending.push_back({ts, px > 0 ? px : static_cast<double>(o->price), mid, o->side == book::Side::Sell ? 1 : -1, shares});
+        const int dir = o->side == book::Side::Sell ? 1 : -1;
+        pending.push_back({ts, px > 0 ? px : static_cast<double>(o->price), mid, dir, shares});
+        signed_trades.push_back({static_cast<double>(shares), dir, mid});
     }
     void operator()(const itch::OrderExecuted& m) { exec(m.ref, m.shares, 0); }
     void operator()(const itch::OrderExecutedPrice& m) {
@@ -163,6 +168,8 @@ struct DayResult {
     static constexpr std::size_t kWins = (kEnd - kStart) / kWindow;
     // Per half-hour window: mid changes, quoted spread (ticks) summed over quote changes, branching ratio.
     std::array<double, kWins> win_moves{}, win_spread{}, win_quotes{}, win_n{};
+    // VPIN against the absolute mid return of the next volume bucket and of the current one.
+    double vpin_next = NAN, vpin_now = NAN, vpin_mean = NAN;
     std::uint64_t spread_obs[3] = {};  // 1 tick, 2 ticks, wider
 };
 
@@ -311,7 +318,8 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
     std::unordered_map<std::uint64_t, std::uint64_t> born;
     LifeTrack lt{born, out.life};
     std::deque<Trade> trades;
-    TradeTrack tt{b, trades};
+    std::vector<SignedTrade> signed_trades;
+    TradeTrack tt{b, trades, signed_trades};
     if (!g) out.mid_1s.reserve((kEnd - kStart) / kSec);
     std::vector<std::vector<double>> moves((kEnd - kStart) / kWindow);  // mid-change times per window, s
 
@@ -441,6 +449,32 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
     out.life.resting = static_cast<double>(born.size());
     if (!g && last_mid)
         while (out.mid_1s.size() < (kEnd - kStart) / kSec) out.mid_1s.push_back(last_mid);
+    if (!g && signed_trades.size() > 1000) {
+        double volume = 0;
+        for (const SignedTrade& t : signed_trades) volume += t.shares;
+        // shortcut: bucket size from the same day's volume (sizing only, no return looks ahead).
+        const auto buckets = volume_buckets(signed_trades, volume / kVpinBuckets);
+        std::vector<double> v, next, now;
+        double run = 0;
+        for (std::size_t i = 0; i + 1 < buckets.size(); ++i) {
+            run += buckets[i].imbalance;
+            if (i >= kVpinWindow) run -= buckets[i - kVpinWindow].imbalance;
+            if (i < kVpinWindow) continue;
+            v.push_back(run / kVpinWindow);
+            now.push_back(std::abs(std::log(buckets[i].mid / buckets[i - 1].mid)));
+            next.push_back(std::abs(std::log(buckets[i + 1].mid / buckets[i].mid)));
+        }
+        auto corr = [](const std::vector<double>& x, const std::vector<double>& y) {
+            const Fit f = ols(x, y);
+            return f.n < 3 ? NAN : (f.b >= 0 ? 1 : -1) * std::sqrt(f.r2);
+        };
+        if (v.size() > 50) {
+            out.vpin_next = corr(v, next), out.vpin_now = corr(v, now);
+            double m = 0;
+            for (double x : v) m += x;
+            out.vpin_mean = m / static_cast<double>(v.size());
+        }
+    }
     for (std::size_t w = 0; w < moves.size(); ++w) {
         out.win_moves[w] = static_cast<double>(moves[w].size());
         out.win_n[w] = NAN;
@@ -793,6 +827,24 @@ int main(int argc, char** argv) {
                     (start + 30) % 60, median(mv), median(sp), median(dp), median(br));
     }
 
+    std::printf("\n## VPIN and volatility\n\n");
+    std::printf("VPIN (Easley, Lopez de Prado and O'Hara 2012) from exact trade signs: each symbol-day's visible "
+                "executions filled into %.0f equal-volume buckets, VPIN the mean of |buy - sell| / V over the last %zu. "
+                "Andersen and Bondarenko (2014) argue its link to volatility is mechanical: compare its correlation with "
+                "the absolute mid return of the next bucket against that of the current one. Medians over symbols.\n\n",
+                kVpinBuckets, kVpinWindow);
+    std::printf("| Day | VPIN, mean | corr(VPIN, next bucket abs return) | corr(VPIN, current bucket abs return) |\n|---|---|---|---|\n");
+    for (std::size_t d = 0; d < D; ++d) {
+        std::vector<double> mean, nx, nw;
+        for (std::size_t s = 0; s < S; ++s) {
+            const DayResult& r = res[s * D + d];
+            if (!std::isfinite(r.vpin_next)) continue;
+            mean.push_back(r.vpin_mean), nx.push_back(r.vpin_next), nw.push_back(r.vpin_now);
+        }
+        if (!mean.empty())
+            std::printf("| %s | %.3f | %+.3f | %+.3f |\n", day_of(days[d]).c_str(), median(mean), median(nx), median(nw));
+    }
+
     std::printf("\n## Volatility signature\n\n");
     std::printf("Realized variance of the mid over the window, sampled every k seconds (averaged over the k sampling "
                 "offsets), divided by the same at 300 s. Without microstructure noise the ratio would be 1 at every k; "
@@ -858,6 +910,9 @@ int main(int argc, char** argv) {
                 "Journal of Financial Markets 12(2), 143-172, 2009.\n"
                 "- V. Filimonov, D. Sornette. Quantifying reflexivity in financial markets: toward a prediction of flash "
                 "crashes. Physical Review E 85, 056108, 2012.\n"
-                "- T. Andersen, T. Bollerslev, F. Diebold, P. Labys. Great realizations. Risk 13, 105-108, 2000.\n");
+                "- T. Andersen, T. Bollerslev, F. Diebold, P. Labys. Great realizations. Risk 13, 105-108, 2000.\n"
+                "- D. Easley, M. Lopez de Prado, M. O'Hara. Flow toxicity and liquidity in a high-frequency world. "
+                "Review of Financial Studies 25(5), 1457-1493, 2012.\n"
+                "- T. Andersen, O. Bondarenko. VPIN and the flash crash. Journal of Financial Markets 17, 1-46, 2014.\n");
     return 0;
 }
