@@ -119,7 +119,19 @@ itch_backtest /tmp/qrsim QRSIM imbalance --sweep threshold=0.2,0.4,0.6,0.8,1 --s
 ```
 
 Ten runs of a full synthetic day take about 0.4 s on 20 threads. Pick parameters on some days and
-check them on others: the best row of one day is partly luck.
+check them on others: the best row of one day is partly luck. `scripts/maker_walkforward.sh` and
+`scripts/leader_walkforward.sh` do exactly that and print paired bootstrap intervals, since a
+maker's total moves with its inventory as much as with its edge.
+
+Cross-asset inputs: `--index SYMBOL[,SYMBOL...]` replays those symbols alongside and appends, for
+each, its momentum (mid against its EMA over 0.1 s and 1 s, in bp) to `features`, after the
+symbol's own features (`hft::strategy::SymbolFeatures::kCount` of them). `strategies/leader.cpp`
+uses the first one to step back when a leading product moves against a quote:
+
+```
+itch_backtest <store> TQQQ leader --index QQQ lead_bp=0
+itch_backtest <store> SQQQ leader --index QQQ sign=-1     # inverse product
+```
 
 Several symbols: give a comma list (`INTC,AAPL,MSFT,AMD`). Each symbol runs on its own, in
 parallel, combined with any `--sweep`; the report adds the total over symbols for each parameter
