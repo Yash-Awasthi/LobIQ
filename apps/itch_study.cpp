@@ -17,6 +17,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <random>
 #include <set>
 #include <string>
 #include <thread>
@@ -331,9 +332,30 @@ std::string day_of(const fs::path& p) {
 }
 
 double median(std::vector<double> v) {
+    std::erase_if(v, [](double x) { return std::isnan(x); });
     if (v.empty()) return NAN;
     std::sort(v.begin(), v.end());
     return v[v.size() / 2];
+}
+
+// Median with a 95% bootstrap interval over symbols (fixed seed: the report is reproducible).
+std::string median_ci(const std::vector<double>& v, double scale = 1, const char* fmt = "%.2f") {
+    std::vector<double> x;
+    for (double e : v)
+        if (!std::isnan(e)) x.push_back(e * scale);
+    if (x.empty()) return "n/a";
+    std::mt19937_64 rng(1);
+    std::uniform_int_distribution<std::size_t> pick(0, x.size() - 1);
+    std::vector<double> meds, b(x.size());
+    for (int r = 0; r < 2000; ++r) {
+        for (double& e : b) e = x[pick(rng)];
+        meds.push_back(median(b));
+    }
+    std::sort(meds.begin(), meds.end());
+    char out[96], f[64];
+    std::snprintf(f, sizeof f, "%s [%s, %s]", fmt, fmt, fmt);
+    std::snprintf(out, sizeof out, f, median(x), meds[50], meds[1949]);
+    return out;
 }
 
 }  // namespace
@@ -478,8 +500,8 @@ int main(int argc, char** argv) {
         std::printf("| %s | %.0f | %.3f | %.2f | %.2f | %.2f |\n", active[s].second.c_str(),
                     dep.empty() ? 0 : dsum / static_cast<double>(dep.size()), f.b * 1000, f.r2, ro, ru);
     }
-    std::printf("\nMedian over symbols: R2 train %.2f, test with own beta %.2f, test with the universal model %.2f.\n\n",
-                median(r2_in), median(r2_own), median(r2_uni));
+    std::printf("\nMedian over symbols with 95%% bootstrap interval: R2 train %s, test with own beta %s, test with "
+                "the universal model %s.\n\n", median_ci(r2_in).c_str(), median_ci(r2_own).c_str(), median_ci(r2_uni).c_str());
 
     std::printf("## Micro-price (Stoikov, 2018)\n\n");
     std::printf("States: top-of-book imbalance bid / (bid + ask) in %d buckets, times spread of 1 or 2 ticks, "
@@ -517,9 +539,10 @@ int main(int argc, char** argv) {
                     static_cast<unsigned long long>(out.n[0]), 100 * red(out, 0, 1), 100 * red(out, 0, 2),
                     100 * red(out, 1, 1), 100 * red(out, 1, 2), 100 * red(in, 0, 2));
     }
-    std::printf("\nMedian over the %zu symbols, test days: next change, weighted mid %+.1f%%, micro-price %+.1f%%; "
-                "1 s, weighted mid %+.1f%%, micro-price %+.1f%%.\n\n", m_next.size(), 100 * median(w_next),
-                100 * median(m_next), 100 * median(w_1s), 100 * median(m_1s));
+    std::printf("\nMedian over the %zu symbols with 95%% bootstrap interval, test days: next change, weighted mid "
+                "%s%%, micro-price %s%%; 1 s, weighted mid %s%%, micro-price %s%%.\n\n", m_next.size(),
+                median_ci(w_next, 100, "%+.1f").c_str(), median_ci(m_next, 100, "%+.1f").c_str(),
+                median_ci(w_1s, 100, "%+.1f").c_str(), median_ci(m_1s, 100, "%+.1f").c_str());
     if (g_n) {
         std::printf("Mean adjustment G at a 1-tick spread by imbalance bucket, in ticks (train fit, averaged over those symbols):\n\n");
         std::printf("| Imbalance |");
