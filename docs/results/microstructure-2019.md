@@ -106,6 +106,16 @@ Every limit order added between 10:00 and 15:30 ET on the 30 symbols, followed b
 | 2025-12-09 | 36.9M | 26.2% | 12.2% | 16.5% | 25.3% | 5.6% | 11.3% | 85.8% | 2.7% | 0.2% |
 | 2019-10-18 | 10.2M | 13.2% | 8.8% | 14.1% | 23.8% | 10.5% | 26.5% | 70.4% | 2.8% | 0.3% |
 
+## Self-excitation of mid-price changes (Hawkes)
+
+An exponential Hawkes process (intensity mu + alpha sum exp(-beta (t - t_i))) fitted by maximum likelihood to the mid-change times of each symbol in each half-hour window with at least 200 changes (`fit_hawkes`, checked against simulated processes in tests/microstructure_test.cpp). The branching ratio n = alpha / beta is the share of changes triggered by earlier ones; Filimonov and Sornette (2012) report it rising toward 1 over the 2000s. 1 / beta is how long the excitation lasts. Half-hour windows limit the intraday seasonality that can masquerade as excitation.
+
+| Day | Windows | Branching ratio n, median [quartiles] | Memory 1 / beta, median (ms) |
+|---|---|---|---|
+| 2025-12-08 | 330 | 0.52 [0.44, 0.59] | 0.3 |
+| 2025-12-09 | 330 | 0.54 [0.44, 0.60] | 0.3 |
+| 2019-10-18 | 323 | 0.46 [0.41, 0.57] | 0.7 |
+
 ## Caveats
 
 - ITCH is Nasdaq's book only; the consolidated quote is tighter, so depth and imbalance are partial.
@@ -118,3 +128,4 @@ Every limit order added between 10:00 and 15:30 ET on the 30 symbols, followed b
 - S. Stoikov. The micro-price: a high-frequency estimator of future prices. Quantitative Finance 18(12), 1959-1966, 2018.
 - C. Moallemi, K. Yuan. A model for queue position valuation in a limit order book. Working paper, Columbia University, 2017.
 - J. Hasbrouck, G. Saar. Technology and liquidity provision: the blurring of traditional definitions. Journal of Financial Markets 12(2), 143-172, 2009.
+- V. Filimonov, D. Sornette. Quantifying reflexivity in financial markets: toward a prediction of flash crashes. Physical Review E 85, 056108, 2012.
