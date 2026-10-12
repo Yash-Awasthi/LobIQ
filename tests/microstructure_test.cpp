@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <tuple>
 #include <vector>
 
 using namespace hft::strategy::micro;
@@ -93,4 +94,42 @@ TEST(LeadLag, AnswersAreTheFollowersNextMoveWithinTheHorizon) {
     const auto placebo = lead_response(a, b, +1, 1'000);  // every A move 1 us later
     EXPECT_EQ(placebo.answered, 2u);                      // 1'100 and 11'000 both answered by 15'000 (down)
     EXPECT_EQ(placebo.same, 1u);                          // only the down move agrees
+}
+
+// Ogata thinning: a Hawkes process with intensity mu + alpha * sum exp(-beta (t - t_i)).
+std::vector<double> simulate_hawkes(double mu, double alpha, double beta, double horizon, std::uint64_t seed) {
+    std::uint64_t x = seed;
+    auto uniform = [&] {
+        x ^= x << 13, x ^= x >> 7, x ^= x << 17;
+        return static_cast<double>(x >> 11) * 0x1.0p-53;
+    };
+    std::vector<double> t;
+    double now = 0, excite = 0;  // excite: alpha * sum exp(-beta (now - t_i))
+    for (;;) {
+        const double bound = mu + excite;
+        const double step = -std::log(1 - uniform()) / bound;
+        now += step;
+        excite *= std::exp(-beta * step);
+        if (now >= horizon) return t;
+        if (uniform() * bound <= mu + excite) t.push_back(now), excite += alpha;
+    }
+}
+
+TEST(Hawkes, MaximumLikelihoodRecoversASimulatedProcess) {
+    for (const auto& [mu, alpha, beta] : {std::tuple{1.0, 6.0, 10.0}, std::tuple{2.0, 1.0, 5.0}, std::tuple{0.5, 18.0, 20.0}}) {
+        const auto t = simulate_hawkes(mu, alpha, beta, 4000, 7);
+        const HawkesFit f = fit_hawkes(t, 4000);
+        ASSERT_TRUE(f.ok);
+        EXPECT_NEAR(f.alpha / f.beta, alpha / beta, 0.05) << "branching ratio, n = " << t.size();
+        EXPECT_NEAR(f.beta, beta, 0.25 * beta);
+        EXPECT_NEAR(f.mu, mu, 0.25 * mu);
+    }
+}
+
+TEST(Hawkes, APoissonProcessHasNoExcitation) {
+    const auto t = simulate_hawkes(3.0, 0.0, 1.0, 4000, 11);
+    const HawkesFit f = fit_hawkes(t, 4000);
+    ASSERT_TRUE(f.ok);
+    EXPECT_LT(f.alpha / f.beta, 0.05);
+    EXPECT_NEAR(f.mu, 3.0, 0.2);
 }

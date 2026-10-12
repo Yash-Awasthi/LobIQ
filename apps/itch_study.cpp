@@ -121,6 +121,7 @@ struct DayResult {
     Errors e;
     Queue q;
     Life life;
+    std::vector<HawkesFit> hawkes;  // one per half-hour window with enough mid changes
     std::uint64_t spread_obs[3] = {};  // 1 tick, 2 ticks, wider
 };
 
@@ -256,6 +257,7 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
     QueueTrack qt{live, marks, out.q, before, depth_ewma};
     std::unordered_map<std::uint64_t, std::uint64_t> born;
     LifeTrack lt{born, out.life};
+    std::vector<std::vector<double>> moves((kEnd - kStart) / kWindow);  // mid-change times per window, s
 
     auto close_interval = [&](std::int64_t k) {
         Interval iv;
@@ -293,6 +295,10 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
         }
         if (ts >= kEnd) break;
         const double mid = (cur.bid_px + cur.ask_px) / 2.0 / tick;
+        if (!g && mid != last_mid && last_mid) {
+            const std::uint64_t w = (ts - kStart) / kWindow;
+            if (w < moves.size()) moves[w].push_back(static_cast<double>(ts - kStart - w * kWindow) / kSec);
+        }
         depth_ewma = depth_ewma ? 0.999 * depth_ewma + 0.001 * (cur.bid_qty + cur.ask_qty) / 2.0 : (cur.bid_qty + cur.ask_qty) / 2.0;
         // Markout of a fill: the mid in force kHorizon later, against the fill price, per share.
         while (!marks.empty() && marks.front().ts + kHorizon <= ts) {
@@ -356,6 +362,8 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
     }
     if (cur_iv >= 0) close_interval(cur_iv);
     out.life.resting = static_cast<double>(born.size());
+    for (const auto& m : moves)
+        if (m.size() >= 200) out.hawkes.push_back(fit_hawkes(m, static_cast<double>(kWindow) / kSec));
     if (b.order_count() > 65536) slot.reset();
     return out;
 }
@@ -654,6 +662,25 @@ int main(int argc, char** argv) {
         for (double c : l.cancelled) std::printf(" %.1f%% |", 100 * c / l.adds);
         std::printf(" %.1f%% | %.1f%% | %.1f%% |\n", 100 * fleeting / l.adds, 100 * l.executed / l.adds, 100 * l.resting / l.adds);
     }
+    std::printf("\n## Self-excitation of mid-price changes (Hawkes)\n\n");
+    std::printf("An exponential Hawkes process (intensity mu + alpha sum exp(-beta (t - t_i))) fitted by maximum "
+                "likelihood to the mid-change times of each symbol in each half-hour window with at least 200 changes "
+                "(`fit_hawkes`, checked against simulated processes in tests/microstructure_test.cpp). The branching "
+                "ratio n = alpha / beta is the share of changes triggered by earlier ones; Filimonov and Sornette (2012) "
+                "report it rising toward 1 over the 2000s. 1 / beta is how long the excitation lasts. Half-hour windows "
+                "limit the intraday seasonality that can masquerade as excitation.\n\n");
+    std::printf("| Day | Windows | Branching ratio n, median [quartiles] | Memory 1 / beta, median (ms) |\n");
+    std::printf("|---|---|---|---|\n");
+    for (std::size_t d = 0; d < D; ++d) {
+        std::vector<double> n, mem;
+        for (std::size_t s = 0; s < S; ++s)
+            for (const HawkesFit& h : res[s * D + d].hawkes)
+                if (h.ok) n.push_back(h.alpha / h.beta), mem.push_back(1e3 / h.beta);
+        if (n.empty()) continue;
+        std::sort(n.begin(), n.end());
+        std::printf("| %s | %zu | %.2f [%.2f, %.2f] | %.1f |\n", day_of(days[d]).c_str(), n.size(), n[n.size() / 2],
+                    n[n.size() / 4], n[3 * n.size() / 4], median(mem));
+    }
     std::printf("\n## Caveats\n\n"
                 "- ITCH is Nasdaq's book only; the consolidated quote is tighter, so depth and imbalance are partial.\n"
                 "- The most active names are mostly ETFs and leveraged ETFs; two test days measure stability across days, "
@@ -668,6 +695,8 @@ int main(int argc, char** argv) {
                 "- C. Moallemi, K. Yuan. A model for queue position valuation in a limit order book. Working paper, "
                 "Columbia University, 2017.\n"
                 "- J. Hasbrouck, G. Saar. Technology and liquidity provision: the blurring of traditional definitions. "
-                "Journal of Financial Markets 12(2), 143-172, 2009.\n");
+                "Journal of Financial Markets 12(2), 143-172, 2009.\n"
+                "- V. Filimonov, D. Sornette. Quantifying reflexivity in financial markets: toward a prediction of flash "
+                "crashes. Physical Review E 85, 056108, 2012.\n");
     return 0;
 }

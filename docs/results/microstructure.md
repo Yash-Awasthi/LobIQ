@@ -113,6 +113,19 @@ Every limit order added between 10:00 and 15:30 ET on the 30 symbols, followed b
 | 2025-12-12 | 99.2M | 27.4% | 17.2% | 22.6% | 21.3% | 3.3% | 5.9% | 91.8% | 2.2% | 0.1% |
 | 2026-06-12 | 103.0M | 28.0% | 18.3% | 24.5% | 19.8% | 3.0% | 5.1% | 93.6% | 1.3% | 0.1% |
 
+## Self-excitation of mid-price changes (Hawkes)
+
+An exponential Hawkes process (intensity mu + alpha sum exp(-beta (t - t_i))) fitted by maximum likelihood to the mid-change times of each symbol in each half-hour window with at least 200 changes (`fit_hawkes`, checked against simulated processes in tests/microstructure_test.cpp). The branching ratio n = alpha / beta is the share of changes triggered by earlier ones; Filimonov and Sornette (2012) report it rising toward 1 over the 2000s. 1 / beta is how long the excitation lasts. Half-hour windows limit the intraday seasonality that can masquerade as excitation.
+
+| Day | Windows | Branching ratio n, median [quartiles] | Memory 1 / beta, median (ms) |
+|---|---|---|---|
+| 2025-12-08 | 330 | 0.51 [0.43, 0.58] | 0.3 |
+| 2025-12-09 | 330 | 0.50 [0.44, 0.59] | 0.3 |
+| 2025-12-10 | 330 | 0.52 [0.44, 0.58] | 0.4 |
+| 2025-12-11 | 330 | 0.52 [0.44, 0.58] | 0.4 |
+| 2025-12-12 | 330 | 0.53 [0.46, 0.58] | 0.4 |
+| 2026-06-12 | 330 | 0.51 [0.45, 0.57] | 0.4 |
+
 ## Caveats
 
 - ITCH is Nasdaq's book only; the consolidated quote is tighter, so depth and imbalance are partial.
@@ -125,3 +138,4 @@ Every limit order added between 10:00 and 15:30 ET on the 30 symbols, followed b
 - S. Stoikov. The micro-price: a high-frequency estimator of future prices. Quantitative Finance 18(12), 1959-1966, 2018.
 - C. Moallemi, K. Yuan. A model for queue position valuation in a limit order book. Working paper, Columbia University, 2017.
 - J. Hasbrouck, G. Saar. Technology and liquidity provision: the blurring of traditional definitions. Journal of Financial Markets 12(2), 143-172, 2009.
+- V. Filimonov, D. Sornette. Quantifying reflexivity in financial markets: toward a prediction of flash crashes. Physical Review E 85, 056108, 2012.
