@@ -73,8 +73,9 @@ fees, risk limits and accounting; the guide says what the simulation does and do
 
 Measured on a laptop (i7-13650HX, turbo off, WSL2); sources in the sections below.
 
-- **Order book:** 52.8 ns per update at p50 on one symbol; a full Nasdaq day of all 12,076
-  symbols rebuilt and hash-checked in 7.5 s; read and decode at 31.6M messages/s.
+- **Order book:** 41 ns per update at p50 on one symbol, worst case 40 µs; a full Nasdaq day
+  of 12,000+ symbols rebuilt and hash-checked at 114-121M messages/s on 16 threads (847M
+  messages in 7.0 s); read and decode at 31.6M messages/s.
 - **Live feed:** own TLS WebSocket client and JSON parser (AVX2 structural scan); kernel receive
   to trading decision about 9 µs p50 with busy-polling threads on isolated cores.
 - **Paper execution:** order intent to venue request 177 ns p50; 489k messages/s through books,
