@@ -14,7 +14,11 @@ store="$data/store-${name%%.*}"
 mkdir -p "$data"
 [ ! -e "$store" ] || { echo "store exists: $store" >&2; exit 1; }
 
-want_size=$(curl -sfI --http1.1 "$base/$name" | tr -d '\r' | awk 'tolower($1)=="content-length:"{print $2}' || true)
+for i in 1 2 3 4 5; do  # the server sometimes drops a request right after a long download
+    want_size=$(curl -sfI --http1.1 "$base/$name" | tr -d '\r' | awk 'tolower($1)=="content-length:"{print $2}' || true)
+    [ -n "$want_size" ] && break
+    sleep 10
+done
 [ -n "$want_size" ] || { echo "not found on server: $name" >&2; exit 1; }
 
 # The server throttles each connection to about 220 KB/s; aria2c opens 16 when installed.
