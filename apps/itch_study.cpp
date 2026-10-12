@@ -126,7 +126,7 @@ void parallel(std::size_t n, F&& f) {
 }
 
 struct State {
-    char trading = 0;
+    char trading = 'T';  // real feeds send H before the open; synthetic days send none
     void operator()(const itch::TradingAction& m) { trading = m.state; }
     template <class T>
     void operator()(const T&) {}
