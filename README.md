@@ -4,7 +4,8 @@
 [![image](https://github.com/Yash-Awasthi/hft/actions/workflows/image.yml/badge.svg?branch=main)](https://github.com/Yash-Awasthi/hft/actions/workflows/image.yml)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Yash-Awasthi/hft)
 
-A low-latency trading system in C++23 with no framework underneath, in three parts:
+A low-latency trading system and market microstructure lab in C++23, with no framework
+underneath, in four parts:
 
 - **Nasdaq TotalView-ITCH**, replayed from disk through an order-by-order book, a
   deterministic matching engine and an event-driven backtest.
@@ -13,6 +14,9 @@ A low-latency trading system in C++23 with no framework underneath, in three par
   by market makers and an arbitrage executor.
 - **A paper execution layer**: pre-trade risk, an order manager, a ledger and a simulated venue
   with latency, queues, fees, settlement and injected faults. It never sends an order.
+- **Microstructure research** on the same Nasdaq data, fitted on some days and tested on later
+  ones: order flow imbalance, the micro-price, the value of queue position, and what a signal is
+  worth to a market maker after latency ([results](#market-microstructure-research)).
 
 Your own strategies plug into both markets by name, and every run can write an HTML report.
 
