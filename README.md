@@ -131,15 +131,18 @@ the sections below.
 - **Honest results:** the obvious arbitrage loses money after fees and latency on recorded data
   (-67.45 USD over 61 attempts); reported as measured, with no thresholds tuned afterwards.
 
-Peak, turbo on ([docs/results/max-performance.md](docs/results/max-performance.md), `scripts/bench_max.sh`):
+Peak, turbo on ([docs/results/max-performance.md](docs/results/max-performance.md), `scripts/bench_max.sh`).
+"Under full load" runs one instance on every hardware thread at once:
 
-| | One P-core | One E-core | Whole chip (20 threads) |
-|---|---|---|---|
-| Book update p50 / p99 | 23.9 / 93.0 ns | 37.6 / 202.5 ns | |
-| Prediction-market parse + engine p50 | 279 + 93 ns | 513 + 167 ns | |
-| Full Nasdaq day, 847M messages | 44.6 s, 19.0M msg/s | 73.9 s, 11.5M msg/s | 5.3 s, 160.6M msg/s |
+| | One P-core | One E-core | P-core thread, full load | E-core, full load | Whole chip |
+|---|---|---|---|---|---|
+| Book update p50 / p99 (busiest symbol) | 20.4 / 66.2 ns | 32.5 / 113.0 ns | 36.6 / 159.9 ns | 43.0 / 272.3 ns | 399M updates/s |
+| Prediction-market parse p50 / p99 | 297 / 1,781 ns | 480 / 2,725 ns | 618 / 3,845 ns | 586 / 3,389 ns | 8.6M msg/s |
+| Prediction-market engine p50 / p99 | 100 / 287 ns | 169 / 476 ns | 229 / 2,114 ns | 203 / 1,697 ns | |
+| Full Nasdaq day, 847M messages | 48.5 s, 17.5M msg/s | 65.6 s, 12.9M msg/s | | | 4.75 s, 178M msg/s (16 threads) |
 
-The whole-chip figure is power and thermal limited: the same run started at 97 °C gave 138.8M msg/s.
+Whole-chip figures are power and thermal limited and move about 10% between runs (138.8M to 183M msg/s
+for the full day over five runs).
 
 Where to read the code:
 
