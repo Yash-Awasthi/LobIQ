@@ -131,6 +131,14 @@ the sections below.
 - **Honest results:** the obvious arbitrage loses money after fees and latency on recorded data
   (-67.45 USD over 61 attempts); reported as measured, with no thresholds tuned afterwards.
 
+Peak, turbo on ([docs/results/max-performance.md](docs/results/max-performance.md), `scripts/bench_max.sh`):
+
+| | One P-core | One E-core | Whole chip (20 threads) |
+|---|---|---|---|
+| Book update p50 / p99 | 23.9 / 93.0 ns | 37.6 / 202.5 ns | |
+| Prediction-market parse + engine p50 | 279 + 93 ns | 513 + 167 ns | |
+| Full Nasdaq day, 847M messages | 44.6 s, 19.0M msg/s | 73.9 s, 11.5M msg/s | 5.3 s, 160.6M msg/s |
+
 Where to read the code:
 
 | What | File |
