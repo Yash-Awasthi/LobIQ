@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Peak numbers.** `scripts/bench_max.sh` measures turbo-on performance on one P-core, one
+  E-core and the whole chip, including latency with every hardware thread busy: book p50 20.4 ns
+  alone and 36.6 ns under full load on a P-core; a full Nasdaq day at about 178M messages/s
+  (docs/results/max-performance.md). `NO_TURBO=0 scripts/tune.sh` sets up such a run.
+
 ## v1.2 (2026-10-12)
 
 Bare metal, a faster book and replay, and a microstructure study tested out of sample.
