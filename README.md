@@ -73,10 +73,11 @@ fees, risk limits and accounting; the guide says what the simulation does and do
 
 Measured on a laptop (i7-13650HX, turbo off, WSL2); sources in the sections below.
 
-- **Order book:** 52.8 ns per update at p50 on one symbol; a full Nasdaq day of all 12,076
-  symbols rebuilt and hash-checked in 7.5 s; read and decode at 31.6M messages/s.
-- **Live feed:** own TLS WebSocket client and JSON parser (AVX2 structural scan); network to
-  trading decision about 39 µs p50 with busy-polling threads.
+- **Order book:** 41 ns per update at p50 on one symbol, worst case 40 µs; a full Nasdaq day
+  of 12,000+ symbols rebuilt and hash-checked at 114-121M messages/s on 16 threads (847M
+  messages in 7.0 s); read and decode at 31.6M messages/s.
+- **Live feed:** own TLS WebSocket client and JSON parser (AVX2 structural scan); kernel receive
+  to trading decision about 9 µs p50 with busy-polling threads on isolated cores.
 - **Paper execution:** order intent to venue request 177 ns p50; 489k messages/s through books,
   makers, arbitrage executor, risk, order manager and simulated venue on one thread.
 - **Determinism:** a live session replays from its recording to bit-identical decisions,
@@ -361,7 +362,11 @@ threads and 31 µs with `--spin-feeds`; with `--spin --spin-feeds`, wire to deci
 39 µs p50, against about 280 µs with every thread sleeping. Spinning costs one busy core per
 connection plus one for the trading thread, so it is off by default on the laptop.
 
-Live figures move with the market and the hypervisor, so the trading thread is tuned on a
+On bare metal with the trading thread on an isolated core (docs/exec/PERF.md R16), wire to
+decision is about 9 µs p50 spinning (kernel to ring 6.8 µs, ring to decision 2.1 µs) and about
+190 µs with every thread sleeping. `--feed-cpus 6,7` pins the feed threads.
+
+Live figures move with the market and the network, so the trading thread is tuned on a
 fixed recording instead: `pm_live --replay` times parse and engine for every message. On a
 5-hour run (2.0M messages, `native` build, pinned to two cores), against the code before the
 pass:

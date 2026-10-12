@@ -18,6 +18,9 @@
   cross-core wake 18% (`docs/exec/HW.md` H14, H17-H18).
 - **Book worst case 300 -> 40 us.** Pools grow by moving pages instead of copying them; a full
   Nasdaq day replays 9% faster (docs/exec/PERF.md R15).
+- **Full-day replay 27-48% faster on 16 threads.** Workers reuse one book instead of mapping
+  and unmapping pools per symbol: 114-121M messages/s (R17). Live wire to decision about 9 µs
+  p50 on isolated cores; `--feed-cpus` pins feed threads (R16).
 
 ## v1.1 (2026-10-11)
 

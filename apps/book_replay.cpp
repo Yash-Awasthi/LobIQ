@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -71,9 +72,25 @@ struct Flow {
     void operator()(const T&) {}
 };
 
+// Each worker keeps one book: a fresh book per symbol maps and unmaps its pools 12k times a
+// day, and on 16 threads the unmaps' TLB shootdowns stall every core. A book that grew large
+// is dropped after its symbol, since clear() costs its table size.
+template <class Book>
+std::unique_ptr<Book>& worker_book() {
+    thread_local std::unique_ptr<Book> b;
+    return b;
+}
+
 template <class Book>
 Result replay(const std::filesystem::path& dir, std::uint16_t locate, std::uint64_t check_every) {
-    Book b;
+    std::unique_ptr<Book>& slot = worker_book<Book>();
+    if constexpr (requires { slot->clear(); }) {
+        if (slot) slot->clear();
+    } else {
+        slot.reset();
+    }
+    if (!slot) slot = std::make_unique<Book>();
+    Book& b = *slot;
     book::ItchApply<Book> ap{b};
     Result r;
     data::SymbolReader rd(dir, locate);
@@ -117,6 +134,7 @@ Result replay(const std::filesystem::path& dir, std::uint16_t locate, std::uint6
     if (flow.added != ap.stats.executed + flow.cancelled + flow.removed + b.resting_shares())
         ++r.check_failures;
     r.stats = ap.stats;
+    if (r.max_orders > 65536) slot.reset();
     return r;
 }
 

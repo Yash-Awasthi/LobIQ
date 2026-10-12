@@ -5,7 +5,7 @@
 
 constexpr const char* kUsage =
     "usage: pm_live [--events N] [--max-tokens N] [--tokens-per-conn N] [--port P] [--record DIR [--record-cap-gb G]]\n"
-    "               [--seconds S] [--cpu C] [--spin] [--spin-feeds] [--no-quote] [options]\n"
+    "               [--seconds S] [--cpu C] [--feed-cpus C,..] [--spin] [--spin-feeds] [--no-quote] [options]\n"
     "       pm_live --replay DIR [options]\n"
     "maker and risk: --quoter NAME --gamma G --k K --size S --max-inv N --horizon-s T --loss-stop USD --max-gross N --stale-s S\n"
     "venue (replay): --venue | --venue-compat, --lat-ms M --jitter-ms M --seed N --drop-ack P --drop-fill P\n"
@@ -51,6 +51,13 @@ int main(int argc, char** argv) {
         else if (a == "--quoter") o.engine.quoter = quoter_or_exit(val());
         else if (a == "--spin") o.spin = true;
         else if (a == "--spin-feeds") o.spin_feeds = true;
+        else if (a == "--feed-cpus") {
+            o.feed_cpus = parse_cpus(val());
+            if (o.feed_cpus.empty()) {
+                std::fprintf(stderr, "--feed-cpus wants a list like 6,7\n");
+                return 2;
+            }
+        }
         else if (a == "--gamma") o.engine.maker.gamma = num();
         else if (a == "--k") o.engine.maker.k = num();
         else if (a == "--size") o.engine.maker.size = num();

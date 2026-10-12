@@ -73,6 +73,7 @@ struct Options {
     int events = 40, max_tokens = 200, tokens_per_conn = 50, port = 8088, cpu = -1;
     bool spin = false;  // busy-poll the rings instead of sleeping on the doorbell
     bool spin_feeds = false;  // feed threads busy-poll their sockets instead of sleeping in poll(2): one core each
+    std::vector<int> feed_cpus;  // feed thread i runs on feed_cpus[i % size]; empty: unpinned
     double seconds = 0, record_cap_gb = 20;
     fs::path record, replay, dump_fills;  // dump_fills: replay writes every maker fill there
     fs::path run;       // pm_exec: summary.tsv, kill.log; KILL there trips the switch (live)
@@ -472,6 +473,19 @@ void pin(int cpu) {
     if (pthread_setaffinity_np(pthread_self(), sizeof s, &s) != 0) std::fprintf(stderr, "cannot pin to cpu %d\n", cpu);
 }
 
+// "6,7" -> {6, 7}; empty on anything but non-negative integers.
+std::vector<int> parse_cpus(const std::string& v) {
+    std::vector<int> out;
+    std::size_t i = 0;
+    while (i <= v.size()) {
+        const std::size_t j = std::min(v.find(',', i), v.size());
+        if (j == i || v.find_first_not_of("0123456789", i) < j) return {};
+        out.push_back(std::stoi(v.substr(i, j - i)));
+        i = j + 1;
+    }
+    return out;
+}
+
 // FNV-1a over every decision, drained from the engine as it goes.
 struct DecisionHash {
     std::uint64_t h = 1469598103934665603ull, n = 0;
@@ -706,7 +720,11 @@ int live(const Options& o) {
         feeds[static_cast<std::size_t>(t.conn)]->ids.push_back(t.id);
     }
     std::vector<std::thread> threads;
-    for (auto& f : feeds) threads.emplace_back([&f, &o] { feed_loop(*f, o.spin_feeds); });
+    for (auto& f : feeds)
+        threads.emplace_back([&f, &o] {
+            if (!o.feed_cpus.empty()) pin(o.feed_cpus[static_cast<std::size_t>(f->idx) % o.feed_cpus.size()]);
+            feed_loop(*f, o.spin_feeds);
+        });
 
     Names names;
     {
