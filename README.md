@@ -44,7 +44,8 @@ hft get 2025-12-10                          # download (16 connections), verify,
 hft replay 2025-12-10                       # every book of the day, invariants checked: 847M messages
 hft strategies                              # built in and your own (strategies/*.cpp)
 hft backtest 2025-12-10 INTC,AAPL avellaneda_stoikov gamma=0.05     # -> report.html
-hft study 2025-12-08,2025-12-09 2025-12-10  # order flow imbalance, micro-price, queue value
+hft study 2025-12-08,2025-12-09 2025-12-10  # imbalance, micro-price, queue value, Hawkes, VPIN...
+hft leadlag 2025-12-10 QQQ:TQQQ,QQQ:SQQQ:-1  # who follows whom, against a placebo
 ```
 
 **2. Paper-trade the live prediction market.** Market makers and an arbitrage executor run on

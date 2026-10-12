@@ -40,7 +40,10 @@ Nasdaq ITCH days (DAY is S121025, 2025-12-10 or a store path):
   hft strategies                   strategies available to backtest
   hft backtest DAY SYMBOLS STRATEGY [key=value...]
                                    queue-position backtest with an HTML report (SYMBOLS: INTC,AAPL)
-  hft study TRAIN[,..] TEST[,..]   order flow imbalance, micro-price and queue position, out of sample
+  hft study TRAIN[,..] TEST[,..]   microstructure study, out of sample: order flow imbalance, micro-price,
+                                   queue position, order lifetimes, trade costs, Hawkes, VPIN
+  hft leadlag DAY[,..] [A:B[:-1],..]
+                                   how related products follow each other (placebo-checked)
 
 Prediction market, paper only (no order is ever sent):
   hft live [MINUTES] [pm_exec options]
@@ -111,6 +114,14 @@ study)
     need
     join() { local o= x; for x in ${1//,/ }; do o+="${o:+,}$(store "$x")"; done; echo "$o"; }
     "$bin/itch_study" --train "$(join "$1")" --test "$(join "$2")" --symbols "${SYMBOLS:-30}"
+    ;;
+
+leadlag)
+    [ $# -ge 1 ] && [ $# -le 2 ] || die "usage: hft leadlag DAY[,..] [A:B[:-1],..]"
+    need
+    days=
+    for x in ${1//,/ }; do days+="${days:+,}$(store "$x")"; done
+    exec "$bin/itch_leadlag" "$days" ${2:+"$2"}
     ;;
 
 live)
