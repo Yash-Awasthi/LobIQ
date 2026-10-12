@@ -482,6 +482,7 @@ age. One command each, about 30 s and 15 minutes on 16 threads:
 ```
 scripts/study.sh > docs/results/microstructure.md          # itch_study: OFI, micro-price, queue
 scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
+scripts/results.sh                                          # every results page, then git diff
 ```
 
 - **Order flow imbalance** ([Cont, Kukanov and Stoikov 2014](https://arxiv.org/abs/1011.6402)):
@@ -556,7 +557,8 @@ Six years back, the same train fit scored on 2019-10-18 (`TEST=S101819`, symbols
 then): each stock's own OFI slope no longer transfers (median R2 0.11) while the depth law still
 scores 0.61; the micro-price still cuts next-mid error by 10.0%; and the imbalance-filtered maker
 makes money that day (+$1.3k against -$6.7k for the joiner without fees, +$1.3k against -$6.1k
-with the rebate and 2019's Section 31 and TAF rates) until one-way latency reaches 50 µs. One
+with the rebate and 2019's Section 31 and TAF rates; paired over the 9 symbols +$8.0k, 95% interval
+[+$2.6k, +$13.7k]) until one-way latency reaches 50 µs. One
 day, so a check of direction, not of size: [microstructure-2019](docs/results/microstructure-2019.md),
 [maker-walkforward-2019](docs/results/maker-walkforward-2019.md).
 
