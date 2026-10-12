@@ -1,6 +1,20 @@
 # Changelog
 
-## Unreleased
+## v1.2 (2026-10-12)
+
+Bare metal, a faster book and replay, and a microstructure study tested out of sample.
+
+- **Performance gate in CI.** Every pull request builds itself and its base and fails if the
+  book, `book_replay` or `pm_live --replay` executes more than 3% more instructions (cachegrind,
+  deterministic on shared runners; `scripts/perf_gate.sh`).
+- **Host tooling.** `sudo scripts/tune.sh` applies the benchmark-session settings and moves driver
+  IRQs off the isolated cores (iwlwifi had pinned a receive queue to each; 413 interrupts in 20 s
+  under load, now 0); `bench/jitter` measures how often a core is taken away (`docs/exec/HW.md`
+  H19-H20).
+- **Older-regime test.** The December fit scored on a 2019 day: the depth law and micro-price
+  hold; fees follow the Section 31 and TAF schedule of each trade date or the run refuses.
+- **Auction uncrossing.** `book_replay` no longer flags the crossed book while an auction's
+  executions are reported (SPCX's IPO on 2026-06-12, 680 ms); all eight stored days pass.
 
 - **One command, two products.** `hft` fetches, replays, backtests and studies Nasdaq days, and
   runs, lists and reviews live paper-trading sessions; the dashboard gained a kill switch
