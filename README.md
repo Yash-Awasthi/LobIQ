@@ -26,6 +26,12 @@ Your own strategies plug into both markets by name, and every run can write an H
 |---|---|
 | [![paper report](docs/img/paper-report.png)](https://yash-awasthi.github.io/hft/paper/report.html) | [![sweep report](docs/img/sweep-report.png)](docs/img/sweep-report.png) |
 
+Contents: [Try it](#try-it) · [Plug in a strategy](#plug-in-a-strategy) · [Highlights](#highlights) ·
+[Architecture](#architecture) · [Performance](#performance) · [Tests](#tests) ·
+[Build and run](#build-and-run) · [Prediction markets](#prediction-markets) ·
+[Live paper trading](#live-paper-trading) · [Paper execution](#paper-execution) ·
+[Market microstructure research](#market-microstructure-research) · [Not planned](#not-planned)
+
 ## Try it
 
 With Docker or Podman, on any OS:
