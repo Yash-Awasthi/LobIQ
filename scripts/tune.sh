@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Benchmark-session tuning from docs/BARE_METAL.md step 5; resets at reboot. Run as root (sudo).
+# Turbo stays off for stable before/after comparisons; NO_TURBO=0 for peak numbers.
 # Prints the settings afterwards so a report can quote them.
 set -euo pipefail
 [ "$(id -u)" = 0 ] || { echo "run with sudo" >&2; exit 2; }
 cpupower frequency-set -g performance >/dev/null
-echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo
+echo "${NO_TURBO:-1}" > /sys/devices/system/cpu/intel_pstate/no_turbo  # NO_TURBO=0: peak clocks
 echo madvise > /sys/kernel/mm/transparent_hugepage/enabled
 sysctl -q kernel.perf_event_paranoid=1
 modprobe intel_uncore_frequency
