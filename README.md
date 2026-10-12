@@ -139,6 +139,8 @@ Peak, turbo on ([docs/results/max-performance.md](docs/results/max-performance.m
 | Prediction-market parse + engine p50 | 279 + 93 ns | 513 + 167 ns | |
 | Full Nasdaq day, 847M messages | 44.6 s, 19.0M msg/s | 73.9 s, 11.5M msg/s | 5.3 s, 160.6M msg/s |
 
+The whole-chip figure is power and thermal limited: the same run started at 97 °C gave 138.8M msg/s.
+
 Where to read the code:
 
 | What | File |
