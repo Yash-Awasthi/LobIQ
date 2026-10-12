@@ -393,4 +393,12 @@ void MergedReader::sift_down(Head h) {
     heap_[i] = h;
 }
 
+std::map<std::string, std::uint16_t> read_symbols(const std::filesystem::path& dir) {
+    std::map<std::string, std::uint16_t> m;
+    std::ifstream tsv(dir / "symbols.tsv");
+    std::string loc, name;
+    while (tsv >> loc >> name) m[name] = static_cast<std::uint16_t>(std::stoul(loc));
+    return m;
+}
+
 }  // namespace hft::data

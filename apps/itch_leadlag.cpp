@@ -19,6 +19,7 @@
 #include "book/itch_apply.hpp"
 #include "book/tick_book.hpp"
 #include "data/store.hpp"
+#include "core/parallel.hpp"
 #include "feed/itch.hpp"
 #include "strategy/microstructure.hpp"
 
@@ -63,28 +64,6 @@ std::vector<Move> mid_moves(const fs::path& dir, std::uint16_t loc) {
     }
     if (b.order_count() > 65536) slot.reset();
     return out;
-}
-
-std::map<std::string, std::uint16_t> symbols(const fs::path& store) {
-    std::map<std::string, std::uint16_t> m;
-    std::ifstream tsv(store / "symbols.tsv");
-    std::string loc, name;
-    while (tsv >> loc >> name) m[name] = static_cast<std::uint16_t>(std::stoul(loc));
-    return m;
-}
-
-template <class F>
-void parallel(std::size_t n, F&& f) {
-    const char* te = std::getenv("THREADS");
-    const unsigned threads = te ? static_cast<unsigned>(std::strtoul(te, nullptr, 10)) : std::thread::hardware_concurrency();
-    std::atomic<std::size_t> next{0};
-    auto worker = [&] {
-        for (std::size_t i; (i = next.fetch_add(1)) < n;) f(i);
-    };
-    std::vector<std::thread> pool;
-    for (unsigned t = 1; t < std::max(threads, 1u); ++t) pool.emplace_back(worker);
-    worker();
-    for (auto& t : pool) t.join();
 }
 
 std::vector<std::string> split(const std::string& v, char c) {
@@ -132,7 +111,7 @@ int main(int argc, char** argv) {
 
     // Every needed symbol-day once.
     std::vector<std::map<std::string, std::uint16_t>> names;
-    for (const auto& s : stores) names.push_back(symbols(s));
+    for (const auto& s : stores) names.push_back(data::read_symbols(s));
     std::vector<std::pair<std::size_t, std::string>> jobs;
     for (std::size_t d = 0; d < stores.size(); ++d)
         for (const auto& p : pairs)
@@ -140,7 +119,7 @@ int main(int argc, char** argv) {
                 if (names[d].contains(s) && std::find(jobs.begin(), jobs.end(), std::pair{d, s}) == jobs.end())
                     jobs.emplace_back(d, s);
     std::vector<std::vector<Move>> moves(jobs.size());
-    parallel(jobs.size(), [&](std::size_t i) { moves[i] = mid_moves(stores[jobs[i].first], names[jobs[i].first].at(jobs[i].second)); });
+    parallel_for(jobs.size(), [&](std::size_t i) { moves[i] = mid_moves(stores[jobs[i].first], names[jobs[i].first].at(jobs[i].second)); });
     auto find = [&](std::size_t d, const std::string& s) -> const std::vector<Move>* {
         for (std::size_t i = 0; i < jobs.size(); ++i)
             if (jobs[i].first == d && jobs[i].second == s) return &moves[i];

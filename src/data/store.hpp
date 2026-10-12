@@ -11,6 +11,8 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <map>
+#include <string>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -183,5 +185,8 @@ class MergedReader {
     bool stop_ = false;
     std::vector<std::thread> threads_;
 };
+
+// Ticker -> locate from the symbols.tsv that ingest writes; empty when the store has none.
+std::map<std::string, std::uint16_t> read_symbols(const std::filesystem::path& dir);
 
 }  // namespace hft::data

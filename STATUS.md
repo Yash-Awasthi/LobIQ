@@ -26,6 +26,13 @@ residual sets, demos, CLI and security gates, both baselines (`6facf575ad8d84bc`
 `dafd558b45dc3a1a`). TSan also run by hand on multi-threaded `book_replay` and `itch_study` over
 real days: no reports.
 
+## Every stored day validated (2026-10-13)
+
+All eight stores (2019-10-18, 2025-11-28 to 2025-12-12, 2026-06-12): `checkpoint --verify` ok on
+every symbol; `book_replay` with the reference map book and the tick book gives the same BBO hash on
+all 94,380 symbol-days, with the tick book's invariant check every 10,000 messages
+(`CHECK_EVERY=10000`): 0 hash mismatches, 0 check failures, 0 replay errors.
+
 ## Research tools on real data (2026-10-13)
 
 `itch_study` (5 symbols, three days including 2019), `itch_leadlag` and `itch_backtest leader

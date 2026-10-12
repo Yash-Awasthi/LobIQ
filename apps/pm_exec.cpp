@@ -7,6 +7,7 @@
 #include <thread>
 
 #include "pm_app.hpp"
+#include "core/parallel.hpp"
 
 namespace {
 
@@ -61,23 +62,16 @@ int sweep(const Options& base, const std::vector<std::pair<std::string, std::vec
         opts[i].quiet = true, opts[i].rows_out = &runs[i].rows;
         if (!base.report.empty()) opts[i].report = base.report / runs[i].label;
     }
-    std::atomic<std::size_t> next{0};
     std::string error;
     std::mutex error_lock;
-    auto worker = [&] {
-        for (std::size_t i; (i = next++) < runs.size();) try {
-                replay(opts[i]);
-            } catch (const std::exception& e) {
-                const std::lock_guard g(error_lock);
-                error = e.what();
-            }
-    };
-    const char* env = std::getenv("THREADS");
-    const unsigned n = std::max(1u, std::min<unsigned>(env ? static_cast<unsigned>(std::atoi(env)) : std::thread::hardware_concurrency(),
-                                                        static_cast<unsigned>(runs.size())));
-    std::vector<std::thread> pool;
-    for (unsigned t = 0; t < n; ++t) pool.emplace_back(worker);
-    for (std::thread& t : pool) t.join();
+    hft::parallel_for(runs.size(), [&](std::size_t i) {
+        try {
+            replay(opts[i]);
+        } catch (const std::exception& e) {
+            const std::lock_guard g(error_lock);
+            error = e.what();
+        }
+    });
     if (!error.empty()) throw std::runtime_error(error);
     const char* cols[] = {"ledger_pnl_usd", "fees_usd", "maker_fills", "taker_fills", "arb_attempts", "arb_realised_usd", "kill", "decision_hash_v2"};
     for (const auto& [k, v] : axes) std::printf("%s\t", k.c_str());
