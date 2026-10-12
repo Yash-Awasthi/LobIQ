@@ -196,6 +196,18 @@ RC_GTEST_PROP(PmDecoder, SinglePassMatchesTheTape, ()) {
     RC_ASSERT(a == b);
 }
 
+// Found by SinglePassMatchesTheTape under UBSan: a connection number outside int32 went
+// through the tape fallback into an undefined double-to-int conversion.
+TEST(PmDecoder, OutOfRangeConnectionNumbersAreIgnored) {
+    hft::pm::Decoder d;
+    std::vector<std::int32_t> conns;
+    auto rec = [&](const Event& e) { conns.push_back(e.conn); };
+    ASSERT_TRUE(d.decode(R"({"event_type":"_heartbeat","conn":1791561630336})", rec));
+    ASSERT_TRUE(d.decode(R"({"event_type":"_heartbeat","conn":-1e300})", rec));
+    ASSERT_TRUE(d.decode(R"({"event_type":"_heartbeat","conn":7})", rec));
+    EXPECT_EQ(conns, (std::vector<std::int32_t>{-1, -1, 7}));
+}
+
 TEST(PmReader, ReadsConnectionsAcrossBlockBoundaries) {
     TempDir dir("pm_reader");
     // Enough lines that every file spans several 1 MiB blocks.
