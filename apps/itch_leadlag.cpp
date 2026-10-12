@@ -33,7 +33,7 @@ constexpr std::uint64_t kStart = 10 * 3600 * kSec, kEnd = (15 * 3600 + 30 * 60) 
 constexpr const char* kBinName[] = {"<1 us", "1-10 us", "10-100 us", "0.1-1 ms", "1-10 ms", "10 ms-1 s"};
 
 struct State {
-    char trading = 0;
+    char trading = 'T';  // real feeds send H before the open; synthetic days send none
     void operator()(const itch::TradingAction& m) { trading = m.state; }
     template <class T>
     void operator()(const T&) {}
