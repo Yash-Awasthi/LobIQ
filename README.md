@@ -278,12 +278,16 @@ checkpoint <store> [--verify]                    # write or verify book checkpoi
 book_study <store> book 50 10                    # book update latency, 50 busiest symbols
 book_study <store> replay-sym 50 10 [threads]    # full-day replay, one symbol at a time on a pool
 itch_backtest <store> INTC avellaneda_stoikov maker_rebate=2000 taker_fee=3000 max_dist_ticks=5
+itch_study --train <store>,<store> --test <store>,.. [--symbols N]   # OFI, micro-price, queue position
 ```
+
+Downloads go through `aria2c` with 16 connections when it is installed: the server throttles each
+connection to about 220 KB/s.
 
 `itch_backtest` runs one strategy on one symbol-day: the strategy sees the market a
 market-data latency late, its orders join the real queues after the order-entry latency,
 fees and risk limits apply, and the PnL identity is checked on every event. Strategies:
-`zero`, `naive`, `random_taker`, `random_passive`, `perfect_foresight`,
+`zero`, `naive`, `imbalance`, `random_taker`, `random_passive`, `perfect_foresight`,
 `avellaneda_stoikov`, `dp:<policy>`, `ext:<policy>`. INTC on 2025-12-10 (1.8M events)
 runs in about 1.5 s.
 

@@ -2,7 +2,7 @@
 
 ## 1. Packages
 
-    sudo pacman -Syu base-devel git cmake ninja gcc clang lld ccache zip unzip curl zstd \
+    sudo pacman -Syu base-devel git cmake ninja gcc clang lld ccache zip unzip curl aria2 zstd \
         pkgconf python perf cpupower github-cli verilator linux-headers
 
 ## 2. Code and dependencies
