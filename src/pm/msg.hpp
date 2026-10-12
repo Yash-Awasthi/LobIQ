@@ -183,7 +183,11 @@ class Decoder {
         const Fields f = fields(e);
         ev.type = str(f, EventType);
         if (const std::string_view ts = str(f, Timestamp); !ts.empty()) std::from_chars(ts.data(), ts.data() + ts.size(), ev.exch_ms);
-        if (!ev.type.empty() && ev.type[0] == '_' && f[Conn] != Tape::npos) ev.conn = static_cast<std::int32_t>(t_.num(f[Conn]));
+        if (!ev.type.empty() && ev.type[0] == '_' && f[Conn] != Tape::npos) {
+            // Out of int32 range the conversion is undefined; such a record names no connection.
+            const double c = t_.num(f[Conn]);
+            if (c >= INT32_MIN && c <= INT32_MAX) ev.conn = static_cast<std::int32_t>(c);
+        }
         if (ev.type == "book") {
             ev.kind = Kind::Book;
             ev.asset = str(f, AssetId);
