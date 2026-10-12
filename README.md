@@ -117,7 +117,7 @@ the sections below.
 - **Determinism:** a live session replays from its recording to bit-identical decisions,
   checked by hash, under GCC and Clang; so do fault-injected runs and kill-switch runs.
 - **Correctness:** zero heap allocations on the hot path in steady state; property tests against
-  reference implementations; 317 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
+  reference implementations; 320 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
   campaigns at 20-30% dropped, duplicated and delayed reports with zero illegal order states.
 - **FPGA feed parser (simulated):** ITCH 5.0 in SystemVerilog, 8 bytes per clock, one message
   per clock, output one clock after a message's last byte; field-identical to the C++ decoder in
@@ -265,7 +265,7 @@ replay is unchanged within noise. A lookahead prefetch on the per-symbol path wa
 
 ## Tests
 
-`ctest` runs 317 tests: GoogleTest, RapidCheck and end-to-end runs of `hft` and `itch_study` (313 under the sanitizers, which leave out
+`ctest` runs 320 tests: GoogleTest, RapidCheck and end-to-end runs of `hft` and `itch_study` (316 under the sanitizers, which leave out
 `alloc_test`); one (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine
 exposes no hardware performance counters.
 
@@ -509,6 +509,14 @@ scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
   2019), but within 5 s the mid moves 0.85-1.71 bp their way, so the resting side's realized
   spread is negative on every day (-0.32 to -0.59 bp) and worse for bigger executions (-1.39 bp
   above 2,000 shares): before rebates, passive liquidity on these names loses money.
+- **Intraday pattern**: per half-hour, activity falls from about 700 mid changes a minute at 10:00 to
+  under 300 at midday, spreads narrow (1.77 to 1.42 ticks) and depth grows through the day, while
+  the Hawkes branching ratio stays at 0.51-0.52 in every window, so the self-excitation above is not
+  intraday seasonality.
+- **VPIN** (Easley, Lopez de Prado and O'Hara 2012) on exact trade signs, 500 volume buckets per
+  symbol-day: its correlation with the next bucket's absolute return is -0.07 to +0.04 on every day,
+  the same as with the current bucket's, so on these names it carries no volatility signal (as
+  Andersen and Bondarenko 2014 argue). Average VPIN fell from 0.57 in 2019 to 0.31-0.37 in 2025-26.
 - **Volatility signature**: realized variance of the mid sampled every 1-60 s against every 300 s.
   The median ratio stays between 0.82 and 1.44 on every day (0.89-1.00 in 2019): on the mid, which
   has no bid-ask bounce, microstructure noise does not dominate even at 1 s for these names.

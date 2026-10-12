@@ -135,6 +135,37 @@ By execution size, all days:
 | 501-2,000 | 148321 | 0.93 | -0.68 | 1.62 |
 | over 2,000 | 12999 | 1.30 | -1.39 | 2.69 |
 
+## Intraday pattern
+
+Per half-hour window, medians over every symbol-day: mid changes per minute, the quoted spread averaged over quote changes, the best-level depth (bid + ask size) / 2 averaged over events, and the Hawkes branching ratio of that window.
+
+| Window (ET) | Mid changes / min | Spread (ticks) | Depth (shares) | Branching ratio |
+|---|---|---|---|---|
+| 10:00-10:30 | 696 | 1.77 | 207 | 0.52 |
+| 10:30-11:00 | 629 | 1.80 | 234 | 0.51 |
+| 11:00-11:30 | 520 | 1.92 | 215 | 0.51 |
+| 11:30-12:00 | 405 | 1.74 | 221 | 0.51 |
+| 12:00-12:30 | 345 | 1.71 | 232 | 0.52 |
+| 12:30-13:00 | 298 | 1.65 | 241 | 0.52 |
+| 13:00-13:30 | 286 | 1.67 | 223 | 0.52 |
+| 13:30-14:00 | 282 | 1.68 | 235 | 0.51 |
+| 14:00-14:30 | 328 | 1.62 | 233 | 0.52 |
+| 14:30-15:00 | 295 | 1.57 | 239 | 0.52 |
+| 15:00-15:30 | 326 | 1.42 | 252 | 0.52 |
+
+## VPIN and volatility
+
+VPIN (Easley, Lopez de Prado and O'Hara 2012) from exact trade signs: each symbol-day's visible executions filled into 500 equal-volume buckets, VPIN the mean of |buy - sell| / V over the last 50. Andersen and Bondarenko (2014) argue its link to volatility is mechanical: compare its correlation with the absolute mid return of the next bucket against that of the current one. Medians over symbols.
+
+| Day | VPIN, mean | corr(VPIN, next bucket abs return) | corr(VPIN, current bucket abs return) |
+|---|---|---|---|
+| 2025-12-08 | 0.368 | -0.022 | -0.038 |
+| 2025-12-09 | 0.359 | -0.045 | -0.044 |
+| 2025-12-10 | 0.332 | +0.039 | +0.033 |
+| 2025-12-11 | 0.323 | -0.046 | -0.044 |
+| 2025-12-12 | 0.310 | -0.006 | -0.033 |
+| 2026-06-12 | 0.355 | -0.073 | -0.081 |
+
 ## Volatility signature
 
 Realized variance of the mid over the window, sampled every k seconds (averaged over the k sampling offsets), divided by the same at 300 s. Without microstructure noise the ratio would be 1 at every k; bid-ask bounce and tick discreteness push it away at short k (Andersen, Bollerslev, Diebold and Labys 2000). Medians over the 30 symbols; window volatility from the 300 s sampling. RV(300 s) rests on 66 returns per symbol-day, so each ratio carries roughly 17% sampling error; a ratio below 1 means moves continued rather than reversed at the longer scale.
@@ -175,3 +206,5 @@ An exponential Hawkes process (intensity mu + alpha sum exp(-beta (t - t_i))) fi
 - J. Hasbrouck, G. Saar. Technology and liquidity provision: the blurring of traditional definitions. Journal of Financial Markets 12(2), 143-172, 2009.
 - V. Filimonov, D. Sornette. Quantifying reflexivity in financial markets: toward a prediction of flash crashes. Physical Review E 85, 056108, 2012.
 - T. Andersen, T. Bollerslev, F. Diebold, P. Labys. Great realizations. Risk 13, 105-108, 2000.
+- D. Easley, M. Lopez de Prado, M. O'Hara. Flow toxicity and liquidity in a high-frequency world. Review of Financial Studies 25(5), 1457-1493, 2012.
+- T. Andersen, O. Bondarenko. VPIN and the flash crash. Journal of Financial Markets 17, 1-46, 2014.
