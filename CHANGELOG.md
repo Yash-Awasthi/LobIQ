@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Order lifetimes.** `itch_study` follows every order to its end: 86-94% of orders in 2025-26 are
+  cancelled within 2 s (70% in 2019; about a third in Hasbrouck and Saar's 2004 sample).
 - **Lead-lag and a leader-filtered maker.** `itch_leadlag` measures how related products follow
   each other (same-direction next move 59-74% against a 50% placebo, mostly 0.1 ms to 1 s later);
   the `leader` strategy plugin steps back on an adverse leader move: it significantly cuts inventory

@@ -473,7 +473,7 @@ touch runs/today/KILL                                              # or SIGUSR1:
 
 ## Market microstructure research
 
-Three published results checked on this repository's own L3 data, with every parameter fitted on
+Published results checked on this repository's own L3 data, with every parameter fitted on
 2025-12-08 and 12-09 and scored unchanged on 12-10, 12-11, 12-12 and 2026-06-12 (30 most active
 symbols, 10:00 to 15:30 ET). The June day, six months after training, shows how fast the fits
 age. One command each, about 30 s and 15 minutes on 16 threads:
@@ -500,6 +500,10 @@ scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
   typical level ahead) fills 7.0% of the time after 1.3 s on average, with a 1 s markout of -0.25
   ticks; one to two levels back, 3.5% after 3.7 s at -0.37 ticks. Position is worth fill rate and
   less adverse selection at once, and every bucket still loses before rebates.
+- **Order lifetimes** (Hasbrouck and Saar 2009): every order on the 30 symbols followed by
+  reference. 86-92% of orders added in December 2025 were cancelled within 2 s (93.6% in June
+  2026), a quarter of them within 1 ms; on 2019-10-18 the share was 70.4% (13.2% within 1 ms),
+  against about a third in the paper's 2004 sample. Only 1.3-2.8% of orders ever execute.
 - **Does it pay?** Joining the best bid and ask on 10 large-tick symbols loses on every one of
   them (adverse selection outweighs the spread). Pulling the side the imbalance points against,
   with the threshold chosen on the train days, loses 66% less over the four test days (-$40.1k

@@ -96,6 +96,16 @@ Every limit order that joins the best bid or ask while the spread is one tick, o
 | 1 - 2 | 3265605 | 3.8% | 6.13 | -0.370 | -0.0140 | -0.170 | -0.300 |
 | 2 or more | 540274 | 5.1% | 4.38 | -0.510 | -0.0258 | -0.310 | -0.440 |
 
+## Order lifetimes (Hasbrouck and Saar, 2009)
+
+Every limit order added between 10:00 and 15:30 ET on the 30 symbols, followed by reference: cancelled (deleted, or replaced, whose replacement counts as a new order) by how long it lived, executed at least once, or still resting at 15:30. Hasbrouck and Saar call orders cancelled within 2 s fleeting; in their 2004 Nasdaq sample about a third of non-marketable limit orders were.
+
+| Day | Orders | Cancelled < 1 ms | 1-10 ms | 10-100 ms | 0.1-1 s | 1-2 s | 2 s or more | Fleeting (< 2 s) | Executed | Resting at 15:30 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 2025-12-08 | 51.1M | 25.4% | 13.8% | 18.5% | 24.9% | 4.9% | 9.5% | 87.5% | 2.9% | 0.2% |
+| 2025-12-09 | 36.9M | 26.2% | 12.2% | 16.5% | 25.3% | 5.6% | 11.3% | 85.8% | 2.7% | 0.2% |
+| 2019-10-18 | 10.2M | 13.2% | 8.8% | 14.1% | 23.8% | 10.5% | 26.5% | 70.4% | 2.8% | 0.3% |
+
 ## Caveats
 
 - ITCH is Nasdaq's book only; the consolidated quote is tighter, so depth and imbalance are partial.
@@ -107,3 +117,4 @@ Every limit order that joins the best bid or ask while the spread is one tick, o
 - R. Cont, A. Kukanov, S. Stoikov. The price impact of order book events. Journal of Financial Econometrics 12(1), 47-88, 2014. arXiv:1011.6402.
 - S. Stoikov. The micro-price: a high-frequency estimator of future prices. Quantitative Finance 18(12), 1959-1966, 2018.
 - C. Moallemi, K. Yuan. A model for queue position valuation in a limit order book. Working paper, Columbia University, 2017.
+- J. Hasbrouck, G. Saar. Technology and liquidity provision: the blurring of traditional definitions. Journal of Financial Markets 12(2), 143-172, 2009.
