@@ -136,7 +136,10 @@ class Pool {
             // Whole pages: advising a partial last page would split the VMA and break mremap.
             ::madvise(d + (split_ ? kHuge : 0), map_len - (split_ ? kHuge : 0), MADV_HUGEPAGE);
         }
-        if (huge) ::madvise(d + old_len, len - old_len, MADV_POPULATE_WRITE);
+        if (huge) {
+            const std::size_t from = old_len / 4096 * 4096;  // madvise needs a page-aligned start
+            ::madvise(d + from, len - from, MADV_POPULATE_WRITE);
+        }
         base_ = d;
         map_len_ = map_len;
         data_ = reinterpret_cast<T*>(d);
