@@ -4,7 +4,8 @@
 [![image](https://github.com/Yash-Awasthi/hft/actions/workflows/image.yml/badge.svg?branch=main)](https://github.com/Yash-Awasthi/hft/actions/workflows/image.yml)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Yash-Awasthi/hft)
 
-A low-latency trading system in C++23 with no framework underneath, in three parts:
+A low-latency trading system and market microstructure lab in C++23, with no framework
+underneath, in four parts:
 
 - **Nasdaq TotalView-ITCH**, replayed from disk through an order-by-order book, a
   deterministic matching engine and an event-driven backtest.
@@ -13,6 +14,9 @@ A low-latency trading system in C++23 with no framework underneath, in three par
   by market makers and an arbitrage executor.
 - **A paper execution layer**: pre-trade risk, an order manager, a ledger and a simulated venue
   with latency, queues, fees, settlement and injected faults. It never sends an order.
+- **Microstructure research** on the same Nasdaq data, fitted on some days and tested on later
+  ones: order flow imbalance, the micro-price, the value of queue position, and what a signal is
+  worth to a market maker after latency ([results](#market-microstructure-research)).
 
 Your own strategies plug into both markets by name, and every run can write an HTML report.
 
@@ -71,7 +75,9 @@ fees, risk limits and accounting; the guide says what the simulation does and do
 
 ## Highlights
 
-Measured on a laptop (i7-13650HX, turbo off, WSL2); sources in the sections below.
+Measured on a laptop (i7-13650HX, turbo off). Order book, live feed and research: bare-metal Arch
+Linux with isolated cores; read/decode and paper execution: the earlier WSL2 setup. Sources in
+the sections below.
 
 - **Order book:** 41 ns per update at p50 on one symbol, worst case 40 µs; a full Nasdaq day
   of 12,000+ symbols rebuilt and hash-checked at 114-121M messages/s on 16 threads (847M
@@ -83,11 +89,16 @@ Measured on a laptop (i7-13650HX, turbo off, WSL2); sources in the sections belo
 - **Determinism:** a live session replays from its recording to bit-identical decisions,
   checked by hash, under GCC and Clang; so do fault-injected runs and kill-switch runs.
 - **Correctness:** zero heap allocations on the hot path in steady state; property tests against
-  reference implementations; 306 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
+  reference implementations; 313 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
   campaigns at 20-30% dropped, duplicated and delayed reports with zero illegal order states.
 - **FPGA feed parser (simulated):** ITCH 5.0 in SystemVerilog, 8 bytes per clock, one message
   per clock, output one clock after a message's last byte; field-identical to the C++ decoder in
   Verilator on a 375k-message synthetic day and 200k random frames.
+- **Microstructure research, out of sample:** on four Nasdaq days, fitted on two and tested on
+  two, order flow imbalance explains a median 60% of 10 s price changes, and the depth law of
+  Cont, Kukanov and Stoikov comes out at lambda = 1.01 (paper: about 1); Stoikov's micro-price
+  cuts next-mid prediction error by 12.4% against 2.3% for the size-weighted mid. An imbalance
+  filter chosen on the train days cuts a market maker's test-day loss by about 70%, better on 10 of 10 symbols.
 - **Honest results:** the obvious arbitrage loses money after fees and latency on recorded data
   (-67.45 USD over 61 attempts); reported as measured, with no thresholds tuned afterwards.
 
@@ -104,6 +115,8 @@ Where to read the code:
 | Simulated venue with fault injection | `src/exec/sim_venue.hpp` |
 | Arbitrage executor and leg-risk handling | `src/exec/arb_exec.hpp` |
 | Strategy and quoter plug-ins | `src/backtest/registry.hpp`, `src/pm/quoter.hpp`, `strategies/` |
+| Order flow imbalance and micro-price estimators | `src/strategy/microstructure.hpp`, `apps/itch_study.cpp` |
+| Pools that grow by moving pages (mremap, huge pages kept) | `src/core/pool.hpp` |
 | Design decisions and their reasons | `docs/exec/DECISIONS.md`, `docs/exec/DESIGN.md` |
 
 Every number below names the command that produced it. Phases and what is not planned:
@@ -210,7 +223,7 @@ replay is unchanged within noise. A lookahead prefetch on the per-symbol path wa
 
 ## Tests
 
-`ctest` runs 306 GoogleTest and RapidCheck tests (302 under the sanitizers, which leave out
+`ctest` runs 313 GoogleTest and RapidCheck tests (309 under the sanitizers, which leave out
 `alloc_test`); one (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine
 exposes no hardware performance counters.
 
@@ -411,6 +424,44 @@ touch runs/today/KILL                                              # or SIGUSR1:
   of a near-resolved pair has usually moved by the time the order arrives.
 - Full tables and their commands: [docs/exec/RESULTS.md](docs/exec/RESULTS.md); demos with
   fixed hashes: `scripts/demo/`.
+
+## Market microstructure research
+
+Three published results checked on this repository's own L3 data, with every parameter fitted on
+2025-12-08 and 12-09 and scored unchanged on 12-10 and 12-11 (30 most active symbols, 10:00 to
+15:30 ET). One command each, about 15 s and 3 minutes on 16 threads:
+
+```
+scripts/study.sh > docs/results/microstructure.md          # itch_study: OFI and micro-price
+scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
+```
+
+- **Order flow imbalance** ([Cont, Kukanov and Stoikov 2014](https://arxiv.org/abs/1011.6402)):
+  price changes over 10 s are linear in the order flow at the best quotes. Median R2 0.72 in
+  sample and 0.60 on the test days. The slope falls with depth as 1 / depth^lambda with lambda =
+  1.01 (log-fit R2 0.94 over 660 half-hour windows); that single two-parameter law, applied to
+  every stock, scores a median 0.61 out of sample, as good as each stock's own slope.
+- **Micro-price** ([Stoikov 2018](https://doi.org/10.1080/14697688.2018.1489139)): a Markov chain
+  on (imbalance, spread) states, estimated from symmetrised train transitions, gives the expected
+  future mid. On the test days it reduces the squared error against the next mid change by a
+  median 12.4% (21 large-tick symbols), where the size-weighted mid manages 2.3% and is worse
+  than the plain mid on 9 of them. The fitted adjustment runs from -0.39 to +0.39 ticks.
+- **Queue position** (Moallemi and Yuan 2017): 34M orders joining the best quote at a 1-tick
+  spread, tracked by reference to their first fill. Front of the queue (under a quarter of a
+  typical level ahead) fills 7.5% of the time after 1.4 s on average, with a 1 s markout of -0.25
+  ticks; one to two levels back, 3.6% after 4.3 s at -0.38 ticks. Position is worth fill rate and
+  less adverse selection at once, and every bucket still loses before rebates.
+- **Does it pay?** Joining the best bid and ask on 10 large-tick symbols loses on every one of
+  them (adverse selection outweighs the spread). Pulling the side the imbalance points against,
+  with the threshold chosen on the train days, loses about 70% less on the test days (-$20.2k against
+  -$68.5k without fees; -$10.0k against -$35.1k with a $0.002 rebate), better on all 10 symbols
+  and profitable on four; still a net loss, reported as measured. The filter's edge decays with
+  latency: -$20.2k at zero, -$22.1k at 5 µs, -$25.7k at 50 µs and -$31.1k at 5 ms one way.
+
+Full tables: [docs/results/microstructure.md](docs/results/microstructure.md),
+[docs/results/maker-walkforward.md](docs/results/maker-walkforward.md). The estimators are in
+`src/strategy/microstructure.hpp`, unit-tested against the papers' cases and a chain with a known
+answer (`tests/microstructure_test.cpp`).
 
 ## Not planned
 
