@@ -27,6 +27,7 @@
 #include "book/itch_apply.hpp"
 #include "book/tick_book.hpp"
 #include "data/store.hpp"
+#include "core/parallel.hpp"
 #include "feed/itch.hpp"
 #include "strategy/microstructure.hpp"
 
@@ -209,20 +210,6 @@ std::vector<std::uint16_t> locates(const fs::path& dir) {
         if (e.path().extension() == ".idx") v.push_back(static_cast<std::uint16_t>(std::stoul(e.path().stem().string())));
     std::sort(v.begin(), v.end());
     return v;
-}
-
-template <class F>
-void parallel(std::size_t n, F&& f) {
-    const char* te = std::getenv("THREADS");
-    const unsigned threads = te ? static_cast<unsigned>(std::strtoul(te, nullptr, 10)) : std::thread::hardware_concurrency();
-    std::atomic<std::size_t> next{0};
-    auto worker = [&] {
-        for (std::size_t i; (i = next.fetch_add(1)) < n;) f(i);
-    };
-    std::vector<std::thread> pool;
-    for (unsigned t = 1; t < std::max(threads, 1u); ++t) pool.emplace_back(worker);
-    worker();
-    for (auto& t : pool) t.join();
 }
 
 struct State {
@@ -566,7 +553,7 @@ int main(int argc, char** argv) {
     for (std::size_t d = 0; d < days.size(); ++d) {
         const auto locs = locates(days[d]);
         std::vector<std::string> names(locs.size());
-        parallel(locs.size(), [&](std::size_t i) { names[i] = read_symbol(days[d], locs[i]); });
+        parallel_for(locs.size(), [&](std::size_t i) { names[i] = read_symbol(days[d], locs[i]); });
         for (std::size_t i = 0; i < locs.size(); ++i)
             if (!names[i].empty()) by_name[d][names[i]] = locs[i];
     }
@@ -586,7 +573,7 @@ int main(int argc, char** argv) {
 
     // Pass 1: every symbol-day, counting micro-price transitions.
     std::vector<DayResult> res(S * D);
-    parallel(S * D, [&](std::size_t i) {
+    parallel_for(S * D, [&](std::size_t i) {
         const std::size_t s = i / D, d = i % D;
         res[i] = run_day(days[d], by_name[d].at(active[s].second), nullptr);
     });
@@ -599,7 +586,7 @@ int main(int argc, char** argv) {
     }
     // Pass 2: score the predictors on every day (train days in sample, test days out of sample).
     std::vector<Errors> err(S * D);
-    parallel(S * D, [&](std::size_t i) {
+    parallel_for(S * D, [&](std::size_t i) {
         const std::size_t s = i / D, d = i % D;
         err[i] = run_day(days[d], by_name[d].at(active[s].second), &g[s]).e;
     });

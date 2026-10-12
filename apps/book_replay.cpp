@@ -19,6 +19,7 @@
 #include "book/tick_book.hpp"
 #include "data/store.hpp"
 #include "feed/itch.hpp"
+#include "core/parallel.hpp"
 
 namespace {
 
@@ -181,18 +182,8 @@ int main(int argc, char** argv) {
     };
 
     // Symbols are independent, so they replay on a pool; rows still print in locate order.
-    const char* te = std::getenv("THREADS");
-    const unsigned threads =
-        te ? static_cast<unsigned>(std::strtoul(te, nullptr, 10)) : std::thread::hardware_concurrency();
     std::vector<Result> results(locates.size());
-    std::atomic<std::size_t> next{0};
-    auto worker = [&] {
-        for (std::size_t i; (i = next.fetch_add(1)) < locates.size();) results[i] = run_one(locates[i]);
-    };
-    std::vector<std::thread> pool;
-    for (unsigned t = 1; t < std::max(threads, 1u); ++t) pool.emplace_back(worker);
-    worker();
-    for (auto& t : pool) t.join();
+    hft::parallel_for(locates.size(), [&](std::size_t i) { results[i] = run_one(locates[i]); });
 
     int rc = 0;
     for (std::size_t i = 0; i < locates.size(); ++i) {
