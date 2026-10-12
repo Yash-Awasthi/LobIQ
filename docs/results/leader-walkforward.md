@@ -51,13 +51,30 @@ Total: leader ignored -8492, with leader 4085; better on 9 of 12 followers.
 | 2025-12-12 | 15513 | 14917 |
 | 2026-06-12 | -11359 | -3939 |
 
-## With a $0.0020 per share maker rebate
+Paired by follower-day (with leader minus leader ignored), sums with 95% bootstrap intervals over
+the follower-days. Total PnL includes the mark-to-market of whatever inventory the maker holds, which
+swings with each day's price path, so the components matter more than the total:
 
-Same pairs and days (`REBATE=2000 scripts/leader_walkforward.sh`). Chosen lead_bp: **0**. Total: leader ignored -2943, with leader 6358; better on 9 of 12 followers.
-
-| Test day | Leader ignored | With leader |
+| | Sum (USD) | 95% interval |
 |---|---|---|
-| 2025-12-10 | -4003 | -4568 |
-| 2025-12-11 | -5977 | -1248 |
-| 2025-12-12 | 17044 | 15557 |
-| 2026-06-12 | -10008 | -3382 |
+| total | 12577 | [-5175, 33725] |
+| spread | -13743 | [-20216, -8605] |
+| inventory | 26320 | [7562, 49672] |
+
+Better on 24 of 48 follower-days.
+
+## Latency
+
+Test days, the chosen lead_bp against the leader ignored, with market data and order entry each
+delayed by the one-way latency shown (this system measures about 9 us from kernel receive to
+decision live, docs/exec/PERF.md R16).
+Totals carry the inventory noise described above. The leader-ignored maker improves with latency
+through the inventory term (IVV on 2025-12-11: inventory -$1,495 at zero, -$309 at 1 ms, adverse
+selection -$452 and -$409): that is the capped inventory's path, not evidence that slower pays.
+
+| One-way latency | Leader ignored | With leader |
+|---|---|---|
+| 0 | -8492 | 4085 |
+| 10 us | -5111 | 1055 |
+| 100 us | 2471 | 1551 |
+| 1 ms | 4918 | 3754 |

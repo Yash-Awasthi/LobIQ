@@ -516,10 +516,14 @@ scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
   GOOGL +17). 91-99% of the following moves arrive more than 10 µs later, slower than this
   system's measured 9 µs from wire to decision; most take 0.1 ms to 1 s.
 - **Trading on it** (`scripts/leader_walkforward.sh`): the imbalance maker on 12 follower products
-  also steps back from the side its leader's 0.1 s momentum points against. Threshold chosen on
-  the train days (0: any adverse leader move). On the four test days: +$4.1k against -$8.5k without
-  the leader, better on 9 of 12 followers and still ahead in June 2026 (-$3.9k against -$11.4k);
-  +$6.4k against -$2.9k with a $0.002 rebate. Zero latency and Nasdaq's book only.
+  also steps back from the side its leader's 0.1 s momentum points against (threshold chosen on the
+  train days: any adverse leader move). On the four test days it loses less on held inventory
+  (+$26.3k, 95% interval [+$7.6k, +$49.7k] over 48 follower-days) but gives up spread (-$13.7k,
+  [-$20.2k, -$8.6k]); the net +$12.6k ([-$5.2k, +$33.7k]) is not significant, better on 24 of 48.
+  The imbalance filter alone, by contrast, is: +$77.1k ([+$33.7k, +$108.4k]) over the plain joiner,
+  better on 38 of 40 symbol-days without fees, and +$57.9k ([+$13.3k, +$92.6k]) with the $0.0007
+  rebate; with the $0.002 rebate, which pays the joiner for its extra fills, +$39.2k is not
+  significant ([-$2.4k, +$69.5k]).
 
 Six years back, the same train fit scored on 2019-10-18 (`TEST=S101819`, symbols that existed
 then): each stock's own OFI slope no longer transfers (median R2 0.11) while the depth law still

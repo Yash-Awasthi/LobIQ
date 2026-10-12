@@ -41,6 +41,16 @@ Test days (USD per symbol, all test days summed):
 
 Total: joiner -117207, filtered -40069; the filter does better on 9 of 10 symbols.
 
+Paired by symbol-day (filtered minus joiner), sums with 95% bootstrap intervals over symbol-days:
+
+| | Sum (USD) | 95% interval |
+|---|---|---|
+| total | 77138 | [33680, 108383] |
+| spread | -153318 | [-190413, -117812] |
+| inventory | 230456 | [187903, 272761] |
+
+Better on 38 of 40 symbol-days.
+
 | Test day | Joiner total | Filtered total |
 |---|---|---|
 | 2025-12-10 | -37047 | -15428 |
@@ -82,6 +92,16 @@ Test days (USD per symbol, all test days summed):
 
 Total: joiner -67081, filtered -27846; the filter does better on 9 of 10 symbols.
 
+Paired by symbol-day (filtered minus joiner), sums with 95% bootstrap intervals over symbol-days:
+
+| | Sum (USD) | 95% interval |
+|---|---|---|
+| total | 39236 | [-2440, 69468] |
+| spread | -215225 | [-272310, -161235] |
+| inventory | 332617 | [252979, 418132] |
+
+Better on 34 of 40 symbol-days.
+
 | Test day | Joiner total | Filtered total |
 |---|---|---|
 | 2025-12-10 | -17060 | -10731 |
@@ -122,6 +142,16 @@ Test days (USD per symbol, all test days summed):
 | SPY | -19001 | -42348 | -14959 | -22161 | 148450 / 78403 |
 
 Total: joiner -101738, filtered -43835; the filter does better on 9 of 10 symbols.
+
+Paired by symbol-day (filtered minus joiner), sums with 95% bootstrap intervals over symbol-days:
+
+| | Sum (USD) | 95% interval |
+|---|---|---|
+| total | 57903 | [13319, 92616] |
+| spread | -157021 | [-198164, -117436] |
+| inventory | 230935 | [177308, 283262] |
+
+Better on 33 of 40 symbol-days.
 
 | Test day | Joiner total | Filtered total |
 |---|---|---|

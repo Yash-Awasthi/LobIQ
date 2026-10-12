@@ -61,4 +61,45 @@ $(awk -v best="$best" '{k=$2; if ($3=="1000") n[k]+=$4; if ($3==best) f[k]+=$4}
 |---|---|---|
 $(for t in "${test[@]}"; do awk -v t="$t" -v best="$best" -v day="$(day "$t")" '$1==t {if ($3=="1000") j+=$4; if ($3==best) f+=$4}
     END{printf "| %s | %.0f | %.0f |\n", day, j, f}' "$tmp/test"; done)
+
+Paired by follower-day (with leader minus leader ignored), sums with 95% bootstrap intervals over
+the follower-days. Total PnL includes the mark-to-market of whatever inventory the maker holds, which
+swings with each day's price path, so the components matter more than the total:
+
+| | Sum (USD) | 95% interval |
+|---|---|---|
+$(gawk -v best="$best" '{k=$1 FS $2; if ($3=="1000") {n[k]=$4; ns[k]=$5; ni[k]=$6} if ($3==best) {f[k]=$4; fs_[k]=$5; fi_[k]=$6}}
+    END{for (k in n) {m++; dt[m]=f[k]-n[k]; dsp[m]=fs_[k]-ns[k]; din[m]=fi_[k]-ni[k]; if (dt[m]>0) w++}
+        split("total spread inventory", lab, " ");
+        srand(1);
+        for (c=1; c<=3; c++) {
+            sum=0; for (i=1; i<=m; i++) sum+=(c==1?dt[i]:c==2?dsp[i]:din[i]);
+            for (r=1; r<=10000; r++) { s=0; for (i=1; i<=m; i++) {j=int(rand()*m)+1; s+=(c==1?dt[j]:c==2?dsp[j]:din[j])} b[r]=s }
+            asort(b); printf "| %s | %.0f | [%.0f, %.0f] |\n", lab[c], sum, b[250], b[9750]
+        }
+        printf "\nBetter on %d of %d follower-days.\n", w, m}' "$tmp/test")
 EOF
+
+echo
+echo "## Latency"
+echo
+echo "Test days, the chosen lead_bp against the leader ignored, with market data and order entry each"
+echo "delayed by the one-way latency shown (this system measures about 9 us from kernel receive to"
+echo "decision live, docs/exec/PERF.md R16)."
+echo "Totals carry the inventory noise described above. The leader-ignored maker improves with latency"
+echo "through the inventory term (IVV on 2025-12-11: inventory -\$1,495 at zero, -\$309 at 1 ms, adverse"
+echo "selection -\$452 and -\$409): that is the capped inventory's path, not evidence that slower pays."
+echo
+echo "| One-way latency | Leader ignored | With leader |"
+echo "|---|---|---|"
+for ns in 0 10000 100000 1000000; do
+    for t in "${test[@]}"; do
+        for p in $pairs; do
+            IFS=: read -r f l s <<< "$p"
+            "$b/apps/itch_backtest" "$d/store-$t-v50" "$f" leader sign="${s:-1}" maker_rebate="$rebate" --index "$l" \
+                market_data_ns=$ns order_entry_ns=$ns --sweep lead_bp="$best,1000" | tail -n +2
+        done
+    done | awk -v ns=$ns -v best="$best" '{if ($1=="1000") j+=$2; if ($1==best) f+=$2}
+        END{lat = ns >= 1000000 ? sprintf("%g ms", ns/1e6) : ns >= 1000 ? sprintf("%g us", ns/1e3) : "0";
+            printf "| %s | %.0f | %.0f |\n", lat, j, f}'
+done
