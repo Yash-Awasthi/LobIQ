@@ -19,7 +19,7 @@
   days, and `ingest_day.sh` downloading through 16 connections (the server throttles each).
 - **Microstructure study.** `itch_study` reproduces Cont-Kukanov-Stoikov order flow imbalance
   (lambda = 1.01) and Stoikov's micro-price out of sample; a walk-forward maker test shows an
-  imbalance filter cutting losses about 70% (docs/results).
+  imbalance filter cutting losses 66% over four test days, with the edge gone six months on (docs/results).
 - **Bare-metal performance.** Tick book 5% fewer cycles per event (branchless order unlink);
   profile-guided `pm_live` parse 9% faster; all five ITCH days replay at about 11M frames/s;
   lz4 kept over zstd (docs/exec/PERF.md R11-R14).

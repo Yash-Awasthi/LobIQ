@@ -291,7 +291,9 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
 
         const bool changed = !have_prev || !(cur == prev);
         const std::uint32_t spread = (cur.ask_px - cur.bid_px) / tick;
-        out.spread_obs[std::min<std::uint32_t>(spread, 3) - 1] += changed;
+        // A sub-cent spread (half-penny ticks, prices under $1) is neither 1 nor 2 ticks.
+        const bool on_grid = (cur.ask_px - cur.bid_px) % tick == 0;
+        out.spread_obs[on_grid && spread == 1 ? 0 : on_grid && spread == 2 ? 1 : 2] += changed;
         if (changed && spread >= 1 && spread <= 2 && (cur.ask_px - cur.bid_px) % tick == 0) {
             const double imb = static_cast<double>(cur.bid_qty) / static_cast<double>(cur.bid_qty + cur.ask_qty);
             const int x = state_of(static_cast<int>(spread), imb);
