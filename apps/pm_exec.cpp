@@ -98,7 +98,7 @@ int usage() {
                  "usage: pm_exec --replay DIR [--config FILE]... [--set KEY=VALUE]... [--run OUT] [--profile] [--report DIR]\n"
                  "               [--quoter NAME] [--sweep KEY=V1,V2,... (repeatable; THREADS=N)]\n"
                  "       pm_exec --paper --run OUT --config FILE [--set KEY=VALUE]... [--seconds S] [--port P]\n"
-                 "               [--cpu C] [--spin] [--spin-feeds] [--events N] [--max-tokens N] [--tokens-per-conn N]\n"
+                 "               [--cpu C] [--feed-cpus C,..] [--spin] [--spin-feeds] [--events N] [--max-tokens N] [--tokens-per-conn N]\n"
                  "               [--record-cap-gb G] [--exec-dir DIR] [--reset-kill]\n"
                  "kill: SIGUSR1 or a file OUT/KILL cancels every order and places none; it leaves EXEC_DIR/KILLED\n"
                  "      (default ~/data/exec) and later paper runs refuse to start until given --reset-kill\n");
@@ -145,6 +145,13 @@ int main(int argc, char** argv) {
         else if (a == "--cpu") o.cpu = static_cast<int>(num());
         else if (a == "--spin") o.spin = true;
         else if (a == "--spin-feeds") o.spin_feeds = true;
+        else if (a == "--feed-cpus") {
+            o.feed_cpus = parse_cpus(val());
+            if (o.feed_cpus.empty()) {
+                std::fprintf(stderr, "--feed-cpus wants a list like 6,7\n");
+                return 2;
+            }
+        }
         else if (a == "--events") o.events = static_cast<int>(num());
         else if (a == "--max-tokens") o.max_tokens = static_cast<int>(num());
         else if (a == "--tokens-per-conn") o.tokens_per_conn = std::max(1, static_cast<int>(num()));
