@@ -19,6 +19,7 @@
 #include "backtest/report.hpp"
 #include "data/store.hpp"
 #include "feed/itch.hpp"
+#include "core/parallel.hpp"
 
 using namespace hft;
 
@@ -103,11 +104,10 @@ int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, c
         runs = std::move(next);
     }
     if (runs.size() > 1024) throw std::runtime_error("sweep has " + std::to_string(runs.size()) + " runs; at most 1024");
-    std::atomic<std::size_t> next{0};
     std::string error;
     std::mutex error_lock;
-    auto worker = [&] {
-        for (std::size_t i; (i = next++) < runs.size();) {
+    hft::parallel_for(runs.size(), [&](std::size_t i) {
+        {
             backtest::Params q = p;
             for (const auto& [k, v] : runs[i].params) q.kv[k] = v;
             backtest::RunSpec r = base;
@@ -122,13 +122,7 @@ int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, c
                 error = e.what();
             }
         }
-    };
-    const char* env = std::getenv("THREADS");
-    const unsigned n = std::max(1u, std::min<unsigned>(env ? static_cast<unsigned>(std::atoi(env)) : std::thread::hardware_concurrency(),
-                                                        static_cast<unsigned>(runs.size())));
-    std::vector<std::thread> pool;
-    for (unsigned t = 0; t < n; ++t) pool.emplace_back(worker);
-    for (std::thread& t : pool) t.join();
+    });
     if (!error.empty()) throw std::runtime_error(error);
     if (symbols.size() > 1) std::printf("symbol\t");
     for (const auto& [k, v] : axes) std::printf("%s\t", k.c_str());
