@@ -378,7 +378,7 @@ std::pair<std::string, std::string> render(const State& x, const Lat& lat, const
                     ",\"trades\":" + std::to_string(x.trades) + ",\"fills\":" + std::to_string(x.fills) +
                     ",\"reconnects\":" + std::to_string(recon) + ",\"drops\":" + std::to_string(drops) +
                     ",\"pnl\":" + fmt("%.2f", x.pnl) + ",\"gross\":" + fmt("%.0f", x.gross) +
-                    ",\"halted\":" + (x.halted ? "true" : "false") + ",\"arb_open\":" + std::to_string(x.arb_open) +
+                    ",\"halted\":" + (x.halted ? "true" : "false") + ",\"killed\":" + (g_kill ? "true" : "false") + ",\"arb_open\":" + std::to_string(x.arb_open) +
                     ",\"arb_windows\":" + std::to_string(x.arb_windows);
     j += ",\"lat\":{\"queue\":" + json_lat(lat.win[0]) + ",\"parse\":" + json_lat(lat.win[1]) + ",\"engine\":" + json_lat(lat.win[2]) +
          ",\"total\":" + json_lat(lat.win[3]) + ",\"exch\":" + json_lat(lat.win[4]) + "}";

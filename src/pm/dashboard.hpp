@@ -61,7 +61,8 @@ const px=v=>v<0?'':(v/1e4).toFixed(3);
 async function tick(){try{const m=await (await fetch('/metrics.json',{cache:'no-store'})).json();
  const rate=lastMsgs===null?0:m.messages-lastMsgs;lastMsgs=m.messages;
  push('rate',rate);push('p50',m.lat.total.p50/1e3);push('p99',m.lat.total.p99/1e3);push('pnl',m.pnl);push('arb',m.arb_open);
- document.getElementById('status').textContent='up '+Math.round(m.uptime_s)+' s'+(m.halted?' · HALTED':'');
+ document.getElementById('status').textContent='up '+Math.round(m.uptime_s)+' s'+(m.halted?' · HALTED':'')+(m.killed?' · KILLED':'');
+ if(m.killed)document.getElementById('kill').textContent='Killed';
  const k=[['Messages',fmt(m.messages)],['Events',fmt(m.events)],['Trades seen',fmt(m.trades)],['Paper fills',m.fills],
   ['PnL, USD',m.pnl.toFixed(2)],['Gross shares',fmt(m.gross)],['Arb windows',m.arb_windows],['Reconnects',m.reconnects],['Ring drops',m.drops]];
  document.getElementById('kpis').innerHTML=k.map(([a,b])=>'<div class="kpi"><span class="mute">'+a+'</span><b>'+b+'</b></div>').join('');
