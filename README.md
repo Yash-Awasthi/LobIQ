@@ -496,6 +496,14 @@ scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
   -$14.1k). It also decays with latency: -$40.1k at zero, -$44.4k at 5 and 50 µs, -$47.9k at
   500 µs and -$54.1k at 5 ms one way.
 
+Six years back, the same train fit scored on 2019-10-18 (`TEST=S101819`, symbols that existed
+then): each stock's own OFI slope no longer transfers (median R2 0.11) while the depth law still
+scores 0.61; the micro-price still cuts next-mid error by 10.0%; and the imbalance-filtered maker
+makes money that day (+$1.3k against -$6.7k for the joiner without fees, +$1.3k against -$6.1k
+with the rebate and 2019's Section 31 and TAF rates) until one-way latency reaches 50 µs. One
+day, so a check of direction, not of size: [microstructure-2019](docs/results/microstructure-2019.md),
+[maker-walkforward-2019](docs/results/maker-walkforward-2019.md).
+
 Full tables: [docs/results/microstructure.md](docs/results/microstructure.md),
 [docs/results/maker-walkforward.md](docs/results/maker-walkforward.md). The estimators are in
 `src/strategy/microstructure.hpp`, unit-tested against the papers' cases and a chain with a known
