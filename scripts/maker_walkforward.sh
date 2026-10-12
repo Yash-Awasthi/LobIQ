@@ -12,8 +12,16 @@ grid=0.0,0.05,0.1,0.2,0.3,0.5,0.7,1.0
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-run() {  # day thresholds rebate -> rows: symbol threshold total spread inventory fees fills
-    "$b/apps/itch_backtest" "$d/store-$1-v50" "$syms" imbalance maker_rebate="$3" --sweep threshold="$2" | tail -n +2
+# Fee scenarios (micro-dollars per share; assumed, the published tiers vary by member volume):
+# a mid-tier Nasdaq rebate under the 30 mil access-fee cap, a scaled rebate under the 10 mil cap
+# of amended Rule 610, both with Section 31 ($27.80 per $1M sold, fiscal 2025) and FINRA TAF.
+reg="sec_fee_per_million=27800000 taf_per_share=166 taf_max=8300000"
+declare -A fees=([none]="maker_rebate=0" [cap30]="maker_rebate=2000 $reg" [cap10]="maker_rebate=700 $reg")
+declare -A title=([none]="No fees or rebates" [cap30]="30 mil cap: rebate \$0.0020 per share, Section 31 and TAF on sells"
+                  [cap10]="10 mil cap (amended Rule 610): rebate \$0.0007 per share, Section 31 and TAF on sells")
+run() {  # day thresholds scenario -> rows: symbol threshold total spread inventory fees fills
+    # shellcheck disable=SC2086
+    "$b/apps/itch_backtest" "$d/store-$1-v50" "$syms" imbalance ${fees[$3]} --sweep threshold="$2" | tail -n +2
 }
 day() { echo "20${1:5:2}-${1:1:2}-${1:3:2}"; }
 
@@ -25,12 +33,13 @@ echo "100 shares, inventory cap 500). Symbols: ${syms//,/, }. Train: $(day ${tra
 echo "test: $(day ${test[0]}), $(day ${test[1]}). The threshold is picked on the train days by summed"
 echo "PnL over all symbols and both days; the test days use it unchanged. Backtester: queue-position"
 echo "fills against the real order flow, zero latency (docs/STRATEGIES.md)."
-for rebate in 0 2000; do
+for scenario in none cap30 cap10; do
     echo
-    if [ "$rebate" = 0 ]; then echo "## No fees or rebates"; else echo "## Maker rebate \$0.0020 per share"; fi
+    echo "## ${title[$scenario]}"
     echo
-    for t in "${train[@]}"; do run "$t" "$grid" "$rebate"; done > "$tmp/train"
+    for t in "${train[@]}"; do run "$t" "$grid" "$scenario"; done > "$tmp/train"
     best=$(awk '{s[$2]+=$3} END{b=""; for (k in s) if (b=="" || s[k]>s[b]) b=k; print b}' "$tmp/train")
+    cp "$tmp/train" "$tmp/$scenario-train"
     echo "Train PnL by threshold (USD, all symbols, both days):"
     echo
     echo "| Threshold | Total | Spread | Inventory |"
@@ -39,7 +48,7 @@ for rebate in 0 2000; do
     echo
     echo "Chosen threshold: **$best**."
     echo
-    for t in "${test[@]}"; do run "$t" "$best,1.0" "$rebate" | sed "s/^/$t\t/"; done > "$tmp/test"
+    for t in "${test[@]}"; do run "$t" "$best,1.0" "$scenario" | sed "s/^/$t\t/"; done > "$tmp/test"
     echo "Test days (USD per symbol, both days summed):"
     echo
     echo "| Symbol | Joiner total | Joiner inventory | Filtered total | Filtered inventory | Fills joiner / filtered |"
@@ -57,6 +66,7 @@ echo "The same two strategies on the test days, no fees, with market data and or
 echo "delayed by the one-way latency shown (the live path measures about 9 us from kernel receive"
 echo "to decision, docs/exec/PERF.md R16; a co-located venue round trip adds a few microseconds)."
 echo
+best=$(awk '{s[$2]+=$3} END{b=""; for (k in s) if (b=="" || s[k]>s[b]) b=k; print b}' "$tmp/none-train")
 echo "| One-way latency | Joiner total | Filtered total | Filtered fills |"
 echo "|---|---|---|---|"
 for ns in 0 5000 50000 500000 5000000; do

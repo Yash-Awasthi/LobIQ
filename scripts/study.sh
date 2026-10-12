@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Microstructure study (docs/results/microstructure.md): fits on the first two December days,
-# scores on the last two. Needs the stores from scripts/ingest_day.sh.
+# Microstructure study (docs/results/microstructure.md): fits on two December days, scores on
+# the next three and on a day six months later (TRAIN, TEST: comma-separated day names). Needs the stores from scripts/ingest_day.sh.
 set -euo pipefail
 d=${HFT_DATA:-$HOME/data}
 b=${HFT_BUILD:-$(dirname "$0")/../build/native}
-"$b/apps/itch_study" --train "$d/store-S120825-v50,$d/store-S120925-v50" \
-                     --test "$d/store-S121025-v50,$d/store-S121125-v50" --symbols "${SYMBOLS:-30}"
+train=${TRAIN:-S120825,S120925}
+test=${TEST:-S121025,S121125,S121225,S061226}
+stores() { local out= x; for x in ${1//,/ }; do out+="${out:+,}$d/store-$x-v50"; done; echo "$out"; }
+"$b/apps/itch_study" --train "$(stores "$train")" --test "$(stores "$test")" --symbols "${SYMBOLS:-30}"
