@@ -71,7 +71,9 @@ fees, risk limits and accounting; the guide says what the simulation does and do
 
 ## Highlights
 
-Measured on a laptop (i7-13650HX, turbo off, WSL2); sources in the sections below.
+Measured on a laptop (i7-13650HX, turbo off). Order book, live feed and research: bare-metal Arch
+Linux with isolated cores; read/decode and paper execution: the earlier WSL2 setup. Sources in
+the sections below.
 
 - **Order book:** 41 ns per update at p50 on one symbol, worst case 40 µs; a full Nasdaq day
   of 12,000+ symbols rebuilt and hash-checked at 114-121M messages/s on 16 threads (847M
@@ -83,7 +85,7 @@ Measured on a laptop (i7-13650HX, turbo off, WSL2); sources in the sections belo
 - **Determinism:** a live session replays from its recording to bit-identical decisions,
   checked by hash, under GCC and Clang; so do fault-injected runs and kill-switch runs.
 - **Correctness:** zero heap allocations on the hot path in steady state; property tests against
-  reference implementations; 306 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
+  reference implementations; 312 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
   campaigns at 20-30% dropped, duplicated and delayed reports with zero illegal order states.
 - **FPGA feed parser (simulated):** ITCH 5.0 in SystemVerilog, 8 bytes per clock, one message
   per clock, output one clock after a message's last byte; field-identical to the C++ decoder in
@@ -109,6 +111,8 @@ Where to read the code:
 | Simulated venue with fault injection | `src/exec/sim_venue.hpp` |
 | Arbitrage executor and leg-risk handling | `src/exec/arb_exec.hpp` |
 | Strategy and quoter plug-ins | `src/backtest/registry.hpp`, `src/pm/quoter.hpp`, `strategies/` |
+| Order flow imbalance and micro-price estimators | `src/strategy/microstructure.hpp`, `apps/itch_study.cpp` |
+| Pools that grow by moving pages (mremap, huge pages kept) | `src/core/pool.hpp` |
 | Design decisions and their reasons | `docs/exec/DECISIONS.md`, `docs/exec/DESIGN.md` |
 
 Every number below names the command that produced it. Phases and what is not planned:
@@ -215,7 +219,7 @@ replay is unchanged within noise. A lookahead prefetch on the per-symbol path wa
 
 ## Tests
 
-`ctest` runs 306 GoogleTest and RapidCheck tests (302 under the sanitizers, which leave out
+`ctest` runs 312 GoogleTest and RapidCheck tests (308 under the sanitizers, which leave out
 `alloc_test`); one (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine
 exposes no hardware performance counters.
 
