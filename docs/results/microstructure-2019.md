@@ -106,6 +106,45 @@ Every limit order added between 10:00 and 15:30 ET on the 30 symbols, followed b
 | 2025-12-09 | 36.9M | 26.2% | 12.2% | 16.5% | 25.3% | 5.6% | 11.3% | 85.8% | 2.7% | 0.2% |
 | 2019-10-18 | 10.2M | 13.2% | 8.8% | 14.1% | 23.8% | 10.5% | 26.5% | 70.4% | 2.8% | 0.3% |
 
+## Trade costs (SEC Rule 605 style)
+
+Every visible execution in the window on the 30 symbols, signed by its taker's side (the resting order's opposite). Effective half-spread: the price against the mid just before the trade; realized spread: against the mid 5 s later, what the resting side kept; price impact: how far the mid moved with the taker in those 5 s. Effective = realized + impact. Basis points, weighted by shares.
+
+| Day | Executions | Shares | Effective half-spread (bp) | Realized spread (bp) | Price impact (bp) |
+|---|---|---|---|---|---|
+| 2025-12-08 | 1.7M | 110M | 0.83 | -0.46 | 1.29 |
+| 2025-12-09 | 1.2M | 76M | 0.59 | -0.35 | 0.93 |
+| 2019-10-18 | 0.4M | 40M | 0.84 | -0.42 | 1.26 |
+
+By execution size, all days:
+
+| Shares per execution | Executions | Effective (bp) | Realized (bp) | Impact (bp) |
+|---|---|---|---|---|
+| 1-100 | 2910422 | 0.58 | -0.26 | 0.84 |
+| 101-500 | 268921 | 0.77 | -0.45 | 1.21 |
+| 501-2,000 | 39738 | 0.98 | -0.72 | 1.70 |
+| over 2,000 | 3713 | 1.26 | -0.60 | 1.86 |
+
+## Volatility signature
+
+Realized variance of the mid over the window, sampled every k seconds (averaged over the k sampling offsets), divided by the same at 300 s. Without microstructure noise the ratio would be 1 at every k; bid-ask bounce and tick discreteness push it away at short k (Andersen, Bollerslev, Diebold and Labys 2000). Medians over the 30 symbols; window volatility from the 300 s sampling. RV(300 s) rests on 66 returns per symbol-day, so each ratio carries roughly 17% sampling error; a ratio below 1 means moves continued rather than reversed at the longer scale.
+
+| Day | RV(1 s) / RV(300 s) | RV(5 s) / RV(300 s) | RV(10 s) / RV(300 s) | RV(30 s) / RV(300 s) | RV(60 s) / RV(300 s) | Window volatility (bp) |
+|---|---|---|---|---|---|---|
+| 2025-12-08 | 1.19 | 1.20 | 1.19 | 1.12 | 1.08 | 109 |
+| 2025-12-09 | 1.41 | 1.36 | 1.33 | 1.32 | 1.29 | 72 |
+| 2019-10-18 | 1.00 | 0.92 | 0.89 | 0.89 | 0.90 | 87 |
+
+## Self-excitation of mid-price changes (Hawkes)
+
+An exponential Hawkes process (intensity mu + alpha sum exp(-beta (t - t_i))) fitted by maximum likelihood to the mid-change times of each symbol in each half-hour window with at least 200 changes (`fit_hawkes`, checked against simulated processes in tests/microstructure_test.cpp). The branching ratio n = alpha / beta is the share of changes triggered by earlier ones; Filimonov and Sornette (2012) report it rising toward 1 over the 2000s. 1 / beta is how long the excitation lasts. Half-hour windows limit the intraday seasonality that can masquerade as excitation.
+
+| Day | Windows | Branching ratio n, median [quartiles] | Memory 1 / beta, median (ms) |
+|---|---|---|---|
+| 2025-12-08 | 330 | 0.52 [0.44, 0.59] | 0.3 |
+| 2025-12-09 | 330 | 0.54 [0.44, 0.60] | 0.3 |
+| 2019-10-18 | 323 | 0.46 [0.41, 0.57] | 0.7 |
+
 ## Caveats
 
 - ITCH is Nasdaq's book only; the consolidated quote is tighter, so depth and imbalance are partial.
@@ -118,3 +157,5 @@ Every limit order added between 10:00 and 15:30 ET on the 30 symbols, followed b
 - S. Stoikov. The micro-price: a high-frequency estimator of future prices. Quantitative Finance 18(12), 1959-1966, 2018.
 - C. Moallemi, K. Yuan. A model for queue position valuation in a limit order book. Working paper, Columbia University, 2017.
 - J. Hasbrouck, G. Saar. Technology and liquidity provision: the blurring of traditional definitions. Journal of Financial Markets 12(2), 143-172, 2009.
+- V. Filimonov, D. Sornette. Quantifying reflexivity in financial markets: toward a prediction of flash crashes. Physical Review E 85, 056108, 2012.
+- T. Andersen, T. Bollerslev, F. Diebold, P. Labys. Great realizations. Risk 13, 105-108, 2000.

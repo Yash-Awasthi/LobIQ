@@ -504,6 +504,20 @@ scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
   reference. 86-92% of orders added in December 2025 were cancelled within 2 s (93.6% in June
   2026), a quarter of them within 1 ms; on 2019-10-18 the share was 70.4% (13.2% within 1 ms),
   against about a third in the paper's 2004 sample. Only 1.3-2.8% of orders ever execute.
+- **Trade costs** (SEC Rule 605 style): every visible execution signed by its taker. Takers pay an
+  effective half-spread of 0.54-0.62 bp on the December days (1.11 bp in June 2026, 0.84 bp in
+  2019), but within 5 s the mid moves 0.85-1.71 bp their way, so the resting side's realized
+  spread is negative on every day (-0.32 to -0.59 bp) and worse for bigger executions (-1.39 bp
+  above 2,000 shares): before rebates, passive liquidity on these names loses money.
+- **Volatility signature**: realized variance of the mid sampled every 1-60 s against every 300 s.
+  The median ratio stays between 0.82 and 1.44 on every day (0.89-1.00 in 2019): on the mid, which
+  has no bid-ask bounce, microstructure noise does not dominate even at 1 s for these names.
+- **Self-excitation** (Hawkes, after Filimonov and Sornette 2012): an exponential Hawkes process fitted
+  by maximum likelihood (checked on simulated processes) to each symbol's mid changes per half-hour.
+  The branching ratio, the share of changes triggered by earlier ones, is 0.50-0.53 on every 2025-26
+  day and 0.46 in 2019, with a memory of 0.3-0.7 ms: about half of all price changes are fast
+  reactions to earlier ones. An exponential kernel sees only this fast part; studies with long-memory
+  kernels put the ratio near 1.
 - **Does it pay?** Joining the best bid and ask on 10 large-tick symbols loses on every one of
   them (adverse selection outweighs the spread). Pulling the side the imbalance points against,
   with the threshold chosen on the train days, loses 66% less over the four test days (-$40.1k

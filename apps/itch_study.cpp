@@ -115,14 +115,65 @@ struct LifeTrack {
     void operator()(const T&) {}
 };
 
+// Trade costs (SEC Rule 605 style): every visible execution against its taker's side. Effective
+// half-spread = realized spread + price impact, measured against the mid 5 s later.
+struct Costs {
+    static constexpr std::size_t kSizes = 4;  // shares per execution: 1-100, 101-500, 501-2000, more
+    std::array<double, kSizes> execs{}, shares{}, eff{}, real{}, impact{};  // bp sums weighted by shares
+    void add(const Costs& o) {
+        for (std::size_t i = 0; i < kSizes; ++i)
+            execs[i] += o.execs[i], shares[i] += o.shares[i], eff[i] += o.eff[i], real[i] += o.real[i], impact[i] += o.impact[i];
+    }
+    static std::size_t size_bucket(std::uint32_t sh) { return sh <= 100 ? 0 : sh <= 500 ? 1 : sh <= 2000 ? 2 : 3; }
+};
+struct Trade {
+    std::uint64_t ts;
+    double px, mid;  // ITCH price units
+    int dir;         // +1 the taker bought
+    std::uint32_t shares;
+};
+struct TradeTrack {
+    const book::TickBook& book;
+    std::deque<Trade>& pending;
+    std::uint64_t ts = 0;
+    double mid = 0;  // before the message; 0 outside the window or without two-sided quotes
+    void exec(std::uint64_t ref, std::uint32_t shares, double px) {
+        if (mid <= 0) return;
+        const auto o = book.order(ref);
+        if (!o) return;
+        pending.push_back({ts, px > 0 ? px : static_cast<double>(o->price), mid, o->side == book::Side::Sell ? 1 : -1, shares});
+    }
+    void operator()(const itch::OrderExecuted& m) { exec(m.ref, m.shares, 0); }
+    void operator()(const itch::OrderExecutedPrice& m) {
+        if (m.printable == 'Y') exec(m.ref, m.shares, m.price);
+    }
+    template <class T>
+    void operator()(const T&) {}
+};
+
 struct DayResult {
     std::vector<Interval> iv;
     Counts c;
     Errors e;
     Queue q;
     Life life;
+    Costs costs;
+    std::vector<double> mid_1s;  // mid (ticks) at the end of every second of the window
+    std::vector<HawkesFit> hawkes;  // one per half-hour window with enough mid changes
     std::uint64_t spread_obs[3] = {};  // 1 tick, 2 ticks, wider
 };
+
+// Realized variance of log mids sampled every k seconds, averaged over the k sampling offsets.
+double realized_var(const std::vector<double>& m, std::size_t k) {
+    if (m.size() <= k) return 0;
+    double sum = 0;
+    for (std::size_t o = 0; o < k; ++o)
+        for (std::size_t j = o + k; j < m.size(); j += k) {
+            const double r = std::log(m[j] / m[j - k]);
+            sum += r * r;
+        }
+    return sum / static_cast<double>(k);
+}
 
 struct Name {
     std::string s;
@@ -256,6 +307,10 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
     QueueTrack qt{live, marks, out.q, before, depth_ewma};
     std::unordered_map<std::uint64_t, std::uint64_t> born;
     LifeTrack lt{born, out.life};
+    std::deque<Trade> trades;
+    TradeTrack tt{b, trades};
+    if (!g) out.mid_1s.reserve((kEnd - kStart) / kSec);
+    std::vector<std::vector<double>> moves((kEnd - kStart) / kWindow);  // mid-change times per window, s
 
     auto close_interval = [&](std::int64_t k) {
         Interval iv;
@@ -280,6 +335,9 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
             lt.ts = ts;
             lt.on = st.trading == 'T' && ts >= kStart && ts < kEnd;
             if (ts < kEnd) itch::dispatch(rec.data, rec.len, lt);
+            tt.ts = ts;
+            tt.mid = lt.on && before.bid_px && before.ask_px > before.bid_px ? (before.bid_px + before.ask_px) / 2.0 : 0;
+            itch::dispatch(rec.data, rec.len, tt);
         }
         itch::dispatch(rec.data, rec.len, st);
         ap.seq = rec.seq;
@@ -293,8 +351,26 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
         }
         if (ts >= kEnd) break;
         const double mid = (cur.bid_px + cur.ask_px) / 2.0 / tick;
+        // The mid in force at each whole second (before this message), for the signature plot.
+        if (!g && last_mid)
+            while (out.mid_1s.size() < (ts - kStart) / kSec) out.mid_1s.push_back(last_mid);
+        if (!g && mid != last_mid && last_mid) {
+            const std::uint64_t w = (ts - kStart) / kWindow;
+            if (w < moves.size()) moves[w].push_back(static_cast<double>(ts - kStart - w * kWindow) / kSec);
+        }
         depth_ewma = depth_ewma ? 0.999 * depth_ewma + 0.001 * (cur.bid_qty + cur.ask_qty) / 2.0 : (cur.bid_qty + cur.ask_qty) / 2.0;
         // Markout of a fill: the mid in force kHorizon later, against the fill price, per share.
+        while (!trades.empty() && trades.front().ts + 5 * kSec <= ts) {
+            const Trade& t = trades.front();
+            const double m5 = last_mid * tick, w = t.shares * 1e4 / t.mid;  // bp, weighted by shares
+            const std::size_t i = Costs::size_bucket(t.shares);
+            out.costs.execs[i] += 1;
+            out.costs.shares[i] += t.shares;
+            out.costs.eff[i] += w * t.dir * (t.px - t.mid);
+            out.costs.real[i] += w * t.dir * (t.px - m5);
+            out.costs.impact[i] += w * t.dir * (m5 - t.mid);
+            trades.pop_front();
+        }
         while (!marks.empty() && marks.front().ts + kHorizon <= ts) {
             const Markout& m = marks.front();
             out.q.markout[static_cast<std::size_t>(m.bucket)] += m.buy ? last_mid - m.px : m.px - last_mid;
@@ -356,6 +432,10 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
     }
     if (cur_iv >= 0) close_interval(cur_iv);
     out.life.resting = static_cast<double>(born.size());
+    if (!g && last_mid)
+        while (out.mid_1s.size() < (kEnd - kStart) / kSec) out.mid_1s.push_back(last_mid);
+    for (const auto& m : moves)
+        if (m.size() >= 200) out.hawkes.push_back(fit_hawkes(m, static_cast<double>(kWindow) / kSec));
     if (b.order_count() > 65536) slot.reset();
     return out;
 }
@@ -654,6 +734,78 @@ int main(int argc, char** argv) {
         for (double c : l.cancelled) std::printf(" %.1f%% |", 100 * c / l.adds);
         std::printf(" %.1f%% | %.1f%% | %.1f%% |\n", 100 * fleeting / l.adds, 100 * l.executed / l.adds, 100 * l.resting / l.adds);
     }
+    std::printf("\n## Trade costs (SEC Rule 605 style)\n\n");
+    std::printf("Every visible execution in the window on the %zu symbols, signed by its taker's side (the resting "
+                "order's opposite). Effective half-spread: the price against the mid just before the trade; realized "
+                "spread: against the mid 5 s later, what the resting side kept; price impact: how far the mid moved "
+                "with the taker in those 5 s. Effective = realized + impact. Basis points, weighted by shares.\n\n", S);
+    std::printf("| Day | Executions | Shares | Effective half-spread (bp) | Realized spread (bp) | Price impact (bp) |\n");
+    std::printf("|---|---|---|---|---|---|\n");
+    Costs by_size;
+    for (std::size_t d = 0; d < D; ++d) {
+        Costs c;
+        for (std::size_t s = 0; s < S; ++s) c.add(res[s * D + d].costs);
+        double e = 0, sh = 0, ef = 0, re = 0, im = 0;
+        for (std::size_t i = 0; i < Costs::kSizes; ++i) e += c.execs[i], sh += c.shares[i], ef += c.eff[i], re += c.real[i], im += c.impact[i];
+        if (sh == 0) continue;
+        by_size.add(c);
+        std::printf("| %s | %.1fM | %.0fM | %.2f | %.2f | %.2f |\n", day_of(days[d]).c_str(), e / 1e6, sh / 1e6, ef / sh, re / sh, im / sh);
+    }
+    std::printf("\nBy execution size, all days:\n\n| Shares per execution | Executions | Effective (bp) | Realized (bp) | Impact (bp) |\n|---|---|---|---|---|\n");
+    const char* size_label[Costs::kSizes] = {"1-100", "101-500", "501-2,000", "over 2,000"};
+    for (std::size_t i = 0; i < Costs::kSizes; ++i)
+        if (by_size.shares[i] > 0)
+            std::printf("| %s | %.0f | %.2f | %.2f | %.2f |\n", size_label[i], by_size.execs[i], by_size.eff[i] / by_size.shares[i],
+                        by_size.real[i] / by_size.shares[i], by_size.impact[i] / by_size.shares[i]);
+
+    std::printf("\n## Volatility signature\n\n");
+    std::printf("Realized variance of the mid over the window, sampled every k seconds (averaged over the k sampling "
+                "offsets), divided by the same at 300 s. Without microstructure noise the ratio would be 1 at every k; "
+                "bid-ask bounce and tick discreteness push it away at short k (Andersen, Bollerslev, Diebold and Labys "
+                "2000). Medians over the %zu symbols; window volatility from the 300 s sampling. RV(300 s) rests on 66 "
+                "returns per symbol-day, so each ratio carries roughly 17%% sampling error; a ratio below 1 means moves "
+                "continued rather than reversed at the longer scale.\n\n", S);
+    constexpr std::array<std::size_t, 5> kSig = {1, 5, 10, 30, 60};
+    std::printf("| Day |");
+    for (std::size_t k : kSig) std::printf(" RV(%zu s) / RV(300 s) |", k);
+    std::printf(" Window volatility (bp) |\n|---|");
+    for (std::size_t i = 0; i <= kSig.size(); ++i) std::printf("---|");
+    std::printf("\n");
+    for (std::size_t d = 0; d < D; ++d) {
+        std::array<std::vector<double>, kSig.size()> ratio;
+        std::vector<double> vol;
+        for (std::size_t s = 0; s < S; ++s) {
+            const auto& m = res[s * D + d].mid_1s;
+            const double base = realized_var(m, 300);
+            if (base <= 0) continue;
+            for (std::size_t i = 0; i < kSig.size(); ++i) ratio[i].push_back(realized_var(m, kSig[i]) / base);
+            vol.push_back(std::sqrt(base) * 1e4);
+        }
+        if (vol.empty()) continue;
+        std::printf("| %s |", day_of(days[d]).c_str());
+        for (const auto& r : ratio) std::printf(" %.2f |", median(r));
+        std::printf(" %.0f |\n", median(vol));
+    }
+
+    std::printf("\n## Self-excitation of mid-price changes (Hawkes)\n\n");
+    std::printf("An exponential Hawkes process (intensity mu + alpha sum exp(-beta (t - t_i))) fitted by maximum "
+                "likelihood to the mid-change times of each symbol in each half-hour window with at least 200 changes "
+                "(`fit_hawkes`, checked against simulated processes in tests/microstructure_test.cpp). The branching "
+                "ratio n = alpha / beta is the share of changes triggered by earlier ones; Filimonov and Sornette (2012) "
+                "report it rising toward 1 over the 2000s. 1 / beta is how long the excitation lasts. Half-hour windows "
+                "limit the intraday seasonality that can masquerade as excitation.\n\n");
+    std::printf("| Day | Windows | Branching ratio n, median [quartiles] | Memory 1 / beta, median (ms) |\n");
+    std::printf("|---|---|---|---|\n");
+    for (std::size_t d = 0; d < D; ++d) {
+        std::vector<double> n, mem;
+        for (std::size_t s = 0; s < S; ++s)
+            for (const HawkesFit& h : res[s * D + d].hawkes)
+                if (h.ok) n.push_back(h.alpha / h.beta), mem.push_back(1e3 / h.beta);
+        if (n.empty()) continue;
+        std::sort(n.begin(), n.end());
+        std::printf("| %s | %zu | %.2f [%.2f, %.2f] | %.1f |\n", day_of(days[d]).c_str(), n.size(), n[n.size() / 2],
+                    n[n.size() / 4], n[3 * n.size() / 4], median(mem));
+    }
     std::printf("\n## Caveats\n\n"
                 "- ITCH is Nasdaq's book only; the consolidated quote is tighter, so depth and imbalance are partial.\n"
                 "- The most active names are mostly ETFs and leveraged ETFs; two test days measure stability across days, "
@@ -668,6 +820,9 @@ int main(int argc, char** argv) {
                 "- C. Moallemi, K. Yuan. A model for queue position valuation in a limit order book. Working paper, "
                 "Columbia University, 2017.\n"
                 "- J. Hasbrouck, G. Saar. Technology and liquidity provision: the blurring of traditional definitions. "
-                "Journal of Financial Markets 12(2), 143-172, 2009.\n");
+                "Journal of Financial Markets 12(2), 143-172, 2009.\n"
+                "- V. Filimonov, D. Sornette. Quantifying reflexivity in financial markets: toward a prediction of flash "
+                "crashes. Physical Review E 85, 056108, 2012.\n"
+                "- T. Andersen, T. Bollerslev, F. Diebold, P. Labys. Great realizations. Risk 13, 105-108, 2000.\n");
     return 0;
 }

@@ -3,6 +3,7 @@
 // Estimators for the microstructure study (apps/itch_study.cpp): order flow imbalance at the best
 // quotes (Cont, Kukanov and Stoikov 2014) and the micro-price adjustment (Stoikov 2018).
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -181,6 +182,89 @@ inline LeadResponse lead_response(const std::vector<Move>& a, const std::vector<
         ++r.bins[k];
     }
     return r;
+}
+
+// Exponential Hawkes process on [0, horizon]: intensity mu + alpha * sum exp(-beta (t - t_i)) over
+// earlier events. Branching ratio alpha / beta: the share of events triggered by earlier ones.
+struct HawkesFit {
+    double mu = 0, alpha = 0, beta = 0, loglik = 0;
+    bool ok = false;
+};
+
+inline double hawkes_loglik(const std::vector<double>& t, double horizon, double mu, double alpha, double beta) {
+    double ll = 0, a = 0, prev = 0, tail = 0;
+    for (std::size_t i = 0; i < t.size(); ++i) {
+        if (i) a = std::exp(-beta * (t[i] - prev)) * (1 + a);
+        ll += std::log(mu + alpha * a);
+        tail += 1 - std::exp(-beta * (horizon - t[i]));
+        prev = t[i];
+    }
+    return ll - mu * horizon - alpha / beta * tail;
+}
+
+// Maximum likelihood by Nelder-Mead on (log mu, log alpha, log beta), stationary (alpha < beta).
+inline HawkesFit fit_hawkes(const std::vector<double>& t, double horizon) {
+    HawkesFit best;
+    if (t.size() < 20 || horizon <= 0) return best;
+    using P = std::array<double, 3>;
+    auto f = [&](const P& x) {
+        const double mu = std::exp(x[0]), alpha = std::exp(x[1]), beta = std::exp(x[2]);
+        if (alpha >= beta || !std::isfinite(mu + alpha + beta)) return 1e300;
+        return -hawkes_loglik(t, horizon, mu, alpha, beta);
+    };
+    const double rate = static_cast<double>(t.size()) / horizon;
+    double best_val = 1e300;
+    // A few starting memories, since the likelihood can be flat in beta.
+    for (const double beta0 : {rate, 10 * rate, 0.1 * rate}) {
+        std::array<P, 4> s;
+        s[0] = {std::log(0.5 * rate), std::log(0.5 * beta0), std::log(beta0)};
+        for (int i = 1; i < 4; ++i) {
+            s[static_cast<std::size_t>(i)] = s[0];
+            s[static_cast<std::size_t>(i)][static_cast<std::size_t>(i - 1)] += 0.5;
+        }
+        std::array<double, 4> v;
+        for (std::size_t i = 0; i < 4; ++i) v[i] = f(s[i]);
+        for (int it = 0; it < 600; ++it) {
+            std::array<std::size_t, 4> o = {0, 1, 2, 3};
+            std::sort(o.begin(), o.end(), [&](std::size_t a, std::size_t b) { return v[a] < v[b]; });
+            if (std::abs(v[o[3]] - v[o[0]]) < 1e-9 * (1 + std::abs(v[o[0]]))) break;
+            P c{};
+            for (int i = 0; i < 3; ++i)
+                for (std::size_t k = 0; k < 3; ++k) c[k] += s[o[static_cast<std::size_t>(i)]][k] / 3;
+            auto along = [&](double g) {
+                P p;
+                for (std::size_t k = 0; k < 3; ++k) p[k] = c[k] + g * (s[o[3]][k] - c[k]);
+                return p;
+            };
+            const P r = along(-1);
+            const double fr = f(r);
+            if (fr < v[o[0]]) {
+                const P e = along(-2);
+                const double fe = f(e);
+                s[o[3]] = fe < fr ? e : r, v[o[3]] = std::min(fe, fr);
+            } else if (fr < v[o[2]]) {
+                s[o[3]] = r, v[o[3]] = fr;
+            } else {
+                const P k = along(0.5);
+                const double fk = f(k);
+                if (fk < v[o[3]]) {
+                    s[o[3]] = k, v[o[3]] = fk;
+                } else {
+                    for (std::size_t i = 1; i < 4; ++i) {
+                        for (std::size_t q = 0; q < 3; ++q) s[o[i]][q] = s[o[0]][q] + 0.5 * (s[o[i]][q] - s[o[0]][q]);
+                        v[o[i]] = f(s[o[i]]);
+                    }
+                }
+            }
+        }
+        const std::size_t m = static_cast<std::size_t>(std::min_element(v.begin(), v.end()) - v.begin());
+        if (v[m] < best_val) {
+            best_val = v[m];
+            best = {std::exp(s[m][0]), std::exp(s[m][1]), std::exp(s[m][2]), -v[m], true};
+        }
+    }
+    best.ok = best_val < 1e299;
+    return best;
 }
 
 }  // namespace hft::strategy::micro
