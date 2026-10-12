@@ -20,6 +20,7 @@
 #include <set>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include "book/itch_apply.hpp"
@@ -59,10 +60,28 @@ struct Errors {
     }
 };
 
+// Orders joining the best quote at a 1-tick spread, by where they join (Moallemi and Yuan 2017):
+// bucket 0 opens a new best level, 1-5 join behind 0-0.25, 0.25-0.5, 0.5-1, 1-2, 2+ times the
+// typical level size.
+struct Queue {
+    static constexpr int kPos = 6;
+    std::array<double, kPos> adds{}, fills{}, wait_s{}, markout{}, marked{};
+    void add(const Queue& o) {
+        for (std::size_t i = 0; i < kPos; ++i)
+            adds[i] += o.adds[i], fills[i] += o.fills[i], wait_s[i] += o.wait_s[i], markout[i] += o.markout[i], marked[i] += o.marked[i];
+    }
+};
+inline int queue_bucket(double ahead, double depth) {
+    if (ahead <= 0) return 0;
+    const double r = depth > 0 ? ahead / depth : 1e9;
+    return r < 0.25 ? 1 : r < 0.5 ? 2 : r < 1 ? 3 : r < 2 ? 4 : 5;
+}
+
 struct DayResult {
     std::vector<Interval> iv;
     Counts c;
     Errors e;
+    Queue q;
     std::uint64_t spread_obs[3] = {};  // 1 tick, 2 ticks, wider
 };
 
@@ -113,6 +132,54 @@ struct State {
     void operator()(const T&) {}
 };
 
+struct Live {
+    int bucket;
+    bool buy;
+    std::uint32_t px;
+    std::uint64_t ts;
+};
+struct Markout {
+    std::uint64_t ts;
+    int bucket;
+    bool buy;
+    double px;
+};
+struct QueueTrack {
+    std::unordered_map<std::uint64_t, Live>& live;
+    std::deque<Markout>& marks;
+    Queue& q;
+    const book::Bbo& bbo;
+    const double& depth;
+    std::uint64_t ts = 0;
+    bool on = false;  // in window, trading, 1-tick spread before the message
+    std::uint32_t tick = 100;
+    void operator()(const itch::AddOrder& m) {
+        if (!on) return;
+        const bool buy = m.side == 'B';
+        const std::uint32_t best = buy ? bbo.bid_px : bbo.ask_px;
+        int k;
+        if (m.price == best) k = queue_bucket(static_cast<double>(buy ? bbo.bid_qty : bbo.ask_qty), depth);
+        else return;  // behind the best, or crossing
+        q.adds[static_cast<std::size_t>(k)] += 1;
+        live[m.ref] = {k, buy, m.price, ts};
+    }
+    void fill(std::uint64_t ref) {
+        const auto it = live.find(ref);
+        if (it == live.end()) return;
+        const Live& l = it->second;
+        q.fills[static_cast<std::size_t>(l.bucket)] += 1;
+        q.wait_s[static_cast<std::size_t>(l.bucket)] += static_cast<double>(ts - l.ts) / kSec;
+        marks.push_back({ts, l.bucket, l.buy, l.px / static_cast<double>(tick)});
+        live.erase(it);
+    }
+    void operator()(const itch::OrderExecuted& m) { fill(m.ref); }
+    void operator()(const itch::OrderExecutedPrice& m) { fill(m.ref); }
+    void operator()(const itch::OrderDelete& m) { live.erase(m.ref); }
+    void operator()(const itch::OrderReplace& m) { live.erase(m.orig_ref); }
+    template <class T>
+    void operator()(const T&) {}
+};
+
 // One pass over a symbol-day. With `g` (a fitted micro-price adjustment per state) it scores
 // predictions; without, it counts transitions.
 DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<double, kStates>* g) {
@@ -143,6 +210,12 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
     std::deque<Pending> pend;
     std::size_t a_next = 0;  // first pending item without a next-mid-change target
 
+    std::unordered_map<std::uint64_t, Live> live;  // tracked orders not yet filled
+    std::deque<Markout> marks;
+    double depth_ewma = 0;
+    book::Bbo before{};
+    QueueTrack qt{live, marks, out.q, before, depth_ewma};
+
     auto close_interval = [&](std::int64_t k) {
         Interval iv;
         iv.ofi = iv_ofi;
@@ -156,10 +229,17 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
     };
 
     while (rd.next(rec)) {
+        const std::uint64_t ts = itch::detail::read_header(rec.data).timestamp;
+        if (!g) {
+            // Queue tracking sees the book as the message found it.
+            before = b.bbo();
+            qt.ts = ts;
+            qt.on = st.trading == 'T' && ts >= kStart && ts < kEnd && before.bid_px && before.ask_px == before.bid_px + tick;
+            if (qt.on || !live.empty()) itch::dispatch(rec.data, rec.len, qt);
+        }
         itch::dispatch(rec.data, rec.len, st);
         ap.seq = rec.seq;
         itch::dispatch(rec.data, rec.len, ap);
-        const std::uint64_t ts = itch::detail::read_header(rec.data).timestamp;
         const book::Bbo cur = b.bbo();
         const bool valid = st.trading == 'T' && cur.bid_px && cur.ask_px && cur.ask_px > cur.bid_px;
         if (!valid || ts < kStart) {
@@ -169,6 +249,14 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
         }
         if (ts >= kEnd) break;
         const double mid = (cur.bid_px + cur.ask_px) / 2.0 / tick;
+        depth_ewma = depth_ewma ? 0.999 * depth_ewma + 0.001 * (cur.bid_qty + cur.ask_qty) / 2.0 : (cur.bid_qty + cur.ask_qty) / 2.0;
+        // Markout of a fill: the mid in force kHorizon later, against the fill price, per share.
+        while (!marks.empty() && marks.front().ts + kHorizon <= ts) {
+            const Markout& m = marks.front();
+            out.q.markout[static_cast<std::size_t>(m.bucket)] += m.buy ? last_mid - m.px : m.px - last_mid;
+            out.q.marked[static_cast<std::size_t>(m.bucket)] += 1;
+            marks.pop_front();
+        }
 
         // Time target of pending predictions: the mid in force kHorizon after each.
         while (!pend.empty() && pend.front().ts + kHorizon <= ts) {
@@ -435,6 +523,35 @@ int main(int argc, char** argv) {
         for (int b = 0; b < kBuckets; ++b) std::printf(" %+.3f |", g_avg[static_cast<std::size_t>(b)] / g_n);
         std::printf("\n");
     }
+    // Queue position: descriptive, over the large-tick symbols and every day.
+    Queue q;
+    std::size_t q_syms = 0;
+    for (std::size_t s = 0; s < S; ++s) {
+        std::uint64_t narrow = 0, all = 0;
+        for (std::size_t d = 0; d < T; ++d) {
+            const auto& o = res[s * D + d].spread_obs;
+            narrow += o[0] + o[1], all += o[0] + o[1] + o[2];
+        }
+        if (!all || static_cast<double>(narrow) / static_cast<double>(all) < 0.5) continue;
+        ++q_syms;
+        for (std::size_t d = 0; d < D; ++d) q.add(res[s * D + d].q);
+    }
+    std::printf("\n## Queue position (Moallemi and Yuan, 2017)\n\n");
+    std::printf("Every limit order that joins the best bid or ask while the spread is one tick, on the same %zu "
+                "large-tick symbols over all %zu days, by the shares already queued ahead of it relative to the "
+                "symbol's typical best-level size (an exponential average of (bid + ask size) / 2). Filled: at "
+                "least one execution before the order is cancelled, deleted or replaced. Markout: the mid 1 s after "
+                "the first fill against the fill price, per share, in ticks (+0.5 is the half spread kept with no "
+                "move; below 0 the fill lost money). Value per order: fill rate times markout.\n\n", q_syms, D);
+    std::printf("| Queue ahead / typical level | Orders | Filled | Mean wait to fill (s) | Markout 1 s (ticks) | Value per order (ticks) |\n");
+    std::printf("|---|---|---|---|---|---|\n");
+    const char* label[Queue::kPos] = {"0 (empty level)", "0 - 0.25", "0.25 - 0.5", "0.5 - 1", "1 - 2", "2 or more"};
+    for (std::size_t k = 0; k < Queue::kPos; ++k) {
+        if (q.adds[k] == 0) continue;
+        const double fr = q.fills[k] / q.adds[k], mo = q.marked[k] ? q.markout[k] / q.marked[k] : NAN;
+        std::printf("| %s | %.0f | %.1f%% | %.2f | %+.3f | %+.4f |\n", label[k], q.adds[k], 100 * fr,
+                    q.fills[k] ? q.wait_s[k] / q.fills[k] : NAN, mo, fr * mo);
+    }
     std::printf("\n## Caveats\n\n"
                 "- ITCH is Nasdaq's book only; the consolidated quote is tighter, so depth and imbalance are partial.\n"
                 "- The most active names are mostly ETFs and leveraged ETFs; two test days measure stability across days, "
@@ -445,6 +562,8 @@ int main(int argc, char** argv) {
                 "- R. Cont, A. Kukanov, S. Stoikov. The price impact of order book events. Journal of Financial "
                 "Econometrics 12(1), 47-88, 2014. arXiv:1011.6402.\n"
                 "- S. Stoikov. The micro-price: a high-frequency estimator of future prices. Quantitative Finance "
-                "18(12), 1959-1966, 2018.\n");
+                "18(12), 1959-1966, 2018.\n"
+                "- C. Moallemi, K. Yuan. A model for queue position valuation in a limit order book. Working paper, "
+                "Columbia University, 2017.\n");
     return 0;
 }

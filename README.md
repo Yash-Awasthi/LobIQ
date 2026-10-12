@@ -423,7 +423,7 @@ touch runs/today/KILL                                              # or SIGUSR1:
 
 ## Market microstructure research
 
-Two published results reproduced on this repository's own L3 data, with every parameter fitted on
+Three published results checked on this repository's own L3 data, with every parameter fitted on
 2025-12-08 and 12-09 and scored unchanged on 12-10 and 12-11 (30 most active symbols, 10:00 to
 15:30 ET). One command each, about 15 s and 3 minutes on 16 threads:
 
@@ -442,6 +442,11 @@ scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
   future mid. On the test days it reduces the squared error against the next mid change by a
   median 12.4% (21 large-tick symbols), where the size-weighted mid manages 2.3% and is worse
   than the plain mid on 9 of them. The fitted adjustment runs from -0.39 to +0.39 ticks.
+- **Queue position** (Moallemi and Yuan 2017): 34M orders joining the best quote at a 1-tick
+  spread, tracked by reference to their first fill. Front of the queue (under a quarter of a
+  typical level ahead) fills 7.5% of the time after 1.4 s on average, with a 1 s markout of -0.25
+  ticks; one to two levels back, 3.6% after 4.3 s at -0.38 ticks. Position is worth fill rate and
+  less adverse selection at once, and every bucket still loses before rebates.
 - **Does it pay?** Joining the best bid and ask on 10 large-tick symbols loses on every one of
   them (adverse selection outweighs the spread). Pulling the side the imbalance points against,
   with the threshold chosen on the train days, loses about 70% less on the test days (-$20.2k against
