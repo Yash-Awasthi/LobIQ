@@ -606,14 +606,16 @@ class TickBook {
         base_ = new_base;
         base_g_ = base_ / tick_;
         for (int s = 0; s < 2; ++s) {
-            for (std::uint32_t k = 0; k < kLevels; ++k) {
-                const std::uint32_t g = grid(base_ + k * tick_);
-                if (g == kNoOrder) continue;
-                if (Level* l = deep_[s].find(g)) {
-                    win_[s][k] = *l;
-                    set_bit(s, k);
-                    deep_[s].erase(g);
-                }
+            // Only radix levels inside the new window move: walk them instead of every slot.
+            std::uint32_t g = base_g_;
+            bool have = base_g_ < LevelRadix<Level>::kRange &&
+                        (deep_[s].find(g) != nullptr || deep_[s].next(false, base_g_, g));
+            while (have && g - base_g_ < kLevels) {
+                const std::uint32_t k = g - base_g_;
+                win_[s][k] = deep_[s].at(g);
+                set_bit(s, k);
+                deep_[s].erase(g);
+                have = deep_[s].next(false, g, g);
             }
             std::uint32_t keep = 0;
             for (std::uint32_t i = 0; i < n_over_[s]; ++i) {
