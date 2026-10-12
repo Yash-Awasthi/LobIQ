@@ -100,6 +100,19 @@ Every limit order that joins the best bid or ask while the spread is one tick, o
 | 1 - 2 | 10550950 | 3.5% | 3.66 | -0.368 | -0.0130 | -0.168 | -0.298 |
 | 2 or more | 1433026 | 4.9% | 3.44 | -0.467 | -0.0230 | -0.267 | -0.397 |
 
+## Order lifetimes (Hasbrouck and Saar, 2009)
+
+Every limit order added between 10:00 and 15:30 ET on the 30 symbols, followed by reference: cancelled (deleted, or replaced, whose replacement counts as a new order) by how long it lived, executed at least once, or still resting at 15:30. Hasbrouck and Saar call orders cancelled within 2 s fleeting; in their 2004 Nasdaq sample about a third of non-marketable limit orders were.
+
+| Day | Orders | Cancelled < 1 ms | 1-10 ms | 10-100 ms | 0.1-1 s | 1-2 s | 2 s or more | Fleeting (< 2 s) | Executed | Resting at 15:30 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 2025-12-08 | 53.9M | 24.9% | 13.6% | 19.1% | 25.2% | 4.8% | 9.5% | 87.8% | 2.6% | 0.2% |
+| 2025-12-09 | 38.9M | 25.3% | 12.0% | 17.0% | 25.9% | 5.6% | 11.5% | 85.8% | 2.5% | 0.2% |
+| 2025-12-10 | 76.3M | 27.3% | 17.6% | 21.3% | 21.4% | 3.6% | 6.6% | 91.3% | 2.0% | 0.1% |
+| 2025-12-11 | 62.8M | 24.8% | 15.4% | 20.8% | 24.1% | 4.3% | 8.1% | 89.5% | 2.3% | 0.2% |
+| 2025-12-12 | 99.2M | 27.4% | 17.2% | 22.6% | 21.3% | 3.3% | 5.9% | 91.8% | 2.2% | 0.1% |
+| 2026-06-12 | 103.0M | 28.0% | 18.3% | 24.5% | 19.8% | 3.0% | 5.1% | 93.6% | 1.3% | 0.1% |
+
 ## Caveats
 
 - ITCH is Nasdaq's book only; the consolidated quote is tighter, so depth and imbalance are partial.
@@ -111,3 +124,4 @@ Every limit order that joins the best bid or ask while the spread is one tick, o
 - R. Cont, A. Kukanov, S. Stoikov. The price impact of order book events. Journal of Financial Econometrics 12(1), 47-88, 2014. arXiv:1011.6402.
 - S. Stoikov. The micro-price: a high-frequency estimator of future prices. Quantitative Finance 18(12), 1959-1966, 2018.
 - C. Moallemi, K. Yuan. A model for queue position valuation in a limit order book. Working paper, Columbia University, 2017.
+- J. Hasbrouck, G. Saar. Technology and liquidity provision: the blurring of traditional definitions. Journal of Financial Markets 12(2), 143-172, 2009.

@@ -117,7 +117,7 @@ the sections below.
 - **Determinism:** a live session replays from its recording to bit-identical decisions,
   checked by hash, under GCC and Clang; so do fault-injected runs and kill-switch runs.
 - **Correctness:** zero heap allocations on the hot path in steady state; property tests against
-  reference implementations; 316 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
+  reference implementations; 317 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
   campaigns at 20-30% dropped, duplicated and delayed reports with zero illegal order states.
 - **FPGA feed parser (simulated):** ITCH 5.0 in SystemVerilog, 8 bytes per clock, one message
   per clock, output one clock after a message's last byte; field-identical to the C++ decoder in
@@ -265,7 +265,7 @@ replay is unchanged within noise. A lookahead prefetch on the per-symbol path wa
 
 ## Tests
 
-`ctest` runs 316 tests: GoogleTest, RapidCheck and end-to-end runs of `hft` and `itch_study` (312 under the sanitizers, which leave out
+`ctest` runs 317 tests: GoogleTest, RapidCheck and end-to-end runs of `hft` and `itch_study` (313 under the sanitizers, which leave out
 `alloc_test`); one (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine
 exposes no hardware performance counters.
 
@@ -473,7 +473,7 @@ touch runs/today/KILL                                              # or SIGUSR1:
 
 ## Market microstructure research
 
-Three published results checked on this repository's own L3 data, with every parameter fitted on
+Published results checked on this repository's own L3 data, with every parameter fitted on
 2025-12-08 and 12-09 and scored unchanged on 12-10, 12-11, 12-12 and 2026-06-12 (30 most active
 symbols, 10:00 to 15:30 ET). The June day, six months after training, shows how fast the fits
 age. One command each, about 30 s and 15 minutes on 16 threads:
@@ -500,6 +500,10 @@ scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
   typical level ahead) fills 7.0% of the time after 1.3 s on average, with a 1 s markout of -0.25
   ticks; one to two levels back, 3.5% after 3.7 s at -0.37 ticks. Position is worth fill rate and
   less adverse selection at once, and every bucket still loses before rebates.
+- **Order lifetimes** (Hasbrouck and Saar 2009): every order on the 30 symbols followed by
+  reference. 86-92% of orders added in December 2025 were cancelled within 2 s (93.6% in June
+  2026), a quarter of them within 1 ms; on 2019-10-18 the share was 70.4% (13.2% within 1 ms),
+  against about a third in the paper's 2004 sample. Only 1.3-2.8% of orders ever execute.
 - **Does it pay?** Joining the best bid and ask on 10 large-tick symbols loses on every one of
   them (adverse selection outweighs the spread). Pulling the side the imbalance points against,
   with the threshold chosen on the train days, loses 66% less over the four test days (-$40.1k
@@ -508,6 +512,22 @@ scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
   (-$4.7k to -$15.4k against -$31.4k to -$37.0k per day) and gone by June (-$13.8k against
   -$14.1k). It also decays with latency: -$40.1k at zero, -$44.4k at 5 and 50 µs, -$47.9k at
   500 µs and -$54.1k at 5 ms one way.
+
+- **Lead-lag** (`scripts/leadlag.sh`, 15 pairs, five December days): after a mid move of one
+  product, the next move of a related one goes the same way 59-74% of the time, against 50.0% when
+  the leader's moves are shifted 2 s (a placebo that keeps slow common drift). The edge runs both
+  ways and is largest from the less active side (SOXL to SOXX +23 points, UPRO to SPY +19, GOOG to
+  GOOGL +17). 91-99% of the following moves arrive more than 10 µs later, slower than this
+  system's measured 9 µs from wire to decision; most take 0.1 ms to 1 s.
+- **Trading on it** (`scripts/leader_walkforward.sh`): the imbalance maker on 12 follower products
+  also steps back from the side its leader's 0.1 s momentum points against (threshold chosen on the
+  train days: any adverse leader move). On the four test days it loses less on held inventory
+  (+$26.3k, 95% interval [+$7.6k, +$49.7k] over 48 follower-days) but gives up spread (-$13.7k,
+  [-$20.2k, -$8.6k]); the net +$12.6k ([-$5.2k, +$33.7k]) is not significant, better on 24 of 48.
+  The imbalance filter alone, by contrast, is: +$77.1k ([+$33.7k, +$108.4k]) over the plain joiner,
+  better on 38 of 40 symbol-days without fees, and +$57.9k ([+$13.3k, +$92.6k]) with the $0.0007
+  rebate; with the $0.002 rebate, which pays the joiner for its extra fills, +$39.2k is not
+  significant ([-$2.4k, +$69.5k]).
 
 Six years back, the same train fit scored on 2019-10-18 (`TEST=S101819`, symbols that existed
 then): each stock's own OFI slope no longer transfers (median R2 0.11) while the depth law still
@@ -518,7 +538,9 @@ day, so a check of direction, not of size: [microstructure-2019](docs/results/mi
 [maker-walkforward-2019](docs/results/maker-walkforward-2019.md).
 
 Full tables: [docs/results/microstructure.md](docs/results/microstructure.md),
-[docs/results/maker-walkforward.md](docs/results/maker-walkforward.md). The estimators are in
+[docs/results/maker-walkforward.md](docs/results/maker-walkforward.md),
+[docs/results/lead-lag.md](docs/results/lead-lag.md),
+[docs/results/leader-walkforward.md](docs/results/leader-walkforward.md). The estimators are in
 `src/strategy/microstructure.hpp`, unit-tested against the papers' cases and a chain with a known
 answer (`tests/microstructure_test.cpp`).
 

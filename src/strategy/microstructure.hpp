@@ -139,4 +139,48 @@ inline double r2_of(const std::vector<double>& pred, const std::vector<double>& 
     return sst > 0 ? 1 - sse / sst : NAN;
 }
 
+// Lead-lag: a mid move of one symbol (timestamp in ns, direction +1 / -1).
+struct Move {
+    std::uint64_t ts;
+    int dir;
+};
+inline constexpr std::uint64_t kLeadHorizon = 1'000'000'000;  // later answers do not count
+// Upper edges of the delay bins for same-direction answers, ns.
+inline constexpr std::array<std::uint64_t, 6> kLeadEdge = {1'000, 10'000, 100'000, 1'000'000, 10'000'000, kLeadHorizon};
+
+struct LeadResponse {
+    std::uint64_t leads = 0, answered = 0, same = 0;
+    std::array<std::uint64_t, kLeadEdge.size()> bins{};
+    std::vector<std::uint64_t> delays;  // same-direction delays, ns
+    void add(const LeadResponse& o) {
+        leads += o.leads, answered += o.answered, same += o.same;
+        for (std::size_t i = 0; i < bins.size(); ++i) bins[i] += o.bins[i];
+        delays.insert(delays.end(), o.delays.begin(), o.delays.end());
+    }
+};
+
+// For every move of a (shifted by `shift`; seconds give a placebo with no fast information): the
+// first move of b strictly after it, within kLeadHorizon, and whether it goes sign * a's way.
+inline LeadResponse lead_response(const std::vector<Move>& a, const std::vector<Move>& b, int sign,
+                                  std::uint64_t shift = 0) {
+    LeadResponse r;
+    std::size_t j = 0;
+    for (const Move& mv : a) {
+        const std::uint64_t t = mv.ts + shift;
+        ++r.leads;
+        while (j < b.size() && b[j].ts <= t) ++j;
+        if (j == b.size()) break;
+        const std::uint64_t d = b[j].ts - t;
+        if (d > kLeadHorizon) continue;
+        ++r.answered;
+        if (b[j].dir != sign * mv.dir) continue;
+        ++r.same;
+        r.delays.push_back(d);
+        std::size_t k = 0;
+        while (k + 1 < kLeadEdge.size() && d > kLeadEdge[k]) ++k;
+        ++r.bins[k];
+    }
+    return r;
+}
+
 }  // namespace hft::strategy::micro

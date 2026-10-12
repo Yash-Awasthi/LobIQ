@@ -70,6 +70,20 @@ for scenario in none cap30 cap10; do
             for (k in nt) {a+=nt[k]; c+=ft[k]; if (ft[k]>nt[k]) w++; n++}
             printf "\nTotal: joiner %.0f, filtered %.0f; the filter does better on %d of %d symbols.\n", a, c, w, n}' "$tmp/test"
     echo
+    echo "Paired by symbol-day (filtered minus joiner), sums with 95% bootstrap intervals over symbol-days:"
+    echo
+    echo "| | Sum (USD) | 95% interval |"
+    echo "|---|---|---|"
+    gawk -v best="$best" '{k=$1 FS $2; if ($3=="1.0"||$3=="1") {n[k]=$4; ns[k]=$5; ni[k]=$6} if ($3==best) {f[k]=$4; fs_[k]=$5; fi_[k]=$6}}
+        END{for (k in n) {m++; dt[m]=f[k]-n[k]; dsp[m]=fs_[k]-ns[k]; din[m]=fi_[k]-ni[k]; if (dt[m]>0) w++}
+            srand(1); split("total spread inventory", lab, " ");
+            for (c=1; c<=3; c++) {
+                sum=0; for (i=1; i<=m; i++) sum+=(c==1?dt[i]:c==2?dsp[i]:din[i]);
+                for (r=1; r<=10000; r++) { s=0; for (i=1; i<=m; i++) {j=int(rand()*m)+1; s+=(c==1?dt[j]:c==2?dsp[j]:din[j])} b[r]=s }
+                asort(b); printf "| %s | %.0f | [%.0f, %.0f] |\n", lab[c], sum, b[250], b[9750]
+            }
+            printf "\nBetter on %d of %d symbol-days.\n", w, m}' "$tmp/test"
+    echo
     echo "| Test day | Joiner total | Filtered total |"
     echo "|---|---|---|"
     for t in "${test[@]}"; do
