@@ -14,17 +14,23 @@ trap 'rm -rf "$tmp"' EXIT
 
 # Fee scenarios (micro-dollars per share; rebates assumed, the published tiers vary by member
 # volume): a mid-tier Nasdaq rebate under the 30 mil access-fee cap, a scaled one under the 10 mil
-# cap of amended Rule 610. Both add FINRA TAF and Section 31 on sells, by trade date: $0 per $1M
-# until 2026-04-03, $20.60 from 2026-04-04 (SEC fee rate advisory 2026-2).
+# cap of amended Rule 610. Both add FINRA TAF and Section 31 on sells at the rates in force on the
+# trade date (SEC fee rate advisories 2019-2, 2025-2, 2026-2; FINRA Schedule A).
 declare -A fees=([none]="maker_rebate=0" [cap30]="maker_rebate=2000" [cap10]="maker_rebate=700")
 declare -A title=([none]="No fees or rebates" [cap30]="30 mil cap: rebate \$0.0020 per share, Section 31 and TAF on sells"
                   [cap10]="10 mil cap (amended Rule 610): rebate \$0.0007 per share, Section 31 and TAF on sells")
-regulatory() {  # day scenario
+regulatory() {  # day scenario; fails for a date outside the known schedule
     [ "$2" = none ] && return
-    local ymd="20${1:5:2}${1:1:2}${1:3:2}" sec=0
-    [ "$ymd" -ge 20260404 ] && sec=20600000
-    echo "sec_fee_per_million=$sec taf_per_share=166 taf_max=8300000"
+    local ymd="20${1:5:2}${1:1:2}${1:3:2}"
+    if [ "$ymd" -ge 20260404 ]; then echo "sec_fee_per_million=20600000 taf_per_share=166 taf_max=8300000"
+    elif [ "$ymd" -ge 20250514 ]; then echo "sec_fee_per_million=0 taf_per_share=166 taf_max=8300000"
+    elif [ "$ymd" -ge 20190416 ] && [ "$ymd" -le 20200217 ]; then echo "sec_fee_per_million=20700000 taf_per_share=119 taf_max=5950000"
+    else return 1
+    fi
 }
+for t in "${train[@]}" "${test[@]}"; do
+    regulatory "$t" cap30 >/dev/null || { echo "no fee schedule for $t; add its rates to regulatory()" >&2; exit 2; }
+done
 run() {  # day thresholds scenario -> rows: symbol threshold total spread inventory fees fills
     # shellcheck disable=SC2086
     "$b/apps/itch_backtest" "$d/store-$1-v50" "$syms" imbalance ${fees[$3]} $(regulatory "$1" "$3") --sweep threshold="$2" | tail -n +2
