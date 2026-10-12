@@ -160,6 +160,9 @@ struct DayResult {
     Costs costs;
     std::vector<double> mid_1s;  // mid (ticks) at the end of every second of the window
     std::vector<HawkesFit> hawkes;  // one per half-hour window with enough mid changes
+    static constexpr std::size_t kWins = (kEnd - kStart) / kWindow;
+    // Per half-hour window: mid changes, quoted spread (ticks) summed over quote changes, branching ratio.
+    std::array<double, kWins> win_moves{}, win_spread{}, win_quotes{}, win_n{};
     std::uint64_t spread_obs[3] = {};  // 1 tick, 2 ticks, wider
 };
 
@@ -409,6 +412,10 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
         ++iv_events;
 
         const bool changed = !have_prev || !(cur == prev);
+        if (!g && changed) {
+            const std::uint64_t w = (ts - kStart) / kWindow;
+            if (w < DayResult::kWins) out.win_spread[w] += static_cast<double>(cur.ask_px - cur.bid_px) / tick, out.win_quotes[w] += 1;
+        }
         const std::uint32_t spread = (cur.ask_px - cur.bid_px) / tick;
         // A sub-cent spread (half-penny ticks, prices under $1) is neither 1 nor 2 ticks.
         const bool on_grid = (cur.ask_px - cur.bid_px) % tick == 0;
@@ -434,8 +441,13 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
     out.life.resting = static_cast<double>(born.size());
     if (!g && last_mid)
         while (out.mid_1s.size() < (kEnd - kStart) / kSec) out.mid_1s.push_back(last_mid);
-    for (const auto& m : moves)
-        if (m.size() >= 200) out.hawkes.push_back(fit_hawkes(m, static_cast<double>(kWindow) / kSec));
+    for (std::size_t w = 0; w < moves.size(); ++w) {
+        out.win_moves[w] = static_cast<double>(moves[w].size());
+        out.win_n[w] = NAN;
+        if (moves[w].size() < 200) continue;
+        out.hawkes.push_back(fit_hawkes(moves[w], static_cast<double>(kWindow) / kSec));
+        if (out.hawkes.back().ok) out.win_n[w] = out.hawkes.back().alpha / out.hawkes.back().beta;
+    }
     if (b.order_count() > 65536) slot.reset();
     return out;
 }
@@ -757,6 +769,29 @@ int main(int argc, char** argv) {
         if (by_size.shares[i] > 0)
             std::printf("| %s | %.0f | %.2f | %.2f | %.2f |\n", size_label[i], by_size.execs[i], by_size.eff[i] / by_size.shares[i],
                         by_size.real[i] / by_size.shares[i], by_size.impact[i] / by_size.shares[i]);
+
+    std::printf("\n## Intraday pattern\n\n");
+    std::printf("Per half-hour window, medians over every symbol-day: mid changes per minute, the quoted spread "
+                "averaged over quote changes, the best-level depth (bid + ask size) / 2 averaged over events, and the "
+                "Hawkes branching ratio of that window.\n\n");
+    std::printf("| Window (ET) | Mid changes / min | Spread (ticks) | Depth (shares) | Branching ratio |\n|---|---|---|---|---|\n");
+    for (std::size_t w = 0; w < DayResult::kWins; ++w) {
+        std::vector<double> mv, sp, dp, br;
+        for (const DayResult& r : res) {
+            if (r.win_quotes[w] == 0) continue;
+            mv.push_back(r.win_moves[w] / 30);
+            sp.push_back(r.win_spread[w] / r.win_quotes[w]);
+            if (std::isfinite(r.win_n[w])) br.push_back(r.win_n[w]);
+            double dsum = 0;
+            std::size_t dn = 0;
+            for (const Interval& iv : r.iv)
+                if (iv.window == w) dsum += iv.depth, ++dn;
+            if (dn) dp.push_back(dsum / static_cast<double>(dn));
+        }
+        const unsigned start = 600 + 30 * static_cast<unsigned>(w);
+        std::printf("| %02u:%02u-%02u:%02u | %.0f | %.2f | %.0f | %.2f |\n", start / 60, start % 60, (start + 30) / 60,
+                    (start + 30) % 60, median(mv), median(sp), median(dp), median(br));
+    }
 
     std::printf("\n## Volatility signature\n\n");
     std::printf("Realized variance of the mid over the window, sampled every k seconds (averaged over the k sampling "

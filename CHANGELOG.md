@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Intraday pattern.** Activity, spread, depth and branching ratio per half-hour window.
 - **Volatility signature.** `itch_study` compares realized variance at 1-60 s with 300 s sampling.
 - **Trade costs.** `itch_study` splits every execution's effective spread into realized spread and
   5 s price impact: the resting side loses 0.3-0.6 bp per share before rebates on every day.

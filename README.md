@@ -509,6 +509,10 @@ scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
   2019), but within 5 s the mid moves 0.85-1.71 bp their way, so the resting side's realized
   spread is negative on every day (-0.32 to -0.59 bp) and worse for bigger executions (-1.39 bp
   above 2,000 shares): before rebates, passive liquidity on these names loses money.
+- **Intraday pattern**: per half-hour, activity falls from about 700 mid changes a minute at 10:00 to
+  under 300 at midday, spreads narrow (1.77 to 1.42 ticks) and depth grows through the day, while
+  the Hawkes branching ratio stays at 0.51-0.52 in every window, so the self-excitation above is not
+  intraday seasonality.
 - **Volatility signature**: realized variance of the mid sampled every 1-60 s against every 300 s.
   The median ratio stays between 0.82 and 1.44 on every day (0.89-1.00 in 2019): on the mid, which
   has no bid-ask bounce, microstructure noise does not dominate even at 1 s for these names.
