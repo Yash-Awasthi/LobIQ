@@ -42,6 +42,9 @@ struct Result {
 
 // The longest cross in trading state on 2025-11-28 lasted 1.4 ms (post-halt uncrossing).
 constexpr std::uint64_t kPersistentCrossNs = 100'000'000;
+// A cross starting this close to an auction (Q message) is that auction's executions still being
+// reported: the SPCX IPO cross on 2026-06-12 left the book crossed for 680 ms.
+constexpr std::uint64_t kAuctionUncrossNs = 1'000'000;
 
 struct SymbolName {
     std::string& out;
@@ -96,8 +99,8 @@ Result replay(const std::filesystem::path& dir, std::uint16_t locate, std::uint6
     data::SymbolReader rd(dir, locate);
     data::Record rec{};
     book::Bbo last{};
-    std::uint64_t cross_start = 0;
-    bool in_cross = false;
+    std::uint64_t cross_start = 0, last_auction = 0;
+    bool in_cross = false, auction_cross = false;
     char state = 0;
     SymbolName sym{r.symbol, state};
     Flow<Book> flow{b};
@@ -111,10 +114,11 @@ Result replay(const std::filesystem::path& dir, std::uint16_t locate, std::uint6
         // A cross is persistent when it outlives the uncrossing burst after a halt.
         const book::Bbo cur = b.bbo();
         const bool both = cur.bid_px && cur.ask_px;
+        if (rec.data[0] == 'Q') last_auction = itch::detail::read_header(rec.data).timestamp;
         if (both && cur.bid_px > cur.ask_px && state == 'T') {
             const std::uint64_t ts = itch::detail::read_header(rec.data).timestamp;
-            if (!in_cross) cross_start = ts, in_cross = true;
-            r.max_cross_ns = std::max(r.max_cross_ns, ts - cross_start);
+            if (!in_cross) cross_start = ts, in_cross = true, auction_cross = last_auction && ts - last_auction < kAuctionUncrossNs;
+            if (!auction_cross) r.max_cross_ns = std::max(r.max_cross_ns, ts - cross_start);
         } else {
             in_cross = false;
         }
