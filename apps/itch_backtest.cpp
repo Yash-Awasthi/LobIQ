@@ -39,11 +39,7 @@ struct Name {
 std::uint16_t find_locate(const std::filesystem::path& store, const std::string& sym) {
     if (!sym.empty() && std::all_of(sym.begin(), sym.end(), [](char c) { return c >= '0' && c <= '9'; }))
         return static_cast<std::uint16_t>(std::stoul(sym));
-    if (std::ifstream tsv(store / "symbols.tsv"); tsv) {  // written by ingest: "<locate>\t<symbol>"
-        std::string loc, name;
-        while (tsv >> loc >> name)
-            if (name == sym) return static_cast<std::uint16_t>(std::stoul(loc));
-    }
+    if (const auto m = data::read_symbols(store); m.contains(sym)) return m.at(sym);
     for (const auto& e : std::filesystem::directory_iterator(store)) {
         if (e.path().extension() != ".idx") continue;
         const auto loc = static_cast<std::uint16_t>(std::stoul(e.path().stem().string()));

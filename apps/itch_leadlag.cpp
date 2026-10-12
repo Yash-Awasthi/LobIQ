@@ -66,14 +66,6 @@ std::vector<Move> mid_moves(const fs::path& dir, std::uint16_t loc) {
     return out;
 }
 
-std::map<std::string, std::uint16_t> symbols(const fs::path& store) {
-    std::map<std::string, std::uint16_t> m;
-    std::ifstream tsv(store / "symbols.tsv");
-    std::string loc, name;
-    while (tsv >> loc >> name) m[name] = static_cast<std::uint16_t>(std::stoul(loc));
-    return m;
-}
-
 std::vector<std::string> split(const std::string& v, char c) {
     std::vector<std::string> out;
     std::size_t i = 0;
@@ -119,7 +111,7 @@ int main(int argc, char** argv) {
 
     // Every needed symbol-day once.
     std::vector<std::map<std::string, std::uint16_t>> names;
-    for (const auto& s : stores) names.push_back(symbols(s));
+    for (const auto& s : stores) names.push_back(data::read_symbols(s));
     std::vector<std::pair<std::size_t, std::string>> jobs;
     for (std::size_t d = 0; d < stores.size(); ++d)
         for (const auto& p : pairs)

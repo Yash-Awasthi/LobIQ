@@ -186,32 +186,6 @@ double realized_var(const std::vector<double>& m, std::size_t k) {
     return sum / static_cast<double>(k);
 }
 
-struct Name {
-    std::string s;
-    void operator()(const itch::StockDirectory& m) {
-        s.assign(m.stock, 8);
-        s.erase(s.find_last_not_of(' ') + 1);
-    }
-    template <class T>
-    void operator()(const T&) {}
-};
-
-std::string read_symbol(const fs::path& dir, std::uint16_t loc) {
-    data::SymbolReader rd(dir, loc);
-    data::Record rec{};
-    Name n;
-    for (int i = 0; i < 64 && n.s.empty() && rd.next(rec); ++i) itch::dispatch(rec.data, rec.len, n);
-    return n.s;
-}
-
-std::vector<std::uint16_t> locates(const fs::path& dir) {
-    std::vector<std::uint16_t> v;
-    for (const auto& e : fs::directory_iterator(dir))
-        if (e.path().extension() == ".idx") v.push_back(static_cast<std::uint16_t>(std::stoul(e.path().stem().string())));
-    std::sort(v.begin(), v.end());
-    return v;
-}
-
 struct State {
     char trading = 'T';  // real feeds send H before the open; synthetic days send none
     void operator()(const itch::TradingAction& m) { trading = m.state; }
@@ -550,13 +524,11 @@ int main(int argc, char** argv) {
 
     // Universe: the most active symbols of the first train day that trade on every day.
     std::vector<std::map<std::string, std::uint16_t>> by_name(days.size());
-    for (std::size_t d = 0; d < days.size(); ++d) {
-        const auto locs = locates(days[d]);
-        std::vector<std::string> names(locs.size());
-        parallel_for(locs.size(), [&](std::size_t i) { names[i] = read_symbol(days[d], locs[i]); });
-        for (std::size_t i = 0; i < locs.size(); ++i)
-            if (!names[i].empty()) by_name[d][names[i]] = locs[i];
-    }
+    for (std::size_t d = 0; d < days.size(); ++d)
+        if ((by_name[d] = data::read_symbols(days[d])).empty()) {
+            std::fprintf(stderr, "no symbols.tsv in %s (written by ingest)\n", days[d].c_str());
+            return 2;
+        }
     std::vector<std::pair<std::uint64_t, std::string>> active;
     for (const auto& [name, loc] : by_name[0]) {
         bool everywhere = true;
