@@ -49,3 +49,21 @@ for rebate in 0 2000; do
             for (k in nt) {a+=nt[k]; c+=ft[k]; if (ft[k]>nt[k]) w++; n++}
             printf "\nTotal: joiner %.0f, filtered %.0f; the filter does better on %d of %d symbols.\n", a, c, w, n}' "$tmp/test"
 done
+
+echo
+echo "## Latency"
+echo
+echo "The same two strategies on the test days, no fees, with market data and order entry each"
+echo "delayed by the one-way latency shown (the live path measures about 9 us from kernel receive"
+echo "to decision, docs/exec/PERF.md R16; a co-located venue round trip adds a few microseconds)."
+echo
+echo "| One-way latency | Joiner total | Filtered total | Filtered fills |"
+echo "|---|---|---|---|"
+for ns in 0 5000 50000 500000 5000000; do
+    for t in "${test[@]}"; do
+        "$b/apps/itch_backtest" "$d/store-$t-v50" "$syms" imbalance market_data_ns=$ns order_entry_ns=$ns \
+            --sweep threshold="$best,1.0" | tail -n +2
+    done | awk -v ns=$ns -v best="$best" '{if ($2=="1.0"||$2=="1") j+=$3; if ($2==best) {f+=$3; n+=$7}}
+        END{lat = ns >= 1000000 ? sprintf("%g ms", ns/1e6) : ns >= 1000 ? sprintf("%g us", ns/1e3) : "0";
+            printf "| %s | %.0f | %.0f | %d |\n", lat, j, f, n}'
+done

@@ -442,7 +442,8 @@ scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
   them (adverse selection outweighs the spread). Pulling the side the imbalance points against,
   with the threshold chosen on the train days, loses about 70% less on the test days (-$20.2k against
   -$68.5k without fees; -$10.0k against -$35.1k with a $0.002 rebate), better on all 10 symbols
-  and profitable on four; still a net loss, reported as measured.
+  and profitable on four; still a net loss, reported as measured. The filter's edge decays with
+  latency: -$20.2k at zero, -$22.1k at 5 µs, -$25.7k at 50 µs and -$31.1k at 5 ms one way.
 
 Full tables: [docs/results/microstructure.md](docs/results/microstructure.md),
 [docs/results/maker-walkforward.md](docs/results/maker-walkforward.md). The estimators are in

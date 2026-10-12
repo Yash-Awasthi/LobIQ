@@ -74,3 +74,17 @@ Test days (USD per symbol, both days summed):
 | SPY | -7927 | -48214 | -6833 | -12801 | 174488 / 37934 |
 
 Total: joiner -35106, filtered -10020; the filter does better on 10 of 10 symbols.
+
+## Latency
+
+The same two strategies on the test days, no fees, with market data and order entry each
+delayed by the one-way latency shown (the live path measures about 9 us from kernel receive
+to decision, docs/exec/PERF.md R16; a co-located venue round trip adds a few microseconds).
+
+| One-way latency | Joiner total | Filtered total | Filtered fills |
+|---|---|---|---|
+| 0 | -68463 | -20163 | 137540 |
+| 5 us | -59214 | -22060 | 133886 |
+| 50 us | -61526 | -25674 | 146966 |
+| 500 us | -67039 | -25429 | 171529 |
+| 5 ms | -56120 | -31123 | 171293 |
