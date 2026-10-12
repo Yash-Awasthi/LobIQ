@@ -10,6 +10,9 @@
 - **Bare-metal Arch.** Book p99 156-159 ns (WSL2: 244-261 ns), worst case 0.33-0.37 ms
   (1-8 ms) (`docs/exec/HW.md` H13-H14). Hardware counters now count on both P- and E-cores;
   the build passes on GCC 16.
+- **Study rigor and data.** Results per test day, 95% bootstrap intervals over symbols, fee
+  scenarios for the 30 and 10 mil access-fee caps, an end-to-end test of `itch_study` on synthetic
+  days, and `ingest_day.sh` downloading through 16 connections (the server throttles each).
 - **Microstructure study.** `itch_study` reproduces Cont-Kukanov-Stoikov order flow imbalance
   (lambda = 1.01) and Stoikov's micro-price out of sample; a walk-forward maker test shows an
   imbalance filter cutting losses about 70% (docs/results).
