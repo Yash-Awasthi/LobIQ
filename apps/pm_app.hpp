@@ -752,6 +752,7 @@ int live(const Options& o) {
                 if (p == "/metrics") return net::HttpResponse{200, "text/plain; version=0.0.4", metrics.page(names, feeds).first};
                 if (p == "/metrics.json") return net::HttpResponse{200, "application/json", metrics.page(names, feeds).second};
                 if (p == "/") return net::HttpResponse{200, "text/html; charset=utf-8", std::string(kDashboard)};
+                if (p == "POST /kill") return g_kill = true, net::HttpResponse{200, "text/plain", "kill switch set\n"};
                 return net::HttpResponse{404, "text/plain", "not found\n"};
             });
         }

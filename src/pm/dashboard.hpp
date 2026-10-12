@@ -28,7 +28,8 @@ canvas{width:100%;height:140px;display:block}
 th:first-child,td:first-child{text-align:left;max-width:320px;overflow:hidden;text-overflow:ellipsis}
 .key{display:inline-block;width:10px;height:2px;vertical-align:middle;margin:0 4px 0 10px}
 </style></head><body>
-<header><h1>pm_live</h1><span class="mute" id="status">connecting</span><span class="mute">paper trading, no orders sent</span></header>
+<header><h1>pm_live</h1><span class="mute" id="status">connecting</span><span class="mute">paper trading, no orders sent</span>
+<button id="kill" style="margin-left:auto">Kill switch</button></header>
 <main>
 <div class="kpis" id="kpis"></div>
 <section><h2>Messages per second</h2><canvas id="c-rate"></canvas></section>
@@ -73,6 +74,8 @@ async function tick(){try{const m=await (await fetch('/metrics.json',{cache:'no-
  table('t-tok',['token','book bid','book ask','our bid','our ask','inventory','PnL','quotes','on'],
   m.tokens.map(t=>[esc(t.label),px(t.best_bid),px(t.best_ask),px(t.bid),px(t.ask),t.inv,t.pnl,t.quotes,t.on?'yes':'no']));
 }catch(e){document.getElementById('status').textContent='no data: '+e}}
+document.getElementById('kill').onclick=async()=>{if(!confirm('Cancel every paper order and stop quoting?'))return;
+ const r=await fetch('/kill',{method:'POST',headers:{'X-Hft-Kill':'1'}});document.getElementById('kill').textContent=r.ok?'Killed':'Kill failed'};
 setInterval(tick,1000);tick();
 </script></body></html>
 )HTML";

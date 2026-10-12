@@ -26,11 +26,12 @@ jobs:
           mkdir -p "$name/bin"
           find build/release/apps -maxdepth 1 -type f -executable -exec cp {} "$name/bin/" \;
           cp -r scripts config data README.md CHANGELOG.md LICENSE "$name/"
+          ln -s ../scripts/hft "$name/bin/hft"
           cp docs/STRATEGIES.md "$name/"
           {
             echo "Linux x86-64, Ubuntu 24.04 or newer (glibc 2.39, OpenSSL 3)."
             echo "Demos: HFT_BIN=bin scripts/demo/all.sh out, then open out/index.html."
-            echo "Tools are in bin/; each prints its usage when run without arguments."
+            echo "Start with bin/hft help (put bin/ on PATH); each tool in bin/ prints its usage when run without arguments."
           } > "$name/RUN.txt"
           tar czf "$name.tar.gz" "$name"
           sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"

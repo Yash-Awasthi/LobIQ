@@ -26,15 +26,39 @@ Your own strategies plug into both markets by name, and every run can write an H
 |---|---|
 | [![paper report](docs/img/paper-report.png)](https://yash-awasthi.github.io/hft/paper/report.html) | [![sweep report](docs/img/sweep-report.png)](docs/img/sweep-report.png) |
 
-Contents: [Try it](#try-it) · [Plug in a strategy](#plug-in-a-strategy) · [Highlights](#highlights) ·
+Contents: [Use it](#use-it) · [Plug in a strategy](#plug-in-a-strategy) · [Highlights](#highlights) ·
 [Architecture](#architecture) · [Performance](#performance) · [Tests](#tests) ·
 [Build and run](#build-and-run) · [Prediction markets](#prediction-markets) ·
 [Live paper trading](#live-paper-trading) · [Paper execution](#paper-execution) ·
 [Market microstructure research](#market-microstructure-research) · [Not planned](#not-planned)
 
-## Try it
+## Use it
 
-With Docker or Podman, on any OS:
+Two products behind one command, `hft` (`scripts/hft`; `bin/hft` in a release):
+
+**1. Backtest on real Nasdaq order flow.** Fetch any day Nasdaq publishes, rebuild every order
+book, and test a strategy against the real queues, with latency, fees and an HTML report:
+
+```
+hft get 2025-12-10                          # download (16 connections), verify, build the store
+hft replay 2025-12-10                       # every book of the day, invariants checked: 847M messages
+hft strategies                              # built in and your own (strategies/*.cpp)
+hft backtest 2025-12-10 INTC,AAPL avellaneda_stoikov gamma=0.05     # -> report.html
+hft study 2025-12-08,2025-12-09 2025-12-10  # order flow imbalance, micro-price, queue value
+```
+
+**2. Paper-trade the live prediction market.** Market makers and an arbitrage executor run on
+Polymarket's live order books through risk checks, an order manager and a simulated venue; no
+order is ever sent. A dashboard on localhost shows latency, positions and PnL, with a kill switch:
+
+```
+hft live 30                                 # 30 minutes; open the dashboard URL it prints
+hft runs                                    # past runs, PnL, killed or not
+hft review 20261012T172311                  # replay a run bit for bit, write its report
+```
+
+`hft doctor` checks the tools, the data and the machine tuning; `hft demo` runs every demo on
+bundled data. Without building anything, with Docker or Podman:
 
 ```
 docker run --rm -v "$PWD/out:/hft/out" ghcr.io/yash-awasthi/hft
@@ -42,15 +66,13 @@ docker run --rm -v "$PWD/out:/hft/out" ghcr.io/yash-awasthi/hft
 
 That writes HTML reports to `./out` (open `out/index.html`): strategies backtested on a synthetic
 Nasdaq session, a parameter sweep, and paper execution replayed on a bundled 20-minute recording of
-the live prediction-market feed (`data/sample`). Each demo checks its result against a fixed value.
-The image is built and fully tested by CI; `docker build -t hft .` builds it locally, and
-`--target build` gives the whole toolchain for writing strategies.
+the live feed (`data/sample`), each checked against a fixed value.
 
 From source (Linux, a C++23 compiler, CMake, Ninja, OpenSSL, vcpkg):
 
 ```
-cmake --preset release && cmake --build build/release && ctest --test-dir build/release
-scripts/demo/all.sh                     # the same demos; reports in out/
+cmake --preset native && cmake --build build/native && ctest --test-dir build/native
+export PATH="$PWD/scripts:$PATH"            # puts hft on the PATH
 ```
 
 ## Plug in a strategy
@@ -95,7 +117,7 @@ the sections below.
 - **Determinism:** a live session replays from its recording to bit-identical decisions,
   checked by hash, under GCC and Clang; so do fault-injected runs and kill-switch runs.
 - **Correctness:** zero heap allocations on the hot path in steady state; property tests against
-  reference implementations; 314 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
+  reference implementations; 315 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
   campaigns at 20-30% dropped, duplicated and delayed reports with zero illegal order states.
 - **FPGA feed parser (simulated):** ITCH 5.0 in SystemVerilog, 8 bytes per clock, one message
   per clock, output one clock after a message's last byte; field-identical to the C++ decoder in
@@ -229,7 +251,7 @@ replay is unchanged within noise. A lookahead prefetch on the per-symbol path wa
 
 ## Tests
 
-`ctest` runs 314 tests: GoogleTest, RapidCheck and an end-to-end study run (310 under the sanitizers, which leave out
+`ctest` runs 315 tests: GoogleTest, RapidCheck and end-to-end runs of `hft` and `itch_study` (311 under the sanitizers, which leave out
 `alloc_test`); one (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine
 exposes no hardware performance counters.
 

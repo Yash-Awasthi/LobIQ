@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **One command, two products.** `hft` fetches, replays, backtests and studies Nasdaq days, and
+  runs, lists and reviews live paper-trading sessions; the dashboard gained a kill switch
+  (POST with a custom header, so other sites cannot trigger it). Shipped as `bin/hft` in releases.
+
 - **FPGA ITCH parser.** `fpga/itch_parser.sv` parses a BinaryFILE stream at 8 bytes per clock
   and emits one decoded message per clock, one clock after its last byte. A Verilator testbench
   checks it field by field against the C++ decoder; CI runs it.
