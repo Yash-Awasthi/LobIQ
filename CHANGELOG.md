@@ -16,6 +16,8 @@
 - **Isolated cores.** CPUs 4-7 isolated: doorbell futex wake max 2.8 ms -> 52-65 us, 6-7 us with
   the waking core kept out of deep idle; uncore pinned at 4.3 GHz cuts book p50 10% and
   cross-core wake 18% (`docs/exec/HW.md` H14, H17-H18).
+- **Book worst case 300 -> 40 us.** Pools grow by moving pages instead of copying them; a full
+  Nasdaq day replays 9% faster (docs/exec/PERF.md R15).
 
 ## v1.1 (2026-10-11)
 
