@@ -6,14 +6,7 @@ before and after, and every phase ends with CI green on all presets.
 
 Target machine: i7-13650HX (6 P-cores, 8 E-cores, AVX2, no AVX-512) on bare-metal Arch Linux,
 with hardware performance counters and isolated cores (docs/exec/HW.md). Finished phases are
-in [CHANGELOG.md](../CHANGELOG.md) and the git history.
-
-## P10. Isolated cores (open, needs a reboot with the new boot line)
-
-- Spin mode and futex wake latency on CPUs 4-7, and worst-case latency with and without
-  isolation (HW.md H14). After the reboot, check `cat /sys/devices/system/cpu/isolated` prints
-  `4-7`, apply BARE_METAL.md step 5, then rerun the H13-H14 commands and
-  `build/native/bench/wake_bench 4 6 futex|spin 50000 100` against the numbers there.
+in [CHANGELOG.md](../CHANGELOG.md) and the git history. Nothing is open.
 
 ## Not planned
 

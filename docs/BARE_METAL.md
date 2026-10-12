@@ -53,6 +53,13 @@ With the BIOS GPU mode set to discrete only, the panel is driven by the Nvidia G
     echo 1 | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo    # stable clock; 0 for speed
     echo madvise | sudo tee /sys/kernel/mm/transparent_hugepage/enabled
     sudo sysctl kernel.perf_event_paranoid=1                           # perf stat counters
+    sudo modprobe intel_uncore_frequency                               # L3 and memory path at full clock
+    echo 4300000 | sudo tee /sys/devices/system/cpu/intel_uncore_frequency/package_00_die_00/min_freq_khz
+
+Only for a thread that sleeps on the doorbell instead of spinning, keep its core out of deep
+idle (here CPU 6; never the SMT sibling of a busy core, docs/exec/HW.md H17):
+
+    for s in 1 2 3; do echo 1 | sudo tee /sys/devices/system/cpu/cpu6/cpuidle/state$s/disable; done
 
 Hybrid CPU: plain `perf -e cycles` counts only on one core type; use `cpu_core/cycles/` for
 P-cores and `cpu_atom/cycles/` for E-cores.
