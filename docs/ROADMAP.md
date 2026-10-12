@@ -6,12 +6,7 @@ before and after, and every phase ends with CI green on all presets.
 
 Target machine: i7-13650HX (6 P-cores, 8 E-cores, AVX2, no AVX-512) on bare-metal Arch Linux,
 with hardware performance counters and isolated cores (docs/exec/HW.md). Finished phases are
-in [CHANGELOG.md](../CHANGELOG.md) and the git history.
-
-## P10. Isolated cores (open, needs a reboot with the new boot line)
-
-- Spin mode and futex wake latency on CPUs 4-7, and worst-case latency with and without
-  isolation (HW.md H14).
+in [CHANGELOG.md](../CHANGELOG.md) and the git history. Nothing is open.
 
 ## Not planned
 
