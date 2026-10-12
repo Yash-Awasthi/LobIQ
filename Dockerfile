@@ -29,5 +29,5 @@ COPY --from=build /src/config/ config/
 COPY --from=build /src/data/sample/ data/sample/
 COPY --from=build /src/docs/STRATEGIES.md /src/README.md ./
 RUN find build/release/apps -mindepth 1 -maxdepth 1 ! -type f -exec rm -rf {} +
-ENV PATH=/hft/build/release/apps:$PATH HFT_BIN=/hft/build/release/apps
+ENV PATH=/hft/scripts:/hft/build/release/apps:$PATH HFT_BIN=/hft/build/release/apps
 CMD ["scripts/demo/all.sh", "/hft/out"]
