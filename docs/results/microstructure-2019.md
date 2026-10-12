@@ -125,6 +125,16 @@ By execution size, all days:
 | 501-2,000 | 39738 | 0.98 | -0.72 | 1.70 |
 | over 2,000 | 3713 | 1.26 | -0.60 | 1.86 |
 
+## Volatility signature
+
+Realized variance of the mid over the window, sampled every k seconds (averaged over the k sampling offsets), divided by the same at 300 s. Without microstructure noise the ratio would be 1 at every k; bid-ask bounce and tick discreteness push it away at short k (Andersen, Bollerslev, Diebold and Labys 2000). Medians over the 30 symbols; window volatility from the 300 s sampling. RV(300 s) rests on 66 returns per symbol-day, so each ratio carries roughly 17% sampling error; a ratio below 1 means moves continued rather than reversed at the longer scale.
+
+| Day | RV(1 s) / RV(300 s) | RV(5 s) / RV(300 s) | RV(10 s) / RV(300 s) | RV(30 s) / RV(300 s) | RV(60 s) / RV(300 s) | Window volatility (bp) |
+|---|---|---|---|---|---|---|
+| 2025-12-08 | 1.19 | 1.20 | 1.19 | 1.12 | 1.08 | 109 |
+| 2025-12-09 | 1.41 | 1.36 | 1.33 | 1.32 | 1.29 | 72 |
+| 2019-10-18 | 1.00 | 0.92 | 0.89 | 0.89 | 0.90 | 87 |
+
 ## Self-excitation of mid-price changes (Hawkes)
 
 An exponential Hawkes process (intensity mu + alpha sum exp(-beta (t - t_i))) fitted by maximum likelihood to the mid-change times of each symbol in each half-hour window with at least 200 changes (`fit_hawkes`, checked against simulated processes in tests/microstructure_test.cpp). The branching ratio n = alpha / beta is the share of changes triggered by earlier ones; Filimonov and Sornette (2012) report it rising toward 1 over the 2000s. 1 / beta is how long the excitation lasts. Half-hour windows limit the intraday seasonality that can masquerade as excitation.
@@ -148,3 +158,4 @@ An exponential Hawkes process (intensity mu + alpha sum exp(-beta (t - t_i))) fi
 - C. Moallemi, K. Yuan. A model for queue position valuation in a limit order book. Working paper, Columbia University, 2017.
 - J. Hasbrouck, G. Saar. Technology and liquidity provision: the blurring of traditional definitions. Journal of Financial Markets 12(2), 143-172, 2009.
 - V. Filimonov, D. Sornette. Quantifying reflexivity in financial markets: toward a prediction of flash crashes. Physical Review E 85, 056108, 2012.
+- T. Andersen, T. Bollerslev, F. Diebold, P. Labys. Great realizations. Risk 13, 105-108, 2000.

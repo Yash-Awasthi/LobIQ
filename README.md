@@ -509,6 +509,9 @@ scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
   2019), but within 5 s the mid moves 0.85-1.71 bp their way, so the resting side's realized
   spread is negative on every day (-0.32 to -0.59 bp) and worse for bigger executions (-1.39 bp
   above 2,000 shares): before rebates, passive liquidity on these names loses money.
+- **Volatility signature**: realized variance of the mid sampled every 1-60 s against every 300 s.
+  The median ratio stays between 0.82 and 1.44 on every day (0.89-1.00 in 2019): on the mid, which
+  has no bid-ask bounce, microstructure noise does not dominate even at 1 s for these names.
 - **Self-excitation** (Hawkes, after Filimonov and Sornette 2012): an exponential Hawkes process fitted
   by maximum likelihood (checked on simulated processes) to each symbol's mid changes per half-hour.
   The branching ratio, the share of changes triggered by earlier ones, is 0.50-0.53 on every 2025-26
