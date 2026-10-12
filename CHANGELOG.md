@@ -13,6 +13,9 @@
 - **Bare-metal performance.** Tick book 5% fewer cycles per event (branchless order unlink);
   profile-guided `pm_live` parse 9% faster; all five ITCH days replay at about 11M frames/s;
   lz4 kept over zstd (docs/exec/PERF.md R11-R14).
+- **Isolated cores.** CPUs 4-7 isolated: doorbell futex wake max 2.8 ms -> 52-65 us, 6-7 us with
+  the waking core kept out of deep idle; uncore pinned at 4.3 GHz cuts book p50 10% and
+  cross-core wake 18% (`docs/exec/HW.md` H14, H17-H18).
 
 ## v1.1 (2026-10-11)
 
