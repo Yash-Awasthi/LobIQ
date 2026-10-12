@@ -106,6 +106,25 @@ Every limit order added between 10:00 and 15:30 ET on the 30 symbols, followed b
 | 2025-12-09 | 36.9M | 26.2% | 12.2% | 16.5% | 25.3% | 5.6% | 11.3% | 85.8% | 2.7% | 0.2% |
 | 2019-10-18 | 10.2M | 13.2% | 8.8% | 14.1% | 23.8% | 10.5% | 26.5% | 70.4% | 2.8% | 0.3% |
 
+## Trade costs (SEC Rule 605 style)
+
+Every visible execution in the window on the 30 symbols, signed by its taker's side (the resting order's opposite). Effective half-spread: the price against the mid just before the trade; realized spread: against the mid 5 s later, what the resting side kept; price impact: how far the mid moved with the taker in those 5 s. Effective = realized + impact. Basis points, weighted by shares.
+
+| Day | Executions | Shares | Effective half-spread (bp) | Realized spread (bp) | Price impact (bp) |
+|---|---|---|---|---|---|
+| 2025-12-08 | 1.7M | 110M | 0.83 | -0.46 | 1.29 |
+| 2025-12-09 | 1.2M | 76M | 0.59 | -0.35 | 0.93 |
+| 2019-10-18 | 0.4M | 40M | 0.84 | -0.42 | 1.26 |
+
+By execution size, all days:
+
+| Shares per execution | Executions | Effective (bp) | Realized (bp) | Impact (bp) |
+|---|---|---|---|---|
+| 1-100 | 2910422 | 0.58 | -0.26 | 0.84 |
+| 101-500 | 268921 | 0.77 | -0.45 | 1.21 |
+| 501-2,000 | 39738 | 0.98 | -0.72 | 1.70 |
+| over 2,000 | 3713 | 1.26 | -0.60 | 1.86 |
+
 ## Self-excitation of mid-price changes (Hawkes)
 
 An exponential Hawkes process (intensity mu + alpha sum exp(-beta (t - t_i))) fitted by maximum likelihood to the mid-change times of each symbol in each half-hour window with at least 200 changes (`fit_hawkes`, checked against simulated processes in tests/microstructure_test.cpp). The branching ratio n = alpha / beta is the share of changes triggered by earlier ones; Filimonov and Sornette (2012) report it rising toward 1 over the 2000s. 1 / beta is how long the excitation lasts. Half-hour windows limit the intraday seasonality that can masquerade as excitation.

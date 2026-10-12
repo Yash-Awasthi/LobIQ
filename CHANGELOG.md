@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Trade costs.** `itch_study` splits every execution's effective spread into realized spread and
+  5 s price impact: the resting side loses 0.3-0.6 bp per share before rebates on every day.
 - **Hawkes self-excitation.** `fit_hawkes` (maximum likelihood, tested on simulated processes);
   the branching ratio of mid changes is about 0.5 with sub-millisecond memory, 2019 to 2026.
 - **Order lifetimes.** `itch_study` follows every order to its end: 86-94% of orders in 2025-26 are
