@@ -88,6 +88,11 @@ Measured on a laptop (i7-13650HX, turbo off, WSL2); sources in the sections belo
 - **FPGA feed parser (simulated):** ITCH 5.0 in SystemVerilog, 8 bytes per clock, one message
   per clock, output one clock after a message's last byte; field-identical to the C++ decoder in
   Verilator on a 375k-message synthetic day and 200k random frames.
+- **Microstructure research, out of sample:** on four Nasdaq days, fitted on two and tested on
+  two, order flow imbalance explains a median 60% of 10 s price changes, and the depth law of
+  Cont, Kukanov and Stoikov comes out at lambda = 1.01 (paper: about 1); Stoikov's micro-price
+  cuts next-mid prediction error by 12.4% against 2.3% for the size-weighted mid. An imbalance
+  filter chosen on the train days cuts a market maker's test-day loss by about 70%, better on 10 of 10 symbols.
 - **Honest results:** the obvious arbitrage loses money after fees and latency on recorded data
   (-67.45 USD over 61 attempts); reported as measured, with no thresholds tuned afterwards.
 
@@ -411,6 +416,38 @@ touch runs/today/KILL                                              # or SIGUSR1:
   of a near-resolved pair has usually moved by the time the order arrives.
 - Full tables and their commands: [docs/exec/RESULTS.md](docs/exec/RESULTS.md); demos with
   fixed hashes: `scripts/demo/`.
+
+## Market microstructure research
+
+Two published results reproduced on this repository's own L3 data, with every parameter fitted on
+2025-12-08 and 12-09 and scored unchanged on 12-10 and 12-11 (30 most active symbols, 10:00 to
+15:30 ET). One command each, about 15 s and 3 minutes on 16 threads:
+
+```
+scripts/study.sh > docs/results/microstructure.md          # itch_study: OFI and micro-price
+scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
+```
+
+- **Order flow imbalance** ([Cont, Kukanov and Stoikov 2014](https://arxiv.org/abs/1011.6402)):
+  price changes over 10 s are linear in the order flow at the best quotes. Median R2 0.72 in
+  sample and 0.60 on the test days. The slope falls with depth as 1 / depth^lambda with lambda =
+  1.01 (log-fit R2 0.94 over 660 half-hour windows); that single two-parameter law, applied to
+  every stock, scores a median 0.61 out of sample, as good as each stock's own slope.
+- **Micro-price** ([Stoikov 2018](https://doi.org/10.1080/14697688.2018.1489139)): a Markov chain
+  on (imbalance, spread) states, estimated from symmetrised train transitions, gives the expected
+  future mid. On the test days it reduces the squared error against the next mid change by a
+  median 12.4% (21 large-tick symbols), where the size-weighted mid manages 2.3% and is worse
+  than the plain mid on 9 of them. The fitted adjustment runs from -0.39 to +0.39 ticks.
+- **Does it pay?** Joining the best bid and ask on 10 large-tick symbols loses on every one of
+  them (adverse selection outweighs the spread). Pulling the side the imbalance points against,
+  with the threshold chosen on the train days, loses about 70% less on the test days (-$20.2k against
+  -$68.5k without fees; -$10.0k against -$35.1k with a $0.002 rebate), better on all 10 symbols
+  and profitable on four; still a net loss, reported as measured.
+
+Full tables: [docs/results/microstructure.md](docs/results/microstructure.md),
+[docs/results/maker-walkforward.md](docs/results/maker-walkforward.md). The estimators are in
+`src/strategy/microstructure.hpp`, unit-tested against the papers' cases and a chain with a known
+answer (`tests/microstructure_test.cpp`).
 
 ## Not planned
 

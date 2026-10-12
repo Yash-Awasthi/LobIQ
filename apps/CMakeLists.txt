@@ -45,3 +45,6 @@ target_link_libraries(itch_backtest PRIVATE hft_core hft_data)
 
 add_executable(pm_arb pm_arb.cpp)
 target_link_libraries(pm_arb PRIVATE hft_core zstd::libzstd Threads::Threads)
+
+add_executable(itch_study itch_study.cpp)
+target_link_libraries(itch_study PRIVATE hft_core hft_data)
