@@ -17,6 +17,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <random>
 #include <set>
 #include <string>
 #include <thread>
@@ -126,7 +127,7 @@ void parallel(std::size_t n, F&& f) {
 }
 
 struct State {
-    char trading = 0;
+    char trading = 'T';  // real feeds send H before the open; synthetic days send none
     void operator()(const itch::TradingAction& m) { trading = m.state; }
     template <class T>
     void operator()(const T&) {}
@@ -290,7 +291,9 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
 
         const bool changed = !have_prev || !(cur == prev);
         const std::uint32_t spread = (cur.ask_px - cur.bid_px) / tick;
-        out.spread_obs[std::min<std::uint32_t>(spread, 3) - 1] += changed;
+        // A sub-cent spread (half-penny ticks, prices under $1) is neither 1 nor 2 ticks.
+        const bool on_grid = (cur.ask_px - cur.bid_px) % tick == 0;
+        out.spread_obs[on_grid && spread == 1 ? 0 : on_grid && spread == 2 ? 1 : 2] += changed;
         if (changed && spread >= 1 && spread <= 2 && (cur.ask_px - cur.bid_px) % tick == 0) {
             const double imb = static_cast<double>(cur.bid_qty) / static_cast<double>(cur.bid_qty + cur.ask_qty);
             const int x = state_of(static_cast<int>(spread), imb);
@@ -331,9 +334,30 @@ std::string day_of(const fs::path& p) {
 }
 
 double median(std::vector<double> v) {
+    std::erase_if(v, [](double x) { return std::isnan(x); });
     if (v.empty()) return NAN;
     std::sort(v.begin(), v.end());
     return v[v.size() / 2];
+}
+
+// Median with a 95% bootstrap interval over symbols (fixed seed: the report is reproducible).
+std::string median_ci(const std::vector<double>& v, double scale = 1, const char* fmt = "%.2f") {
+    std::vector<double> x;
+    for (double e : v)
+        if (!std::isnan(e)) x.push_back(e * scale);
+    if (x.empty()) return "n/a";
+    std::mt19937_64 rng(1);
+    std::uniform_int_distribution<std::size_t> pick(0, x.size() - 1);
+    std::vector<double> meds, b(x.size());
+    for (int r = 0; r < 2000; ++r) {
+        for (double& e : b) e = x[pick(rng)];
+        meds.push_back(median(b));
+    }
+    std::sort(meds.begin(), meds.end());
+    char out[96], f[64];
+    std::snprintf(f, sizeof f, "%s [%s, %s]", fmt, fmt, fmt);
+    std::snprintf(out, sizeof out, f, median(x), meds[50], meds[1949]);
+    return out;
 }
 
 }  // namespace
@@ -449,6 +473,7 @@ int main(int argc, char** argv) {
     std::printf("| Symbol | Mean depth (sh) | beta (ticks per 1,000 sh) | R2 train | R2 test, own beta | R2 test, universal |\n");
     std::printf("|---|---|---|---|---|---|\n");
     std::vector<double> r2_own, r2_uni, r2_in;
+    std::vector<std::vector<double>> day_own(D), day_uni(D), day_micro(D), day_wmid(D);  // per test day, over symbols
     for (std::size_t s = 0; s < S; ++s) {
         std::vector<double> x, y, dep;
         for (std::size_t d = 0; d < T; ++d)
@@ -460,6 +485,7 @@ int main(int argc, char** argv) {
         for (std::size_t d = T; d < D; ++d) {
             std::map<std::uint32_t, std::pair<double, std::size_t>> wd;
             for (const Interval& iv : res[s * D + d].iv) wd[iv.window].first += iv.depth, ++wd[iv.window].second;
+            const std::size_t from = yt.size();
             for (const Interval& iv : res[s * D + d].iv) {
                 const auto& [sum, n] = wd[iv.window];
                 const double depth_w = sum / static_cast<double>(n);
@@ -467,14 +493,17 @@ int main(int argc, char** argv) {
                 p_own.push_back(f.a + f.b * iv.ofi);
                 p_uni.push_back(depth_w > 0 ? std::exp(logc) * std::pow(depth_w, -lambda) * iv.ofi : 0);
             }
+            auto tail = [from](const std::vector<double>& v) { return std::vector<double>(v.begin() + static_cast<std::ptrdiff_t>(from), v.end()); };
+            day_own[d].push_back(r2_of(tail(p_own), tail(yt)));
+            day_uni[d].push_back(r2_of(tail(p_uni), tail(yt)));
         }
         const double ro = r2_of(p_own, yt), ru = r2_of(p_uni, yt);
         r2_own.push_back(ro), r2_uni.push_back(ru), r2_in.push_back(f.r2);
         std::printf("| %s | %.0f | %.3f | %.2f | %.2f | %.2f |\n", active[s].second.c_str(),
                     dep.empty() ? 0 : dsum / static_cast<double>(dep.size()), f.b * 1000, f.r2, ro, ru);
     }
-    std::printf("\nMedian over symbols: R2 train %.2f, test with own beta %.2f, test with the universal model %.2f.\n\n",
-                median(r2_in), median(r2_own), median(r2_uni));
+    std::printf("\nMedian over symbols with 95%% bootstrap interval: R2 train %s, test with own beta %s, test with "
+                "the universal model %s.\n\n", median_ci(r2_in).c_str(), median_ci(r2_own).c_str(), median_ci(r2_uni).c_str());
 
     std::printf("## Micro-price (Stoikov, 2018)\n\n");
     std::printf("States: top-of-book imbalance bid / (bid + ask) in %d buckets, times spread of 1 or 2 ticks, "
@@ -502,6 +531,8 @@ int main(int argc, char** argv) {
         for (std::size_t d = T; d < D; ++d) out.add(err[s * D + d]);
         if (!out.n[0] || !out.n[1] || !in.n[0]) continue;
         auto red = [](const Errors& e, int k, int p) { return 1 - e.se[k][p] / e.se[k][0]; };
+        for (std::size_t d = T; d < D; ++d)
+            if (err[s * D + d].n[0]) day_micro[d].push_back(red(err[s * D + d], 0, 2)), day_wmid[d].push_back(red(err[s * D + d], 0, 1));
         w_next.push_back(red(out, 0, 1)), m_next.push_back(red(out, 0, 2));
         w_1s.push_back(red(out, 1, 1)), m_1s.push_back(red(out, 1, 2));
         for (int b = 0; b < kBuckets; ++b) g_avg[static_cast<std::size_t>(b)] += g[s][static_cast<std::size_t>(b)];
@@ -510,9 +541,10 @@ int main(int argc, char** argv) {
                     static_cast<unsigned long long>(out.n[0]), 100 * red(out, 0, 1), 100 * red(out, 0, 2),
                     100 * red(out, 1, 1), 100 * red(out, 1, 2), 100 * red(in, 0, 2));
     }
-    std::printf("\nMedian over the %zu symbols, test days: next change, weighted mid %+.1f%%, micro-price %+.1f%%; "
-                "1 s, weighted mid %+.1f%%, micro-price %+.1f%%.\n\n", m_next.size(), 100 * median(w_next),
-                100 * median(m_next), 100 * median(w_1s), 100 * median(m_1s));
+    std::printf("\nMedian over the %zu symbols with 95%% bootstrap interval, test days: next change, weighted mid "
+                "%s%%, micro-price %s%%; 1 s, weighted mid %s%%, micro-price %s%%.\n\n", m_next.size(),
+                median_ci(w_next, 100, "%+.1f").c_str(), median_ci(m_next, 100, "%+.1f").c_str(),
+                median_ci(w_1s, 100, "%+.1f").c_str(), median_ci(m_1s, 100, "%+.1f").c_str());
     if (g_n) {
         std::printf("Mean adjustment G at a 1-tick spread by imbalance bucket, in ticks (train fit, averaged over those symbols):\n\n");
         std::printf("| Imbalance |");
@@ -523,6 +555,14 @@ int main(int argc, char** argv) {
         for (int b = 0; b < kBuckets; ++b) std::printf(" %+.3f |", g_avg[static_cast<std::size_t>(b)] / g_n);
         std::printf("\n");
     }
+    std::printf("\n## By test day\n\n");
+    std::printf("Medians over symbols on each test day, with the train-day parameters unchanged.\n\n");
+    std::printf("| Test day | OFI R2, own beta | OFI R2, universal | Next change: weighted mid | Next change: micro-price |\n");
+    std::printf("|---|---|---|---|---|\n");
+    for (std::size_t d = T; d < D; ++d)
+        std::printf("| %s | %.2f | %.2f | %+.1f%% | %+.1f%% |\n", day_of(days[d]).c_str(), median(day_own[d]),
+                    median(day_uni[d]), 100 * median(day_wmid[d]), 100 * median(day_micro[d]));
+
     // Queue position: descriptive, over the large-tick symbols and every day.
     Queue q;
     std::size_t q_syms = 0;
@@ -543,14 +583,15 @@ int main(int argc, char** argv) {
                 "least one execution before the order is cancelled, deleted or replaced. Markout: the mid 1 s after "
                 "the first fill against the fill price, per share, in ticks (+0.5 is the half spread kept with no "
                 "move; below 0 the fill lost money). Value per order: fill rate times markout.\n\n", q_syms, D);
-    std::printf("| Queue ahead / typical level | Orders | Filled | Mean wait to fill (s) | Markout 1 s (ticks) | Value per order (ticks) |\n");
-    std::printf("|---|---|---|---|---|---|\n");
+    std::printf("| Queue ahead / typical level | Orders | Filled | Mean wait to fill (s) | Markout 1 s (ticks) | Value per order (ticks) | Markout + $0.0020 rebate | Markout + $0.0007 rebate |\n");
+    std::printf("|---|---|---|---|---|---|---|---|\n");
     const char* label[Queue::kPos] = {"0 (empty level)", "0 - 0.25", "0.25 - 0.5", "0.5 - 1", "1 - 2", "2 or more"};
     for (std::size_t k = 0; k < Queue::kPos; ++k) {
         if (q.adds[k] == 0) continue;
         const double fr = q.fills[k] / q.adds[k], mo = q.marked[k] ? q.markout[k] / q.marked[k] : NAN;
-        std::printf("| %s | %.0f | %.1f%% | %.2f | %+.3f | %+.4f |\n", label[k], q.adds[k], 100 * fr,
-                    q.fills[k] ? q.wait_s[k] / q.fills[k] : NAN, mo, fr * mo);
+        // A rebate of r dollars per share is worth r / $0.01 ticks on every filled share.
+        std::printf("| %s | %.0f | %.1f%% | %.2f | %+.3f | %+.4f | %+.3f | %+.3f |\n", label[k], q.adds[k], 100 * fr,
+                    q.fills[k] ? q.wait_s[k] / q.fills[k] : NAN, mo, fr * mo, mo + 0.20, mo + 0.07);
     }
     std::printf("\n## Caveats\n\n"
                 "- ITCH is Nasdaq's book only; the consolidated quote is tighter, so depth and imbalance are partial.\n"

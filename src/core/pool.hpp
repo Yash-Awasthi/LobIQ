@@ -136,7 +136,9 @@ class Pool {
             // Whole pages: advising a partial last page would split the VMA and break mremap.
             ::madvise(d + (split_ ? kHuge : 0), map_len - (split_ ? kHuge : 0), MADV_HUGEPAGE);
         }
-        if (huge) ::madvise(d + old_len, len - old_len, MADV_POPULATE_WRITE);
+        // Measured (PERF R15): pre-faulting the new part is best when it starts on a page, as in
+        // huge-to-huge growth; at the first crossing it does not, and faulting on use is cheaper.
+        if (huge && old_len % 4096 == 0) ::madvise(d + old_len, len - old_len, MADV_POPULATE_WRITE);
         base_ = d;
         map_len_ = map_len;
         data_ = reinterpret_cast<T*>(d);

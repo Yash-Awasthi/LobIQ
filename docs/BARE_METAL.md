@@ -2,7 +2,7 @@
 
 ## 1. Packages
 
-    sudo pacman -Syu base-devel git cmake ninja gcc clang lld ccache zip unzip curl zstd \
+    sudo pacman -Syu base-devel git cmake ninja gcc clang lld ccache zip unzip curl aria2 zstd \
         pkgconf python perf cpupower github-cli verilator linux-headers
 
 ## 2. Code and dependencies
@@ -48,6 +48,9 @@ With the BIOS GPU mode set to discrete only, the panel is driven by the Nvidia G
 `acpi_video0` does not change brightness. Add `acpi_backlight=nvidia_wmi_ec` to the same line.
 
 ## 5. Before each benchmark session (resets at reboot)
+
+`sudo scripts/tune.sh` applies all of the following, moves every movable IRQ off the isolated
+cores (docs/exec/HW.md H19) and prints the result:
 
     sudo cpupower frequency-set -g performance
     echo 1 | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo    # stable clock; 0 for speed

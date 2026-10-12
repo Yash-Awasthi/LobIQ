@@ -237,6 +237,17 @@ TEST(Http, RequestPath) {
     EXPECT_EQ(request_path("GET /m"), "");
 }
 
+// A page on another site can POST to loopback, but cannot add a custom header without a CORS
+// preflight this server never answers: the header is what proves the dashboard sent it.
+TEST(Http, KillNeedsPostAndTheDashboardHeader) {
+    EXPECT_TRUE(kill_request("POST /kill HTTP/1.1\r\nHost: x\r\nX-Hft-Kill: 1\r\n\r\n"));
+    EXPECT_TRUE(kill_request("POST /kill HTTP/1.1\r\nx-hft-kill: 1\r\n\r\n"));
+    EXPECT_FALSE(kill_request("POST /kill HTTP/1.1\r\nHost: x\r\n\r\n"));
+    EXPECT_FALSE(kill_request("GET /kill HTTP/1.1\r\nX-Hft-Kill: 1\r\n\r\n"));
+    EXPECT_FALSE(kill_request("POST /killer HTTP/1.1\r\nX-Hft-Kill: 1\r\n\r\n"));
+    EXPECT_FALSE(kill_request("POST /kill HTTP/1.1\r\nX-Other: X-Hft-Kill: 1\r\n\r\n"));
+}
+
 TEST(Http, ServesRoutesOnLoopback) {
     HttpServer srv;
     ASSERT_TRUE(srv.listen(0));

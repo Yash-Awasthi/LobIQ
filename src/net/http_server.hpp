@@ -1,7 +1,8 @@
 #pragma once
 
-// Loopback HTTP/1.1 server for metrics and a dashboard: GET only, one request per
-// connection, served from the thread that calls poll_once. Not meant for the open network.
+// Loopback HTTP/1.1 server for metrics and a dashboard: GET, plus the dashboard's kill button,
+// one request per connection, served from the thread that calls poll_once. Not meant for the
+// open network.
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -28,6 +29,27 @@ inline std::string_view request_path(std::string_view req) {
     req.remove_prefix(4);
     const std::size_t end = req.find_first_of(" ?\r\n");
     return end == std::string_view::npos ? std::string_view() : req.substr(0, end);
+}
+
+// "POST /kill" carrying the header "X-Hft-Kill: 1". Other sites can make a browser POST to
+// loopback but not add a custom header without a CORS preflight, which is never answered.
+inline bool kill_request(std::string_view req) {
+    if (!req.starts_with("POST /kill ")) return false;
+    const std::size_t end = req.find("\r\n\r\n");
+    std::size_t at = req.find("\r\n");
+    while (at != std::string_view::npos && at < end) {
+        const std::size_t next = req.find("\r\n", at + 2);
+        const std::string_view line = req.substr(at + 2, (next == std::string_view::npos ? req.size() : next) - at - 2);
+        constexpr std::string_view want = "x-hft-kill: 1";
+        if (line.size() == want.size()) {
+            bool same = true;
+            for (std::size_t i = 0; i < want.size(); ++i)
+                same &= static_cast<char>(line[i] | (line[i] >= 'A' && line[i] <= 'Z' ? 0x20 : 0)) == want[i];
+            if (same) return true;
+        }
+        at = next;
+    }
+    return false;
 }
 
 class HttpServer {
@@ -75,7 +97,7 @@ class HttpServer {
             if (n <= 0) break;
             req.append(buf, static_cast<std::size_t>(n));
         }
-        const std::string_view path = request_path(req);
+        const std::string_view path = kill_request(req) ? std::string_view("POST /kill") : request_path(req);
         HttpResponse r;
         if (path.empty()) r = {405, "text/plain; charset=utf-8", "GET only\n"};
         else r = handler(path);

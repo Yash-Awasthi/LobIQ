@@ -26,9 +26,39 @@ Your own strategies plug into both markets by name, and every run can write an H
 |---|---|
 | [![paper report](docs/img/paper-report.png)](https://yash-awasthi.github.io/hft/paper/report.html) | [![sweep report](docs/img/sweep-report.png)](docs/img/sweep-report.png) |
 
-## Try it
+Contents: [Use it](#use-it) · [Plug in a strategy](#plug-in-a-strategy) · [Highlights](#highlights) ·
+[Architecture](#architecture) · [Performance](#performance) · [Tests](#tests) ·
+[Build and run](#build-and-run) · [Prediction markets](#prediction-markets) ·
+[Live paper trading](#live-paper-trading) · [Paper execution](#paper-execution) ·
+[Market microstructure research](#market-microstructure-research) · [Not planned](#not-planned)
 
-With Docker or Podman, on any OS:
+## Use it
+
+Two products behind one command, `hft` (`scripts/hft`; `bin/hft` in a release):
+
+**1. Backtest on real Nasdaq order flow.** Fetch any day Nasdaq publishes, rebuild every order
+book, and test a strategy against the real queues, with latency, fees and an HTML report:
+
+```
+hft get 2025-12-10                          # download (16 connections), verify, build the store
+hft replay 2025-12-10                       # every book of the day, invariants checked: 847M messages
+hft strategies                              # built in and your own (strategies/*.cpp)
+hft backtest 2025-12-10 INTC,AAPL avellaneda_stoikov gamma=0.05     # -> report.html
+hft study 2025-12-08,2025-12-09 2025-12-10  # order flow imbalance, micro-price, queue value
+```
+
+**2. Paper-trade the live prediction market.** Market makers and an arbitrage executor run on
+Polymarket's live order books through risk checks, an order manager and a simulated venue; no
+order is ever sent. A dashboard on localhost shows latency, positions and PnL, with a kill switch:
+
+```
+hft live 30                                 # 30 minutes; open the dashboard URL it prints
+hft runs                                    # past runs, PnL, killed or not
+hft review 20261012T172311                  # replay a run bit for bit, write its report
+```
+
+`hft doctor` checks the tools, the data and the machine tuning; `hft demo` runs every demo on
+bundled data. Without building anything, with Docker or Podman:
 
 ```
 docker run --rm -v "$PWD/out:/hft/out" ghcr.io/yash-awasthi/hft
@@ -36,15 +66,13 @@ docker run --rm -v "$PWD/out:/hft/out" ghcr.io/yash-awasthi/hft
 
 That writes HTML reports to `./out` (open `out/index.html`): strategies backtested on a synthetic
 Nasdaq session, a parameter sweep, and paper execution replayed on a bundled 20-minute recording of
-the live prediction-market feed (`data/sample`). Each demo checks its result against a fixed value.
-The image is built and fully tested by CI; `docker build -t hft .` builds it locally, and
-`--target build` gives the whole toolchain for writing strategies.
+the live feed (`data/sample`), each checked against a fixed value.
 
 From source (Linux, a C++23 compiler, CMake, Ninja, OpenSSL, vcpkg):
 
 ```
-cmake --preset release && cmake --build build/release && ctest --test-dir build/release
-scripts/demo/all.sh                     # the same demos; reports in out/
+cmake --preset native && cmake --build build/native && ctest --test-dir build/native
+export PATH="$PWD/scripts:$PATH"            # puts hft on the PATH
 ```
 
 ## Plug in a strategy
@@ -89,16 +117,17 @@ the sections below.
 - **Determinism:** a live session replays from its recording to bit-identical decisions,
   checked by hash, under GCC and Clang; so do fault-injected runs and kill-switch runs.
 - **Correctness:** zero heap allocations on the hot path in steady state; property tests against
-  reference implementations; 313 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
+  reference implementations; 316 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
   campaigns at 20-30% dropped, duplicated and delayed reports with zero illegal order states.
 - **FPGA feed parser (simulated):** ITCH 5.0 in SystemVerilog, 8 bytes per clock, one message
   per clock, output one clock after a message's last byte; field-identical to the C++ decoder in
   Verilator on a 375k-message synthetic day and 200k random frames.
-- **Microstructure research, out of sample:** on four Nasdaq days, fitted on two and tested on
-  two, order flow imbalance explains a median 60% of 10 s price changes, and the depth law of
-  Cont, Kukanov and Stoikov comes out at lambda = 1.01 (paper: about 1); Stoikov's micro-price
-  cuts next-mid prediction error by 12.4% against 2.3% for the size-weighted mid. An imbalance
-  filter chosen on the train days cuts a market maker's test-day loss by about 70%, better on 10 of 10 symbols.
+- **Microstructure research, out of sample:** fitted on two Nasdaq days, tested on three later
+  ones and one six months on. Order flow imbalance explains 55-66% of 10 s price changes on the
+  December test days, and the depth law of Cont, Kukanov and Stoikov comes out at lambda = 1.01
+  (paper: about 1); Stoikov's micro-price cuts next-mid prediction error by about 12%. An
+  imbalance filter chosen on the train days cuts a market maker's loss by 66%; by June most of
+  these edges have decayed, which the results show per day.
 - **Honest results:** the obvious arbitrage loses money after fees and latency on recorded data
   (-67.45 USD over 61 attempts); reported as measured, with no thresholds tuned afterwards.
 
@@ -223,7 +252,7 @@ replay is unchanged within noise. A lookahead prefetch on the per-symbol path wa
 
 ## Tests
 
-`ctest` runs 313 GoogleTest and RapidCheck tests (309 under the sanitizers, which leave out
+`ctest` runs 316 tests: GoogleTest, RapidCheck and end-to-end runs of `hft` and `itch_study` (312 under the sanitizers, which leave out
 `alloc_test`); one (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine
 exposes no hardware performance counters.
 
@@ -278,12 +307,16 @@ checkpoint <store> [--verify]                    # write or verify book checkpoi
 book_study <store> book 50 10                    # book update latency, 50 busiest symbols
 book_study <store> replay-sym 50 10 [threads]    # full-day replay, one symbol at a time on a pool
 itch_backtest <store> INTC avellaneda_stoikov maker_rebate=2000 taker_fee=3000 max_dist_ticks=5
+itch_study --train <store>,<store> --test <store>,.. [--symbols N]   # OFI, micro-price, queue position
 ```
+
+Downloads go through `aria2c` with 16 connections when it is installed: the server throttles each
+connection to about 220 KB/s.
 
 `itch_backtest` runs one strategy on one symbol-day: the strategy sees the market a
 market-data latency late, its orders join the real queues after the order-entry latency,
 fees and risk limits apply, and the PnL identity is checked on every event. Strategies:
-`zero`, `naive`, `random_taker`, `random_passive`, `perfect_foresight`,
+`zero`, `naive`, `imbalance`, `random_taker`, `random_passive`, `perfect_foresight`,
 `avellaneda_stoikov`, `dp:<policy>`, `ext:<policy>`. INTC on 2025-12-10 (1.8M events)
 runs in about 1.5 s.
 
@@ -428,35 +461,48 @@ touch runs/today/KILL                                              # or SIGUSR1:
 ## Market microstructure research
 
 Three published results checked on this repository's own L3 data, with every parameter fitted on
-2025-12-08 and 12-09 and scored unchanged on 12-10 and 12-11 (30 most active symbols, 10:00 to
-15:30 ET). One command each, about 15 s and 3 minutes on 16 threads:
+2025-12-08 and 12-09 and scored unchanged on 12-10, 12-11, 12-12 and 2026-06-12 (30 most active
+symbols, 10:00 to 15:30 ET). The June day, six months after training, shows how fast the fits
+age. One command each, about 30 s and 15 minutes on 16 threads:
 
 ```
-scripts/study.sh > docs/results/microstructure.md          # itch_study: OFI and micro-price
+scripts/study.sh > docs/results/microstructure.md          # itch_study: OFI, micro-price, queue
 scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
 ```
 
 - **Order flow imbalance** ([Cont, Kukanov and Stoikov 2014](https://arxiv.org/abs/1011.6402)):
-  price changes over 10 s are linear in the order flow at the best quotes. Median R2 0.72 in
-  sample and 0.60 on the test days. The slope falls with depth as 1 / depth^lambda with lambda =
-  1.01 (log-fit R2 0.94 over 660 half-hour windows); that single two-parameter law, applied to
-  every stock, scores a median 0.61 out of sample, as good as each stock's own slope.
+  price changes over 10 s are linear in the order flow at the best quotes. The slope falls with
+  depth as 1 / depth^lambda with lambda = 1.01 (log-fit R2 0.94 over 660 half-hour windows; the
+  paper reports about 1). Median R2 0.72 in sample; on the December test days 0.55-0.66 with each
+  stock's own slope and 0.60-0.64 with the single two-parameter law. Six months later the own
+  slopes drop to 0.27 while the depth law keeps 0.48: depth moved, the relation did not.
 - **Micro-price** ([Stoikov 2018](https://doi.org/10.1080/14697688.2018.1489139)): a Markov chain
   on (imbalance, spread) states, estimated from symmetrised train transitions, gives the expected
-  future mid. On the test days it reduces the squared error against the next mid change by a
-  median 12.4% (21 large-tick symbols), where the size-weighted mid manages 2.3% and is worse
-  than the plain mid on 9 of them. The fitted adjustment runs from -0.39 to +0.39 ticks.
-- **Queue position** (Moallemi and Yuan 2017): 34M orders joining the best quote at a 1-tick
+  future mid. It cuts the squared error against the next mid change by a median 11.6-12.5% on
+  each December test day and 3.4% in June (21 large-tick symbols); the size-weighted mid is
+  worse than the plain mid on 12 of the 21 symbols over the test days. The fitted adjustment runs
+  from -0.39 to +0.39 ticks.
+- **Queue position** (Moallemi and Yuan 2017): 53.6M orders joining the best quote at a 1-tick
   spread, tracked by reference to their first fill. Front of the queue (under a quarter of a
-  typical level ahead) fills 7.5% of the time after 1.4 s on average, with a 1 s markout of -0.25
-  ticks; one to two levels back, 3.6% after 4.3 s at -0.38 ticks. Position is worth fill rate and
+  typical level ahead) fills 7.0% of the time after 1.3 s on average, with a 1 s markout of -0.25
+  ticks; one to two levels back, 3.5% after 3.7 s at -0.37 ticks. Position is worth fill rate and
   less adverse selection at once, and every bucket still loses before rebates.
 - **Does it pay?** Joining the best bid and ask on 10 large-tick symbols loses on every one of
   them (adverse selection outweighs the spread). Pulling the side the imbalance points against,
-  with the threshold chosen on the train days, loses about 70% less on the test days (-$20.2k against
-  -$68.5k without fees; -$10.0k against -$35.1k with a $0.002 rebate), better on all 10 symbols
-  and profitable on four; still a net loss, reported as measured. The filter's edge decays with
-  latency: -$20.2k at zero, -$22.1k at 5 µs, -$25.7k at 50 µs and -$31.1k at 5 ms one way.
+  with the threshold chosen on the train days, loses 66% less over the four test days (-$40.1k
+  against -$117.2k without fees; -$27.8k against -$67.1k with a $0.002 rebate), better on 9 of 10
+  symbols and profitable on two; still a net loss, reported as measured. The edge is in December
+  (-$4.7k to -$15.4k against -$31.4k to -$37.0k per day) and gone by June (-$13.8k against
+  -$14.1k). It also decays with latency: -$40.1k at zero, -$44.4k at 5 and 50 µs, -$47.9k at
+  500 µs and -$54.1k at 5 ms one way.
+
+Six years back, the same train fit scored on 2019-10-18 (`TEST=S101819`, symbols that existed
+then): each stock's own OFI slope no longer transfers (median R2 0.11) while the depth law still
+scores 0.61; the micro-price still cuts next-mid error by 10.0%; and the imbalance-filtered maker
+makes money that day (+$1.3k against -$6.7k for the joiner without fees, +$1.3k against -$6.1k
+with the rebate and 2019's Section 31 and TAF rates) until one-way latency reaches 50 µs. One
+day, so a check of direction, not of size: [microstructure-2019](docs/results/microstructure-2019.md),
+[maker-walkforward-2019](docs/results/maker-walkforward-2019.md).
 
 Full tables: [docs/results/microstructure.md](docs/results/microstructure.md),
 [docs/results/maker-walkforward.md](docs/results/maker-walkforward.md). The estimators are in
