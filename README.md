@@ -44,7 +44,8 @@ hft get 2025-12-10                          # download (16 connections), verify,
 hft replay 2025-12-10                       # every book of the day, invariants checked: 847M messages
 hft strategies                              # built in and your own (strategies/*.cpp)
 hft backtest 2025-12-10 INTC,AAPL avellaneda_stoikov gamma=0.05     # -> report.html
-hft study 2025-12-08,2025-12-09 2025-12-10  # order flow imbalance, micro-price, queue value
+hft study 2025-12-08,2025-12-09 2025-12-10  # imbalance, micro-price, queue value, Hawkes, VPIN...
+hft leadlag 2025-12-10 QQQ:TQQQ,QQQ:SQQQ:-1  # who follows whom, against a placebo
 ```
 
 **2. Paper-trade the live prediction market.** Market makers and an arbitrage executor run on
@@ -117,7 +118,7 @@ the sections below.
 - **Determinism:** a live session replays from its recording to bit-identical decisions,
   checked by hash, under GCC and Clang; so do fault-injected runs and kill-switch runs.
 - **Correctness:** zero heap allocations on the hot path in steady state; property tests against
-  reference implementations; 321 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
+  reference implementations; 322 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
   campaigns at 20-30% dropped, duplicated and delayed reports with zero illegal order states.
 - **FPGA feed parser (simulated):** ITCH 5.0 in SystemVerilog, 8 bytes per clock, one message
   per clock, output one clock after a message's last byte; field-identical to the C++ decoder in
@@ -265,7 +266,7 @@ replay is unchanged within noise. A lookahead prefetch on the per-symbol path wa
 
 ## Tests
 
-`ctest` runs 321 tests: GoogleTest, RapidCheck and end-to-end runs of `hft`, `itch_study` and `itch_leadlag` (317 under the sanitizers, which leave out
+`ctest` runs 322 tests: GoogleTest, RapidCheck and end-to-end runs of `hft`, `itch_study` and `itch_leadlag` (318 under the sanitizers, which leave out
 `alloc_test`); one (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine
 exposes no hardware performance counters.
 

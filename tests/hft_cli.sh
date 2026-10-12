@@ -14,4 +14,5 @@ rc=0; "$hft" replay S010101 2>/dev/null || rc=$?; [ $rc -eq 1 ]  # no such store
 "$hft" backtest S010125 QRSIM naive >/dev/null 2>&1
 ls "$HFT_DATA"/reports/backtest-*/report.html >/dev/null
 "$hft" strategies | grep avellaneda_stoikov >/dev/null
+"$hft" leadlag 2025-01-01 QRSIM:QRSIM | grep '^| QRSIM -> QRSIM | 1 |' >/dev/null
 echo "hft cli ok"
