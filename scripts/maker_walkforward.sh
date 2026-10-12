@@ -7,21 +7,27 @@ d=${HFT_DATA:-$HOME/data}
 b=${HFT_BUILD:-$(dirname "$0")/../build/native}
 syms=${SYMBOLS:-SPY,QQQ,IWM,SOXL,SQQQ,TQQQ,IBIT,TNA,INTC,NVDA}
 train=(S120825 S120925)
-test=(S121025 S121125 S121225 S061226)
+read -ra test <<< "${TEST:-S121025 S121125 S121225 S061226}"
 grid=0.0,0.05,0.1,0.2,0.3,0.5,0.7,1.0
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-# Fee scenarios (micro-dollars per share; assumed, the published tiers vary by member volume):
-# a mid-tier Nasdaq rebate under the 30 mil access-fee cap, a scaled rebate under the 10 mil cap
-# of amended Rule 610, both with Section 31 ($27.80 per $1M sold, fiscal 2025) and FINRA TAF.
-reg="sec_fee_per_million=27800000 taf_per_share=166 taf_max=8300000"
-declare -A fees=([none]="maker_rebate=0" [cap30]="maker_rebate=2000 $reg" [cap10]="maker_rebate=700 $reg")
+# Fee scenarios (micro-dollars per share; rebates assumed, the published tiers vary by member
+# volume): a mid-tier Nasdaq rebate under the 30 mil access-fee cap, a scaled one under the 10 mil
+# cap of amended Rule 610. Both add FINRA TAF and Section 31 on sells, by trade date: $0 per $1M
+# until 2026-04-03, $20.60 from 2026-04-04 (SEC fee rate advisory 2026-2).
+declare -A fees=([none]="maker_rebate=0" [cap30]="maker_rebate=2000" [cap10]="maker_rebate=700")
 declare -A title=([none]="No fees or rebates" [cap30]="30 mil cap: rebate \$0.0020 per share, Section 31 and TAF on sells"
                   [cap10]="10 mil cap (amended Rule 610): rebate \$0.0007 per share, Section 31 and TAF on sells")
+regulatory() {  # day scenario
+    [ "$2" = none ] && return
+    local ymd="20${1:5:2}${1:1:2}${1:3:2}" sec=0
+    [ "$ymd" -ge 20260404 ] && sec=20600000
+    echo "sec_fee_per_million=$sec taf_per_share=166 taf_max=8300000"
+}
 run() {  # day thresholds scenario -> rows: symbol threshold total spread inventory fees fills
     # shellcheck disable=SC2086
-    "$b/apps/itch_backtest" "$d/store-$1-v50" "$syms" imbalance ${fees[$3]} --sweep threshold="$2" | tail -n +2
+    "$b/apps/itch_backtest" "$d/store-$1-v50" "$syms" imbalance ${fees[$3]} $(regulatory "$1" "$3") --sweep threshold="$2" | tail -n +2
 }
 day() { echo "20${1:5:2}-${1:1:2}-${1:3:2}"; }
 
@@ -57,6 +63,13 @@ for scenario in none cap30 cap10; do
         END{for (k in nt) printf "| %s | %.0f | %.0f | %.0f | %.0f | %d / %d |\n", k, nt[k], ni[k], ft[k], fi_[k], nf[k], ff[k];
             for (k in nt) {a+=nt[k]; c+=ft[k]; if (ft[k]>nt[k]) w++; n++}
             printf "\nTotal: joiner %.0f, filtered %.0f; the filter does better on %d of %d symbols.\n", a, c, w, n}' "$tmp/test"
+    echo
+    echo "| Test day | Joiner total | Filtered total |"
+    echo "|---|---|---|"
+    for t in "${test[@]}"; do
+        awk -v t="$t" -v best="$best" -v day="$(day "$t")" '$1==t {if ($3=="1.0"||$3=="1") j+=$4; if ($3==best) f+=$4}
+            END{printf "| %s | %.0f | %.0f |\n", day, j, f}' "$tmp/test"
+    done
 done
 
 echo
