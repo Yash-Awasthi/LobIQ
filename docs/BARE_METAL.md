@@ -49,6 +49,9 @@ With the BIOS GPU mode set to discrete only, the panel is driven by the Nvidia G
 
 ## 5. Before each benchmark session (resets at reboot)
 
+`sudo scripts/tune.sh` applies all of the following, moves every movable IRQ off the isolated
+cores (docs/exec/HW.md H19) and prints the result:
+
     sudo cpupower frequency-set -g performance
     echo 1 | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo    # stable clock; 0 for speed
     echo madvise | sudo tee /sys/kernel/mm/transparent_hugepage/enabled
