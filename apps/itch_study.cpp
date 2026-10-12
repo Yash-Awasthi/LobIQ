@@ -158,9 +158,22 @@ struct DayResult {
     Queue q;
     Life life;
     Costs costs;
+    std::vector<double> mid_1s;  // mid (ticks) at the end of every second of the window
     std::vector<HawkesFit> hawkes;  // one per half-hour window with enough mid changes
     std::uint64_t spread_obs[3] = {};  // 1 tick, 2 ticks, wider
 };
+
+// Realized variance of log mids sampled every k seconds, averaged over the k sampling offsets.
+double realized_var(const std::vector<double>& m, std::size_t k) {
+    if (m.size() <= k) return 0;
+    double sum = 0;
+    for (std::size_t o = 0; o < k; ++o)
+        for (std::size_t j = o + k; j < m.size(); j += k) {
+            const double r = std::log(m[j] / m[j - k]);
+            sum += r * r;
+        }
+    return sum / static_cast<double>(k);
+}
 
 struct Name {
     std::string s;
@@ -296,6 +309,7 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
     LifeTrack lt{born, out.life};
     std::deque<Trade> trades;
     TradeTrack tt{b, trades};
+    if (!g) out.mid_1s.reserve((kEnd - kStart) / kSec);
     std::vector<std::vector<double>> moves((kEnd - kStart) / kWindow);  // mid-change times per window, s
 
     auto close_interval = [&](std::int64_t k) {
@@ -337,6 +351,9 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
         }
         if (ts >= kEnd) break;
         const double mid = (cur.bid_px + cur.ask_px) / 2.0 / tick;
+        // The mid in force at each whole second (before this message), for the signature plot.
+        if (!g && last_mid)
+            while (out.mid_1s.size() < (ts - kStart) / kSec) out.mid_1s.push_back(last_mid);
         if (!g && mid != last_mid && last_mid) {
             const std::uint64_t w = (ts - kStart) / kWindow;
             if (w < moves.size()) moves[w].push_back(static_cast<double>(ts - kStart - w * kWindow) / kSec);
@@ -415,6 +432,8 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
     }
     if (cur_iv >= 0) close_interval(cur_iv);
     out.life.resting = static_cast<double>(born.size());
+    if (!g && last_mid)
+        while (out.mid_1s.size() < (kEnd - kStart) / kSec) out.mid_1s.push_back(last_mid);
     for (const auto& m : moves)
         if (m.size() >= 200) out.hawkes.push_back(fit_hawkes(m, static_cast<double>(kWindow) / kSec));
     if (b.order_count() > 65536) slot.reset();
@@ -739,6 +758,35 @@ int main(int argc, char** argv) {
             std::printf("| %s | %.0f | %.2f | %.2f | %.2f |\n", size_label[i], by_size.execs[i], by_size.eff[i] / by_size.shares[i],
                         by_size.real[i] / by_size.shares[i], by_size.impact[i] / by_size.shares[i]);
 
+    std::printf("\n## Volatility signature\n\n");
+    std::printf("Realized variance of the mid over the window, sampled every k seconds (averaged over the k sampling "
+                "offsets), divided by the same at 300 s. Without microstructure noise the ratio would be 1 at every k; "
+                "bid-ask bounce and tick discreteness push it away at short k (Andersen, Bollerslev, Diebold and Labys "
+                "2000). Medians over the %zu symbols; window volatility from the 300 s sampling. RV(300 s) rests on 66 "
+                "returns per symbol-day, so each ratio carries roughly 17%% sampling error; a ratio below 1 means moves "
+                "continued rather than reversed at the longer scale.\n\n", S);
+    constexpr std::array<std::size_t, 5> kSig = {1, 5, 10, 30, 60};
+    std::printf("| Day |");
+    for (std::size_t k : kSig) std::printf(" RV(%zu s) / RV(300 s) |", k);
+    std::printf(" Window volatility (bp) |\n|---|");
+    for (std::size_t i = 0; i <= kSig.size(); ++i) std::printf("---|");
+    std::printf("\n");
+    for (std::size_t d = 0; d < D; ++d) {
+        std::array<std::vector<double>, kSig.size()> ratio;
+        std::vector<double> vol;
+        for (std::size_t s = 0; s < S; ++s) {
+            const auto& m = res[s * D + d].mid_1s;
+            const double base = realized_var(m, 300);
+            if (base <= 0) continue;
+            for (std::size_t i = 0; i < kSig.size(); ++i) ratio[i].push_back(realized_var(m, kSig[i]) / base);
+            vol.push_back(std::sqrt(base) * 1e4);
+        }
+        if (vol.empty()) continue;
+        std::printf("| %s |", day_of(days[d]).c_str());
+        for (const auto& r : ratio) std::printf(" %.2f |", median(r));
+        std::printf(" %.0f |\n", median(vol));
+    }
+
     std::printf("\n## Self-excitation of mid-price changes (Hawkes)\n\n");
     std::printf("An exponential Hawkes process (intensity mu + alpha sum exp(-beta (t - t_i))) fitted by maximum "
                 "likelihood to the mid-change times of each symbol in each half-hour window with at least 200 changes "
@@ -774,6 +822,7 @@ int main(int argc, char** argv) {
                 "- J. Hasbrouck, G. Saar. Technology and liquidity provision: the blurring of traditional definitions. "
                 "Journal of Financial Markets 12(2), 143-172, 2009.\n"
                 "- V. Filimonov, D. Sornette. Quantifying reflexivity in financial markets: toward a prediction of flash "
-                "crashes. Physical Review E 85, 056108, 2012.\n");
+                "crashes. Physical Review E 85, 056108, 2012.\n"
+                "- T. Andersen, T. Bollerslev, F. Diebold, P. Labys. Great realizations. Risk 13, 105-108, 2000.\n");
     return 0;
 }
