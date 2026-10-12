@@ -41,6 +41,27 @@ jobs:
           build/release/apps/itch_backtest 2>&1 | grep -q ci_probe
           build/release/apps/pm_exec --replay data/sample/pm-20261009T1600-20min --config config/exec.cfg --quoter ci_probe_q
 
+  perf-gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
+          sudo git -C "$VCPKG_INSTALLATION_ROOT" fetch origin master
+          sudo git -C "$VCPKG_INSTALLATION_ROOT" checkout -qf "$(jq -r '.["builtin-baseline"]' vcpkg.json)"
+      - run: sudo apt-get install -y valgrind
+      - name: build this change and its base
+        run: |
+          base=$(git merge-base HEAD origin/main)
+          [ "$GITHUB_EVENT_NAME" = push ] && base=$(git rev-parse HEAD^1)
+          git worktree add "$RUNNER_TEMP/base" "$base"
+          for d in . "$RUNNER_TEMP/base"; do
+            (cd "$d" && cmake --preset release && cmake --build build/release --target book_study book_replay pm_live gen_day ingest)
+          done
+      - run: scripts/perf_gate.sh "$RUNNER_TEMP/base/build/release" build/release
+
   gates:
     runs-on: ubuntu-24.04
     steps:
