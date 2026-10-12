@@ -77,6 +77,18 @@ Mean adjustment G at a 1-tick spread by imbalance bucket, in ticks (train fit, a
 |---|---|---|---|---|---|---|---|---|---|---|
 | G (ticks) | -0.393 | -0.272 | -0.185 | -0.113 | -0.039 | +0.039 | +0.113 | +0.185 | +0.272 | +0.393 |
 
+## Queue position (Moallemi and Yuan, 2017)
+
+Every limit order that joins the best bid or ask while the spread is one tick, on the same 21 large-tick symbols over all 4 days, by the shares already queued ahead of it relative to the symbol's typical best-level size (an exponential average of (bid + ask size) / 2). Filled: at least one execution before the order is cancelled, deleted or replaced. Markout: the mid 1 s after the first fill against the fill price, per share, in ticks (+0.5 is the half spread kept with no move; below 0 the fill lost money). Value per order: fill rate times markout.
+
+| Queue ahead / typical level | Orders | Filled | Mean wait to fill (s) | Markout 1 s (ticks) | Value per order (ticks) |
+|---|---|---|---|---|---|
+| 0 - 0.25 | 7460021 | 7.5% | 1.43 | -0.252 | -0.0189 |
+| 0.25 - 0.5 | 8062152 | 6.0% | 2.06 | -0.294 | -0.0177 |
+| 0.5 - 1 | 11055312 | 4.8% | 2.91 | -0.339 | -0.0163 |
+| 1 - 2 | 6808147 | 3.6% | 4.27 | -0.384 | -0.0139 |
+| 2 or more | 938252 | 5.3% | 3.84 | -0.485 | -0.0255 |
+
 ## Caveats
 
 - ITCH is Nasdaq's book only; the consolidated quote is tighter, so depth and imbalance are partial.
@@ -87,3 +99,4 @@ Mean adjustment G at a 1-tick spread by imbalance bucket, in ticks (train fit, a
 
 - R. Cont, A. Kukanov, S. Stoikov. The price impact of order book events. Journal of Financial Econometrics 12(1), 47-88, 2014. arXiv:1011.6402.
 - S. Stoikov. The micro-price: a high-frequency estimator of future prices. Quantitative Finance 18(12), 1959-1966, 2018.
+- C. Moallemi, K. Yuan. A model for queue position valuation in a limit order book. Working paper, Columbia University, 2017.

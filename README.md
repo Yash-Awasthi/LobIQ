@@ -4,7 +4,8 @@
 [![image](https://github.com/Yash-Awasthi/hft/actions/workflows/image.yml/badge.svg?branch=main)](https://github.com/Yash-Awasthi/hft/actions/workflows/image.yml)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Yash-Awasthi/hft)
 
-A low-latency trading system in C++23 with no framework underneath, in three parts:
+A low-latency trading system and market microstructure lab in C++23, with no framework
+underneath, in four parts:
 
 - **Nasdaq TotalView-ITCH**, replayed from disk through an order-by-order book, a
   deterministic matching engine and an event-driven backtest.
@@ -13,6 +14,9 @@ A low-latency trading system in C++23 with no framework underneath, in three par
   by market makers and an arbitrage executor.
 - **A paper execution layer**: pre-trade risk, an order manager, a ledger and a simulated venue
   with latency, queues, fees, settlement and injected faults. It never sends an order.
+- **Microstructure research** on the same Nasdaq data, fitted on some days and tested on later
+  ones: order flow imbalance, the micro-price, the value of queue position, and what a signal is
+  worth to a market maker after latency ([results](#market-microstructure-research)).
 
 Your own strategies plug into both markets by name, and every run can write an HTML report.
 
@@ -423,7 +427,7 @@ touch runs/today/KILL                                              # or SIGUSR1:
 
 ## Market microstructure research
 
-Two published results reproduced on this repository's own L3 data, with every parameter fitted on
+Three published results checked on this repository's own L3 data, with every parameter fitted on
 2025-12-08 and 12-09 and scored unchanged on 12-10 and 12-11 (30 most active symbols, 10:00 to
 15:30 ET). One command each, about 15 s and 3 minutes on 16 threads:
 
@@ -442,6 +446,11 @@ scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
   future mid. On the test days it reduces the squared error against the next mid change by a
   median 12.4% (21 large-tick symbols), where the size-weighted mid manages 2.3% and is worse
   than the plain mid on 9 of them. The fitted adjustment runs from -0.39 to +0.39 ticks.
+- **Queue position** (Moallemi and Yuan 2017): 34M orders joining the best quote at a 1-tick
+  spread, tracked by reference to their first fill. Front of the queue (under a quarter of a
+  typical level ahead) fills 7.5% of the time after 1.4 s on average, with a 1 s markout of -0.25
+  ticks; one to two levels back, 3.6% after 4.3 s at -0.38 ticks. Position is worth fill rate and
+  less adverse selection at once, and every bucket still loses before rebates.
 - **Does it pay?** Joining the best bid and ask on 10 large-tick symbols loses on every one of
   them (adverse selection outweighs the spread). Pulling the side the imbalance points against,
   with the threshold chosen on the train days, loses about 70% less on the test days (-$20.2k against

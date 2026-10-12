@@ -20,7 +20,7 @@ tag publishes a release with Linux binaries.
 
 ## Verification (2026-10-12, bare metal, main after the restore)
 
-Same checks as below, all passing: native and release 306 tests each, `check_parity.sh` SAME on
+Same checks as below, all passing: native and release 306 tests each (313 after the later changes; UBSan 309), `check_parity.sh` SAME on
 all 14 runs, both fault campaigns with zero illegal reports and zero residual sets (the two
 dropped-fill runs end in the kill switch, as designed), demos, CLI and security gates, both
 baselines. The PerfCounters test no longer skips: the PMU is present.
