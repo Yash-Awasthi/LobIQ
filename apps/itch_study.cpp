@@ -78,11 +78,49 @@ inline int queue_bucket(double ahead, double depth) {
     return r < 0.25 ? 1 : r < 0.5 ? 2 : r < 1 ? 3 : r < 2 ? 4 : 5;
 }
 
+// Order lifetimes (Hasbrouck and Saar 2009): every limit order added in the window, by how it ends.
+struct Life {
+    static constexpr std::array<std::uint64_t, 5> kEdge = {1'000'000, 10'000'000, 100'000'000, kSec, 2 * kSec};
+    std::array<double, kEdge.size() + 1> cancelled{};  // by lifetime, the last bin 2 s or longer
+    double adds = 0, executed = 0, resting = 0;
+    void add(const Life& o) {
+        for (std::size_t i = 0; i < cancelled.size(); ++i) cancelled[i] += o.cancelled[i];
+        adds += o.adds, executed += o.executed, resting += o.resting;
+    }
+};
+struct LifeTrack {
+    std::unordered_map<std::uint64_t, std::uint64_t>& born;  // reference -> add time
+    Life& l;
+    std::uint64_t ts = 0;
+    bool on = false;  // in window, trading
+    void cancel(std::uint64_t ref) {
+        const auto it = born.find(ref);
+        if (it == born.end()) return;
+        std::size_t k = 0;
+        while (k < Life::kEdge.size() && ts - it->second >= Life::kEdge[k]) ++k;
+        l.cancelled[k] += 1;
+        born.erase(it);
+    }
+    void operator()(const itch::AddOrder& m) {
+        if (on) born[m.ref] = ts, l.adds += 1;
+    }
+    void operator()(const itch::OrderExecuted& m) { l.executed += born.erase(m.ref); }
+    void operator()(const itch::OrderExecutedPrice& m) { l.executed += born.erase(m.ref); }
+    void operator()(const itch::OrderDelete& m) { cancel(m.ref); }
+    void operator()(const itch::OrderReplace& m) {  // the replacement is a new order
+        cancel(m.orig_ref);
+        if (on) born[m.new_ref] = ts, l.adds += 1;
+    }
+    template <class T>
+    void operator()(const T&) {}
+};
+
 struct DayResult {
     std::vector<Interval> iv;
     Counts c;
     Errors e;
     Queue q;
+    Life life;
     std::uint64_t spread_obs[3] = {};  // 1 tick, 2 ticks, wider
 };
 
@@ -216,6 +254,8 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
     double depth_ewma = 0;
     book::Bbo before{};
     QueueTrack qt{live, marks, out.q, before, depth_ewma};
+    std::unordered_map<std::uint64_t, std::uint64_t> born;
+    LifeTrack lt{born, out.life};
 
     auto close_interval = [&](std::int64_t k) {
         Interval iv;
@@ -237,6 +277,9 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
             qt.ts = ts;
             qt.on = st.trading == 'T' && ts >= kStart && ts < kEnd && before.bid_px && before.ask_px == before.bid_px + tick;
             if (qt.on || !live.empty()) itch::dispatch(rec.data, rec.len, qt);
+            lt.ts = ts;
+            lt.on = st.trading == 'T' && ts >= kStart && ts < kEnd;
+            if (ts < kEnd) itch::dispatch(rec.data, rec.len, lt);
         }
         itch::dispatch(rec.data, rec.len, st);
         ap.seq = rec.seq;
@@ -312,6 +355,7 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
         last_depth = (cur.bid_qty + cur.ask_qty) / 2.0;
     }
     if (cur_iv >= 0) close_interval(cur_iv);
+    out.life.resting = static_cast<double>(born.size());
     if (b.order_count() > 65536) slot.reset();
     return out;
 }
@@ -593,6 +637,23 @@ int main(int argc, char** argv) {
         std::printf("| %s | %.0f | %.1f%% | %.2f | %+.3f | %+.4f | %+.3f | %+.3f |\n", label[k], q.adds[k], 100 * fr,
                     q.fills[k] ? q.wait_s[k] / q.fills[k] : NAN, mo, fr * mo, mo + 0.20, mo + 0.07);
     }
+    std::printf("\n## Order lifetimes (Hasbrouck and Saar, 2009)\n\n");
+    std::printf("Every limit order added between 10:00 and 15:30 ET on the %zu symbols, followed by reference: "
+                "cancelled (deleted, or replaced, whose replacement counts as a new order) by how long it lived, "
+                "executed at least once, or still resting at 15:30. Hasbrouck and Saar call orders cancelled within 2 s "
+                "fleeting; in their 2004 Nasdaq sample about a third of non-marketable limit orders were.\n\n", S);
+    std::printf("| Day | Orders | Cancelled < 1 ms | 1-10 ms | 10-100 ms | 0.1-1 s | 1-2 s | 2 s or more | Fleeting (< 2 s) | Executed | Resting at 15:30 |\n");
+    std::printf("|---|---|---|---|---|---|---|---|---|---|---|\n");
+    for (std::size_t d = 0; d < D; ++d) {
+        Life l;
+        for (std::size_t s = 0; s < S; ++s) l.add(res[s * D + d].life);
+        if (l.adds == 0) continue;
+        double fleeting = 0;
+        for (std::size_t k = 0; k < Life::kEdge.size(); ++k) fleeting += l.cancelled[k];
+        std::printf("| %s | %.1fM |", day_of(days[d]).c_str(), l.adds / 1e6);
+        for (double c : l.cancelled) std::printf(" %.1f%% |", 100 * c / l.adds);
+        std::printf(" %.1f%% | %.1f%% | %.1f%% |\n", 100 * fleeting / l.adds, 100 * l.executed / l.adds, 100 * l.resting / l.adds);
+    }
     std::printf("\n## Caveats\n\n"
                 "- ITCH is Nasdaq's book only; the consolidated quote is tighter, so depth and imbalance are partial.\n"
                 "- The most active names are mostly ETFs and leveraged ETFs; two test days measure stability across days, "
@@ -605,6 +666,8 @@ int main(int argc, char** argv) {
                 "- S. Stoikov. The micro-price: a high-frequency estimator of future prices. Quantitative Finance "
                 "18(12), 1959-1966, 2018.\n"
                 "- C. Moallemi, K. Yuan. A model for queue position valuation in a limit order book. Working paper, "
-                "Columbia University, 2017.\n");
+                "Columbia University, 2017.\n"
+                "- J. Hasbrouck, G. Saar. Technology and liquidity provision: the blurring of traditional definitions. "
+                "Journal of Financial Markets 12(2), 143-172, 2009.\n");
     return 0;
 }
