@@ -125,6 +125,24 @@ By execution size, all days:
 | 501-2,000 | 39738 | 0.98 | -0.72 | 1.70 |
 | over 2,000 | 3713 | 1.26 | -0.60 | 1.86 |
 
+## Intraday pattern
+
+Per half-hour window, medians over every symbol-day: mid changes per minute, the quoted spread averaged over quote changes, the best-level depth (bid + ask size) / 2 averaged over events, and the Hawkes branching ratio of that window.
+
+| Window (ET) | Mid changes / min | Spread (ticks) | Depth (shares) | Branching ratio |
+|---|---|---|---|---|
+| 10:00-10:30 | 411 | 2.11 | 249 | 0.51 |
+| 10:30-11:00 | 294 | 1.94 | 263 | 0.51 |
+| 11:00-11:30 | 258 | 1.95 | 273 | 0.51 |
+| 11:30-12:00 | 221 | 1.83 | 274 | 0.51 |
+| 12:00-12:30 | 214 | 1.89 | 274 | 0.50 |
+| 12:30-13:00 | 192 | 1.86 | 291 | 0.52 |
+| 13:00-13:30 | 163 | 1.93 | 271 | 0.51 |
+| 13:30-14:00 | 148 | 1.92 | 273 | 0.51 |
+| 14:00-14:30 | 140 | 1.81 | 269 | 0.49 |
+| 14:30-15:00 | 118 | 1.68 | 299 | 0.50 |
+| 15:00-15:30 | 145 | 1.48 | 335 | 0.52 |
+
 ## Volatility signature
 
 Realized variance of the mid over the window, sampled every k seconds (averaged over the k sampling offsets), divided by the same at 300 s. Without microstructure noise the ratio would be 1 at every k; bid-ask bounce and tick discreteness push it away at short k (Andersen, Bollerslev, Diebold and Labys 2000). Medians over the 30 symbols; window volatility from the 300 s sampling. RV(300 s) rests on 66 returns per symbol-day, so each ratio carries roughly 17% sampling error; a ratio below 1 means moves continued rather than reversed at the longer scale.
