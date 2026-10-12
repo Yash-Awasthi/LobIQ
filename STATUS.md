@@ -26,6 +26,12 @@ residual sets, demos, CLI and security gates, both baselines (`6facf575ad8d84bc`
 `dafd558b45dc3a1a`). TSan also run by hand on multi-threaded `book_replay` and `itch_study` over
 real days: no reports.
 
+## Research tools on real data (2026-10-13)
+
+`itch_study` (5 symbols, three days including 2019), `itch_leadlag` and `itch_backtest leader
+--index` ran clean under ASan (leak checks on) and UBSan on the stored Nasdaq days; CI's sanitizer
+jobs cover them only on synthetic days.
+
 ## Verification (2026-10-12, bare metal, main after the restore)
 
 Same checks as below, all passing: native and release 306 tests each (313 after the later changes; UBSan 309), `check_parity.sh` SAME on
