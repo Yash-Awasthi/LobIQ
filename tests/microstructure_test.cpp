@@ -76,3 +76,21 @@ TEST(Ols, RecoversALineAndScoresOutOfSample) {
     EXPECT_NEAR(r2_of(y, y), 1, 1e-12);
     EXPECT_NEAR(r2_of(mean, y), 0, 1e-12);
 }
+
+// Lead-lag: B's first move strictly after each A move, within the horizon, sign-adjusted.
+TEST(LeadLag, AnswersAreTheFollowersNextMoveWithinTheHorizon) {
+    using hft::strategy::micro::Move;
+    const std::vector<Move> a = {{100, +1}, {10'000, -1}, {20'000, +1}, {5'000'000'000, +1}};
+    const std::vector<Move> b = {{50, -1}, {100, -1}, {600, +1}, {15'000, -1}, {2'000'000'000, -1}};
+    const auto r = lead_response(a, b, +1);
+    EXPECT_EQ(r.leads, 4u);
+    EXPECT_EQ(r.answered, 2u);  // 20'000's answer is 2 s away; 5 s has none
+    EXPECT_EQ(r.same, 2u);      // +1 then 600 up (500 ns); -1 then 15'000 down (5 us)
+    EXPECT_EQ(r.bins[0], 1u);   // under 1 us
+    EXPECT_EQ(r.bins[1], 1u);   // 1-10 us
+    const auto inv = lead_response(a, b, -1);
+    EXPECT_EQ(inv.same, 0u);
+    const auto placebo = lead_response(a, b, +1, 1'000);  // every A move 1 us later
+    EXPECT_EQ(placebo.answered, 2u);                      // 1'100 and 11'000 both answered by 15'000 (down)
+    EXPECT_EQ(placebo.same, 1u);                          // only the down move agrees
+}

@@ -117,7 +117,7 @@ the sections below.
 - **Determinism:** a live session replays from its recording to bit-identical decisions,
   checked by hash, under GCC and Clang; so do fault-injected runs and kill-switch runs.
 - **Correctness:** zero heap allocations on the hot path in steady state; property tests against
-  reference implementations; 316 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
+  reference implementations; 317 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
   campaigns at 20-30% dropped, duplicated and delayed reports with zero illegal order states.
 - **FPGA feed parser (simulated):** ITCH 5.0 in SystemVerilog, 8 bytes per clock, one message
   per clock, output one clock after a message's last byte; field-identical to the C++ decoder in
@@ -265,7 +265,7 @@ replay is unchanged within noise. A lookahead prefetch on the per-symbol path wa
 
 ## Tests
 
-`ctest` runs 316 tests: GoogleTest, RapidCheck and end-to-end runs of `hft` and `itch_study` (312 under the sanitizers, which leave out
+`ctest` runs 317 tests: GoogleTest, RapidCheck and end-to-end runs of `hft` and `itch_study` (313 under the sanitizers, which leave out
 `alloc_test`); one (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine
 exposes no hardware performance counters.
 
@@ -509,6 +509,18 @@ scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
   -$14.1k). It also decays with latency: -$40.1k at zero, -$44.4k at 5 and 50 µs, -$47.9k at
   500 µs and -$54.1k at 5 ms one way.
 
+- **Lead-lag** (`scripts/leadlag.sh`, 15 pairs, five December days): after a mid move of one
+  product, the next move of a related one goes the same way 59-74% of the time, against 50.0% when
+  the leader's moves are shifted 2 s (a placebo that keeps slow common drift). The edge runs both
+  ways and is largest from the less active side (SOXL to SOXX +23 points, UPRO to SPY +19, GOOG to
+  GOOGL +17). 91-99% of the following moves arrive more than 10 µs later, slower than this
+  system's measured 9 µs from wire to decision; most take 0.1 ms to 1 s.
+- **Trading on it** (`scripts/leader_walkforward.sh`): the imbalance maker on 12 follower products
+  also steps back from the side its leader's 0.1 s momentum points against. Threshold chosen on
+  the train days (0: any adverse leader move). On the four test days: +$4.1k against -$8.5k without
+  the leader, better on 9 of 12 followers and still ahead in June 2026 (-$3.9k against -$11.4k);
+  +$6.4k against -$2.9k with a $0.002 rebate. Zero latency and Nasdaq's book only.
+
 Six years back, the same train fit scored on 2019-10-18 (`TEST=S101819`, symbols that existed
 then): each stock's own OFI slope no longer transfers (median R2 0.11) while the depth law still
 scores 0.61; the micro-price still cuts next-mid error by 10.0%; and the imbalance-filtered maker
@@ -518,7 +530,9 @@ day, so a check of direction, not of size: [microstructure-2019](docs/results/mi
 [maker-walkforward-2019](docs/results/maker-walkforward-2019.md).
 
 Full tables: [docs/results/microstructure.md](docs/results/microstructure.md),
-[docs/results/maker-walkforward.md](docs/results/maker-walkforward.md). The estimators are in
+[docs/results/maker-walkforward.md](docs/results/maker-walkforward.md),
+[docs/results/lead-lag.md](docs/results/lead-lag.md),
+[docs/results/leader-walkforward.md](docs/results/leader-walkforward.md). The estimators are in
 `src/strategy/microstructure.hpp`, unit-tested against the papers' cases and a chain with a known
 answer (`tests/microstructure_test.cpp`).
 

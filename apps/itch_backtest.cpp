@@ -154,7 +154,7 @@ int usage() {
     std::fprintf(stderr,
                  "usage: itch_backtest <store-dir> <symbol|locate>[,...] <strategy> [key=value ...] [--report DIR]\n"
                  "                     [--sweep key=v1,v2,... (repeatable; every combination, THREADS=N)]\n"
-                 "                     [--fills FILE] [--minutes FILE] [--index LOC,...]\n"
+                 "                     [--fills FILE] [--minutes FILE] [--index SYMBOL|LOC,...]\n"
                  "strategies:\n");
     for (const auto& e : backtest::strategies())
         std::fprintf(stderr, "  %-20s %s\n", (e.name + (e.takes_arg ? ":<arg>" : "")).c_str(), e.help.c_str());
@@ -195,7 +195,7 @@ int main(int argc, char** argv) {
             else
                 for (std::size_t at = 0; at < v.size();) {
                     const std::size_t comma = std::min(v.find(',', at), v.size());
-                    r.index.push_back(static_cast<std::uint16_t>(std::stoul(v.substr(at, comma - at))));
+                    r.index.push_back(find_locate(r.store, v.substr(at, comma - at)));
                     at = comma + 1;
                 }
             continue;
