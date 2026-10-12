@@ -30,7 +30,9 @@ real days: no reports.
 
 `itch_study` (5 symbols, three days including 2019), `itch_leadlag` and `itch_backtest leader
 --index` ran clean under ASan (leak checks on) and UBSan on the stored Nasdaq days; CI's sanitizer
-jobs cover them only on synthetic days.
+jobs cover them only on synthetic days. clang-tidy (bugprone, performance) on the new code found
+nothing beyond intended conversions. Fuzzers, 180 s each beyond CI's 60 s: itch 150M inputs, tape
+4.1M, oms 2.3M, ws 5.8M, no crash, leak or timeout.
 
 ## Verification (2026-10-12, bare metal, main after the restore)
 
