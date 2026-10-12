@@ -7,3 +7,6 @@ target_link_libraries(book_study PRIVATE hft_core hft_data)
 
 add_executable(wake_bench wake_bench.cpp)
 target_link_libraries(wake_bench PRIVATE hft_core)
+
+add_executable(jitter jitter.cpp)
+target_link_libraries(jitter PRIVATE hft_core)
