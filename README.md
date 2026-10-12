@@ -44,7 +44,8 @@ hft get 2025-12-10                          # download (16 connections), verify,
 hft replay 2025-12-10                       # every book of the day, invariants checked: 847M messages
 hft strategies                              # built in and your own (strategies/*.cpp)
 hft backtest 2025-12-10 INTC,AAPL avellaneda_stoikov gamma=0.05     # -> report.html
-hft study 2025-12-08,2025-12-09 2025-12-10  # order flow imbalance, micro-price, queue value
+hft study 2025-12-08,2025-12-09 2025-12-10  # imbalance, micro-price, queue value, Hawkes, VPIN...
+hft leadlag 2025-12-10 QQQ:TQQQ,QQQ:SQQQ:-1  # who follows whom, against a placebo
 ```
 
 **2. Paper-trade the live prediction market.** Market makers and an arbitrage executor run on
@@ -117,7 +118,7 @@ the sections below.
 - **Determinism:** a live session replays from its recording to bit-identical decisions,
   checked by hash, under GCC and Clang; so do fault-injected runs and kill-switch runs.
 - **Correctness:** zero heap allocations on the hot path in steady state; property tests against
-  reference implementations; 321 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
+  reference implementations; 322 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
   campaigns at 20-30% dropped, duplicated and delayed reports with zero illegal order states.
 - **FPGA feed parser (simulated):** ITCH 5.0 in SystemVerilog, 8 bytes per clock, one message
   per clock, output one clock after a message's last byte; field-identical to the C++ decoder in
@@ -265,7 +266,7 @@ replay is unchanged within noise. A lookahead prefetch on the per-symbol path wa
 
 ## Tests
 
-`ctest` runs 321 tests: GoogleTest, RapidCheck and end-to-end runs of `hft`, `itch_study` and `itch_leadlag` (317 under the sanitizers, which leave out
+`ctest` runs 322 tests: GoogleTest, RapidCheck and end-to-end runs of `hft`, `itch_study` and `itch_leadlag` (318 under the sanitizers, which leave out
 `alloc_test`); one (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine
 exposes no hardware performance counters.
 
@@ -481,6 +482,7 @@ age. One command each, about 30 s and 15 minutes on 16 threads:
 ```
 scripts/study.sh > docs/results/microstructure.md          # itch_study: OFI, micro-price, queue
 scripts/maker_walkforward.sh > docs/results/maker-walkforward.md
+scripts/results.sh                                          # every results page, then git diff
 ```
 
 - **Order flow imbalance** ([Cont, Kukanov and Stoikov 2014](https://arxiv.org/abs/1011.6402)):
@@ -555,7 +557,8 @@ Six years back, the same train fit scored on 2019-10-18 (`TEST=S101819`, symbols
 then): each stock's own OFI slope no longer transfers (median R2 0.11) while the depth law still
 scores 0.61; the micro-price still cuts next-mid error by 10.0%; and the imbalance-filtered maker
 makes money that day (+$1.3k against -$6.7k for the joiner without fees, +$1.3k against -$6.1k
-with the rebate and 2019's Section 31 and TAF rates) until one-way latency reaches 50 µs. One
+with the rebate and 2019's Section 31 and TAF rates; paired over the 9 symbols +$8.0k, 95% interval
+[+$2.6k, +$13.7k]) until one-way latency reaches 50 µs. One
 day, so a check of direction, not of size: [microstructure-2019](docs/results/microstructure-2019.md),
 [maker-walkforward-2019](docs/results/maker-walkforward-2019.md).
 

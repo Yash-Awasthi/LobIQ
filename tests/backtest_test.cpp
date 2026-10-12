@@ -340,6 +340,28 @@ TEST(Registry, ARegisteredStrategyRunsLikeTheTypeItself) {
     EXPECT_EQ(imb.end_inventory, 0);
 }
 
+// leader with the leader ignored is the imbalance maker at threshold 0; heeding it only withdraws quotes.
+TEST(Registry, LeaderReducesToImbalanceWhenTheLeaderIsIgnored) {
+    FixtureStore fx;
+    RunSpec r;
+    r.config = window();
+    r.store = fx.dir.path.string();
+    r.target = 1;
+    r.index = {3};
+    Params imb, ignored, heeded;
+    imb.kv["threshold"] = 0;
+    ignored.kv["lead_bp"] = 1e9;
+    heeded.kv["lead_bp"] = 0;
+    const Summary a = find_strategy("imbalance")->run(r, imb);
+    const Summary b = find_strategy("leader")->run(r, ignored);
+    const Summary c = find_strategy("leader")->run(r, heeded);
+    EXPECT_GT(a.fills, 0u);
+    EXPECT_EQ(b.total, a.total);
+    EXPECT_EQ(b.fill_ts, a.fill_ts);
+    EXPECT_EQ(c.total, c.spread + c.inventory_pnl + c.fees);
+    EXPECT_LE(c.fills, a.fills);
+}
+
 TEST(Report, WritesTheReportAndItsData) {
     FixtureStore fx;
     NaiveJoin n;
