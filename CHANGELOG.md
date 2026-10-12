@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Lead-lag and a leader-filtered maker.** `itch_leadlag` measures how related products follow
+  each other (same-direction next move 59-74% against a 50% placebo, mostly 0.1 ms to 1 s later);
+  the `leader` strategy plugin steps back on an adverse leader move: it significantly cuts inventory
+  losses but gives up as much spread, so its net out-of-sample gain is not significant. The
+  walk-forward scripts report paired bootstrap intervals. `itch_backtest --index` takes symbol names.
 - **Peak numbers.** `scripts/bench_max.sh` measures turbo-on performance on one P-core, one
   E-core and the whole chip, including latency with every hardware thread busy: book p50 20.4 ns
   alone and 36.6 ns under full load on a P-core; a full Nasdaq day at about 178M messages/s
