@@ -443,20 +443,22 @@ class Decoder {
     }
 
     // One book level in its fixed layout, as change_fixed.
-    bool level_fixed(Members& m) {
+    bool level_fixed(std::string_view& px, std::string_view& sz) {
         const char* const start = p_;
         ++p_;  // '{', checked by the caller
-        std::string_view px, sz;
         if (!fixed_str("\"price\":\"", px) || !comma() || !fixed_str("\"size\":\"", sz) || !eat('}')) return p_ = start, false;
-        m.first(Price), m.set(Price, px), m.first(Size), m.set(Size, sz);
         return true;
     }
 
     bool levels_fast(Range& r) {
         r.b = static_cast<std::uint32_t>(lv_.size());
         const bool ok = array([&] {
+            if (std::string_view px, sz; level_fixed(px, sz)) {
+                lv_.push_back({parse_price(px), parse_size(sz)});
+                return true;
+            }
             Members m;
-            if (!level_fixed(m) && !(m = Members{}, object([&](int f) { return member_value(m, f, 3); }))) return false;
+            if (!object([&](int f) { return member_value(m, f, 3); })) return false;
             lv_.push_back({parse_price(m.str(Price)), parse_size(m.str(Size))});
             return true;
         });
@@ -489,17 +491,14 @@ class Decoder {
 
     // One price change in its fixed layout, keys matched as literals and only values scanned. Any
     // difference rewinds, and the general parser decides as it always has.
-    bool change_fixed(Members& m) {
+    // v: asset_id, price, size, side, hash, best_bid, best_ask.
+    bool change_fixed(std::string_view (&v)[7]) {
         static constexpr std::string_view kKey[] = {"\"asset_id\":\"", "\"price\":\"", "\"size\":\"", "\"side\":\"",
                                                     "\"hash\":\"", "\"best_bid\":\"", "\"best_ask\":\""};
-        static constexpr int kField[] = {AssetId, Price, Size, Side, -1, BestBid, BestAsk};
         const char* const start = p_;
         ++p_;  // '{', checked by the caller
-        for (std::size_t i = 0; i < std::size(kKey); ++i) {
-            std::string_view v;
-            if ((i && !comma()) || !fixed_str(kKey[i], v)) return p_ = start, false;
-            if (kField[i] >= 0) m.first(kField[i]), m.set(kField[i], v);
-        }
+        for (std::size_t i = 0; i < std::size(kKey); ++i)
+            if ((i && !comma()) || !fixed_str(kKey[i], v[i])) return p_ = start, false;
         if (!eat('}')) return p_ = start, false;
         return true;
     }
@@ -525,8 +524,12 @@ class Decoder {
     bool changes_fast(Range& r) {
         r.b = static_cast<std::uint32_t>(ch_.size());
         const bool ok = array([&] {
+            if (std::string_view v[7]; change_fixed(v)) {
+                ch_.push_back({v[0], parse_price(v[1]), parse_size(v[2]), v[3] == "BUY", v[5], v[6]});
+                return true;
+            }
             Members m;
-            if (!change_fixed(m) && !(m = Members{}, object([&](int f) { return member_value(m, f, 3); }))) return false;
+            if (!object([&](int f) { return member_value(m, f, 3); })) return false;
             ch_.push_back({m.str(AssetId), parse_price(m.str(Price)), parse_size(m.str(Size)), m.str(Side) == "BUY", m.str(BestBid), m.str(BestAsk)});
             return true;
         });
