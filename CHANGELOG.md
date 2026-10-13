@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.4 (2026-10-13)
+
+Validation and diagnosis: every stored day checked against the reference book, the book's last
+latency outliers traced to the hardware, and an hour of live paper trading.
+
+- **Every day validated.** The map and tick books agree on all 94,380 symbol-days of the eight
+  stores, with invariant checks on; `checkpoint --verify` passes on every symbol (STATUS).
+- **Book outliers explained.** Intel PT and kernel-event matching: 90% of the remaining 5-15 us
+  stalls have no kernel event and disappear when the other cores poll instead of idling; not our
+  code (`docs/exec/HW.md` H21).
+- **One hour live.** 710,680 events, trading thread ring to decision p99.9 26.9 us; the network
+  side's tail is Wi-Fi delivery bursts (`docs/exec/PERF.md` R19).
+- **Tools.** `hft leadlag`; `scripts/results.sh` regenerates every results page reproducibly; one
+  `parallel_for` and one `symbols.tsv` reader replace seven copied thread pools and three readers;
+  the `leader` strategy is tested against the imbalance maker it extends.
+
 ## v1.3 (2026-10-13)
 
 A microstructure lab on the stored Nasdaq days, every result scored out of sample with its
