@@ -19,6 +19,8 @@
 - **Exchange metadata.** Market and event strings from the metadata API have control characters
   replaced, so a tab or newline in a slug can no longer add rows to `markets.tsv`; numeric ids out of
   range no longer go through an undefined conversion.
+- **Strict session files.** `session.tsv` is parsed with range checks; a negative connection number
+  used to wrap to 2^32 - 1 in the engine. Malformed lines reject the file with their line number.
 - **Faster feed decode.** Price changes in the exchange's fixed layout are decoded with literal key
   matches, falling back to the general parser on any difference: 38% fewer instructions per
   message, identical results (PERF R20).

@@ -4,6 +4,7 @@
 // the recorder writes what the trading thread processed, in its order.
 
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -59,29 +60,45 @@ struct Session {
             f << '\n';
         }
     }
+    // Strict: a recording's session file is untrusted input (SECURITY SEC2), so a malformed line
+    // rejects the file rather than reaching the engine.
     static Session load(const std::filesystem::path& p) {
         Session s;
         std::ifstream f(p);
         if (!f) throw std::runtime_error("cannot read " + p.string());
+        std::size_t n = 0;
         for (std::string line; std::getline(f, line);) {
+            ++n;
+            const auto bad = [&] { return std::runtime_error(p.string() + ":" + std::to_string(n) + ": malformed line"); };
+            const auto num = [&](const std::string& x, long long lo, long long hi) {
+                long long v = 0;
+                const auto [end, ec] = std::from_chars(x.data(), x.data() + x.size(), v);
+                if (ec != std::errc() || end != x.data() + x.size() || v < lo || v > hi) throw bad();
+                return v;
+            };
+            const auto flag = [&](const std::string& x) { return num(x, 0, 1) == 1; };
             std::vector<std::string> c;
             std::stringstream ss(line);
             for (std::string x; std::getline(ss, x, '\t');) c.push_back(x);
             if (c.size() >= 4 && c[0] == "token") {
-                Tok t{c[1], c[3], std::atoi(c[2].c_str()), {}};
+                if (!valid_id(c[1])) throw bad();
+                Tok t{c[1], c[3], static_cast<int>(num(c[2], 0, 4095)), {}};
                 if (c.size() >= 11) {  // files written before the rules were kept have 4 fields
                     MarketRules& r = t.rules;
-                    r.tick = std::atoi(c[4].c_str());
-                    r.min_qty = std::atoll(c[5].c_str());
-                    r.neg_risk = c[6] == "1";
-                    r.fees = c[7] == "1";
-                    r.fee_rate_ppm = static_cast<std::uint32_t>(std::atol(c[8].c_str()));
-                    r.fee_exp = static_cast<std::uint8_t>(std::atoi(c[9].c_str()));
-                    r.delay_ms = static_cast<std::uint16_t>(std::atoi(c[10].c_str()));
+                    r.tick = static_cast<std::int32_t>(num(c[4], 0, 10'000));
+                    r.min_qty = num(c[5], 0, 1'000'000'000'000);
+                    r.neg_risk = flag(c[6]);
+                    r.fees = flag(c[7]);
+                    r.fee_rate_ppm = static_cast<std::uint32_t>(num(c[8], 0, 999'999));
+                    r.fee_exp = static_cast<std::uint8_t>(num(c[9], 0, 2));
+                    r.delay_ms = static_cast<std::uint16_t>(num(c[10], 0, 59'999));
                 }
                 s.tokens.push_back(std::move(t));
+            } else if (c.size() >= 3 && c[0] == "group") {
+                for (std::size_t i = 2; i < c.size(); ++i)
+                    if (!valid_id(c[i])) throw bad();
+                s.groups.push_back({c[1], {c.begin() + 2, c.end()}});
             }
-            else if (c.size() >= 3 && c[0] == "group") s.groups.push_back({c[1], {c.begin() + 2, c.end()}});
         }
         return s;
     }

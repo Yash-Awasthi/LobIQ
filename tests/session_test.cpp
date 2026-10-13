@@ -92,6 +92,22 @@ TEST(Gamma, KeepsExchangeStringsOnOneLineAndIdsInRange) {
     EXPECT_EQ(hft::pm::event_from(hft::net::parse_json(R"({"id":4961360})")).id, "4961360");
 }
 
+// A recording's session file is input like the recording itself (SECURITY SEC2): numbers out of
+// range or ids that are not plain digits reject the file instead of reaching the engine.
+TEST(Session, RejectsMalformedFiles) {
+    TempDir dir("pm_session_bad");
+    const auto with = [&](const std::string& line) {
+        std::ofstream(dir.path / "session.tsv") << line << "\n";
+        return dir.path / "session.tsv";
+    };
+    EXPECT_EQ(Session::load(with("token\t111\t1\tA Yes\t10\t5000000\t1\t0\t0\t0\t0")).tokens.size(), 1u);
+    EXPECT_EQ(Session::load(with("token\t111\t0\tA Yes")).tokens.size(), 1u);  // before the rules were kept
+    for (const char* bad : {"token\t111\t-1\tA", "token\t111\t4294967296\tA", "token\t111\t99999999999999999999\tA",
+                            "token\t11x\t0\tA", "token\t111\tx\tA", "token\t111\t0\tA\t-5\t0\t0\t0\t0\t0\t0",
+                            "token\t111\t0\tA\t10\t0\t0\t0\t0\t9\t0", "group\tg\t111\t1/2"})
+        EXPECT_THROW(Session::load(with(bad)), std::runtime_error) << bad;
+}
+
 TEST(Session, KeepsMarketRulesAndReadsOlderFilesWithDefaults) {
     TempDir dir("pm_session_rules");
     Session s;
