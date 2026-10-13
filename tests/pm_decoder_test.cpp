@@ -284,3 +284,15 @@ RC_GTEST_PROP(PmDecoder, FixedLayoutMatchesTheTape, ()) {
     RC_ASSERT(ra == rb);
     RC_ASSERT(a == b);
 }
+
+// Corrupt timestamps are recorded as found; the gap between them must not overflow.
+TEST(PmReader, ExtremeTimestampsDoNotOverflowTheGap) {
+    TempDir dir("pm_reader_ts");
+    std::filesystem::create_directories(dir.path / "c0");
+    std::ofstream(dir.path / "c0" / "h1.jsonl", std::ios::binary)
+        << "9223372036854775807 {\"event_type\":\"_heartbeat\"}\n-9223372036854775807 {\"event_type\":\"_heartbeat\"}\n"
+        << "9223372036854775807 {\"event_type\":\"_heartbeat\"}\n";
+    const auto st = hft::pm::read_records(dir.path, [](std::int64_t, const Event&) {});
+    EXPECT_EQ(st.messages, 3u);
+    EXPECT_NEAR(st.max_gap_s, 1.8446744e10, 1e4);
+}

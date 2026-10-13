@@ -198,7 +198,7 @@ ReadStats read_lines(const std::filesystem::path& root, Fn&& fn) {
         }
         std::int64_t ns = 0;
         std::from_chars(l.data(), l.data() + sp, ns);
-        if (last) st.max_gap_s = std::max(st.max_gap_s, static_cast<double>(ns - last) * 1e-9);
+        if (last) st.max_gap_s = std::max(st.max_gap_s, (static_cast<double>(ns) - static_cast<double>(last)) * 1e-9);
         last = ns;
         ++st.messages;
         if (!fn(ns, l.substr(sp + 1))) ++st.parse_errors;
