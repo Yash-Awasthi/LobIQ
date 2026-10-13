@@ -343,13 +343,30 @@ class Decoder {
         return true;
     }
 
+    // A string whose value is not kept: escapes are allowed (listings carry escaped text) and
+    // checked as the tape checks them, so both paths accept the same input.
+    bool skip_string() {
+        if (!eat('"')) return false;
+        const char* const b = p_;
+        bool esc = false;
+        for (;;) {
+            const char* q = quote_or_escape(p_, e_);
+            if (q == e_) return false;
+            if (*q == '"') {
+                p_ = q + 1;
+                return !esc || net::JsonTape::valid_escapes({b, static_cast<std::size_t>(q - b)});
+            }
+            if (e_ - q < 2) return false;
+            esc = true;
+            p_ = q + 2;  // the escaped character, a quote included
+        }
+    }
+
     bool skip(int depth) {
         if (depth > kMaxDepth) return false;
         switch (peek()) {
-            case '"': {
-                std::string_view s;
-                return string(s);
-            }
+            case '"':
+                return skip_string();
             case '{':
             case '[': {
                 const char close = *p_ == '{' ? '}' : ']';

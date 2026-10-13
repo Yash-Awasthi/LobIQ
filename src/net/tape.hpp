@@ -66,6 +66,8 @@ class JsonTape {
         return v != npos && nodes_[v].type == Type::Str ? raw(v) : std::string_view();
     }
 
+    // Whether a string's raw contents hold only escapes JSON allows, as parse() checks them.
+    static bool valid_escapes(std::string_view raw) { return escapes_ok(raw); }
     // String node with escapes resolved.
     std::string decode(std::uint32_t i) const { return unescape(raw(i)); }
 
@@ -279,8 +281,7 @@ class JsonTape {
 
     // Escapes as JSON allows them; a high surrogate must be followed by a low one.
     static bool escapes_ok(std::string_view s) {
-        for (std::size_t i = 0; i < s.size(); ++i) {
-            if (s[i] != '\\') continue;
+        for (std::size_t i = s.find('\\'); i != std::string_view::npos; i = s.find('\\', i + 1)) {
             if (++i >= s.size()) return false;
             const char e = s[i];
             if (e == 'u') {

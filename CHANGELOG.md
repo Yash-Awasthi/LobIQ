@@ -24,6 +24,8 @@
 - **Faster feed decode.** Price changes in the exchange's fixed layout are decoded with literal key
   matches, falling back to the general parser on any difference: 38% fewer instructions per
   message, identical results; parse p50 340 -> 175 ns on a P-core, p99 unchanged (PERF R20).
+- **Parse tail.** Market listings with escaped text no longer fall back to the tape parser:
+  parse p99 1,818 -> 691 ns on a P-core, identical decisions (PERF R21).
 - **Peak figures re-measured** (docs/results/max-performance.md): book p50 22.1 ns on a P-core,
   prediction-market parse p50 177 ns, a full Nasdaq day in 4.89 s at 173M messages/s.
 - **Methods.** docs/METHODS.md: every model and estimator as implemented, with sources, code and tests.
