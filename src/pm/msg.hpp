@@ -442,11 +442,21 @@ class Decoder {
         }
     }
 
+    // One book level in its fixed layout, as change_fixed.
+    bool level_fixed(Members& m) {
+        const char* const start = p_;
+        ++p_;  // '{', checked by the caller
+        std::string_view px, sz;
+        if (!fixed_str("\"price\":\"", px) || !comma() || !fixed_str("\"size\":\"", sz) || !eat('}')) return p_ = start, false;
+        m.first(Price), m.set(Price, px), m.first(Size), m.set(Size, sz);
+        return true;
+    }
+
     bool levels_fast(Range& r) {
         r.b = static_cast<std::uint32_t>(lv_.size());
         const bool ok = array([&] {
             Members m;
-            if (!object([&](int f) { return member_value(m, f, 3); })) return false;
+            if (!level_fixed(m) && !(m = Members{}, object([&](int f) { return member_value(m, f, 3); }))) return false;
             lv_.push_back({parse_price(m.str(Price)), parse_size(m.str(Size))});
             return true;
         });

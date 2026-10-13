@@ -296,3 +296,33 @@ TEST(PmReader, ExtremeTimestampsDoNotOverflowTheGap) {
     EXPECT_EQ(st.messages, 3u);
     EXPECT_NEAR(st.max_gap_s, 1.8446744e10, 1e4);
 }
+
+// Book snapshots, whose levels have a literal-key fast path too.
+RC_GTEST_PROP(PmDecoder, FixedLevelsMatchTheTape, ()) {
+    const auto sep = [] { return *rc::gen::element<std::string>(",", ",", ", "); };
+    const auto val = [] { return *rc::gen::weightedOneOf<std::string>({{12, rc::gen::element<std::string>(R"("0.01")", R"("0.999")", R"("1234.5")")},
+                                                                       {1, rc::gen::element<std::string>(R"("a\"b")", "7", R"("")", "null")}}); };
+    const auto levels = [&] {
+        std::string a = "[";
+        for (std::size_t i = 0, n = *rc::gen::inRange<std::size_t>(0, 4); i < n; ++i) {
+            std::string o = R"({"price":)" + val() + sep() + R"("size":)" + val();
+            if (*rc::gen::inRange(0, 20) == 0) o = R"({"size":)" + val() + sep() + R"("price":)" + val();
+            if (*rc::gen::inRange(0, 20) == 0) o += R"(,"x":1)";
+            a += (i ? sep() : "") + o + "}";
+        }
+        return a + "]";
+    };
+    std::string text = R"({"market":"0xab", "asset_id":"123", "bids":)" + levels() + sep() + R"("asks":)" + levels() +
+                       R"(, "timestamp":"1791561630336", "event_type":"book"})";
+    if (*rc::gen::inRange(0, 4) == 0) {
+        const auto at = *rc::gen::inRange<std::size_t>(0, text.size());
+        text[at] = *rc::gen::element('"', '{', '}', '[', ']', ',', ':', 'x', '\\', ' ');
+    }
+    Decoder fast, tape;
+    std::vector<std::string> a, b;
+    const bool ra = fast.decode(text, [&](const Event& e) { a.push_back(dump(e)); });
+    const bool rb = tape.decode_tape(text, [&](const Event& e) { b.push_back(dump(e)); });
+    RC_TAG(fast.fallbacks() == 0 ? "single pass" : "tape");
+    RC_ASSERT(ra == rb);
+    RC_ASSERT(a == b);
+}
