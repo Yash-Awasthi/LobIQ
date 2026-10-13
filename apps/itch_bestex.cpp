@@ -57,7 +57,8 @@ int main(int argc, char** argv) {
         std::vector<std::pair<std::uint64_t, std::string>> active;
         for (const auto& [name, loc] : names) {
             std::uint64_t n = 0;
-            for (const auto& e : data::SymbolReader(dir, loc).index()) n += e.n_msgs;
+            const data::SymbolReader rd(dir, loc);
+            for (const auto& e : rd.index()) n += e.n_msgs;
             active.emplace_back(n, name);
         }
         std::sort(active.rbegin(), active.rend());
