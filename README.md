@@ -118,7 +118,7 @@ the sections below.
 - **Determinism:** a live session replays from its recording to bit-identical decisions,
   checked by hash, under GCC and Clang; so do fault-injected runs and kill-switch runs.
 - **Correctness:** zero heap allocations on the hot path in steady state; property tests against
-  reference implementations; 330 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
+  reference implementations; 332 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
   campaigns at 20-30% dropped, duplicated and delayed reports with zero illegal order states.
 - **FPGA feed parser (simulated):** ITCH 5.0 in SystemVerilog, 8 bytes per clock, one message
   per clock, output one clock after a message's last byte; field-identical to the C++ decoder in
@@ -266,7 +266,7 @@ replay is unchanged within noise. A lookahead prefetch on the per-symbol path wa
 
 ## Tests
 
-`ctest` runs 330 tests: GoogleTest, RapidCheck and end-to-end runs of `hft`, `itch_study` and `itch_leadlag` (326 under the sanitizers, which leave out
+`ctest` runs 332 tests: GoogleTest, RapidCheck and end-to-end runs of `hft`, `itch_study` and `itch_leadlag` (328 under the sanitizers, which leave out
 `alloc_test`); one (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine
 exposes no hardware performance counters.
 
@@ -587,6 +587,18 @@ full report for 2025-12-10). The public feed is anonymous apart from MPIDs, so t
 reviewer, not findings; the detectors are unit-tested on injected patterns and near misses
 (`tests/surveil_test.cpp`). `hft book DAY SYMBOL HH:MM:SS` shows the book at any moment of a flagged
 incident, from the nearest stored checkpoint.
+
+## Execution quality
+
+`itch_bestex` (or `hft bestex DAY`) is a best-execution report in the spirit of SEC Rule 605, the
+statistics brokers publish about how their customers' orders were filled: per symbol and per
+execution size, the effective half-spread split into realized spread and 5 s price impact, and the
+share of volume executed inside the quote against hidden orders with its price improvement. For the
+25 most active symbols of 2025-12-10 ([docs/results/execution-quality.md](docs/results/execution-quality.md)):
+takers paid 0.4-3.3 cents a share over the mid; for most symbols the mid then moved further their
+way, so the realized spread is negative (down to -0.67 cents, up to +0.29), and it falls with size
+(-0.21 cents up to 100 shares, -1.36 above 2,000); 2-33% of shares executed inside the quote, about a
+cent better than the displayed price. Unit-tested on hand-computed fills (`tests/bestex_test.cpp`).
 
 ## Not planned
 

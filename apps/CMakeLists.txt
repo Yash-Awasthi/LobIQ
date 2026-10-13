@@ -57,3 +57,6 @@ target_link_libraries(itch_book PRIVATE hft_core hft_data)
 
 add_executable(itch_surveil itch_surveil.cpp)
 target_link_libraries(itch_surveil PRIVATE hft_core hft_data)
+
+add_executable(itch_bestex itch_bestex.cpp)
+target_link_libraries(itch_bestex PRIVATE hft_core hft_data)

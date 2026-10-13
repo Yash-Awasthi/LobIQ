@@ -40,6 +40,7 @@ Nasdaq ITCH days (DAY is S121025, 2025-12-10 or a store path):
   hft book DAY SYMBOL HH:MM:SS[.f] [LEVELS]
                                    the order book at that moment (from the nearest checkpoint)
   hft surveil DAY [SYMBOL,..]      spoofing, layering and quote-stuffing candidates, with evidence
+  hft bestex DAY [SYMBOL,..]       execution quality, Rule 605 style (default: 25 most active)
   hft strategies                   strategies available to backtest
   hft backtest DAY SYMBOLS STRATEGY [key=value...]
                                    queue-position backtest with an HTML report (SYMBOLS: INTC,AAPL)
@@ -117,6 +118,12 @@ study)
     need
     join() { local o= x; for x in ${1//,/ }; do o+="${o:+,}$(store "$x")"; done; echo "$o"; }
     "$bin/itch_study" --train "$(join "$1")" --test "$(join "$2")" --symbols "${SYMBOLS:-30}"
+    ;;
+
+bestex)
+    [ $# -ge 1 ] && [ $# -le 2 ] || die "usage: hft bestex DAY [SYMBOL,..]"
+    need
+    exec "$bin/itch_bestex" "$(store "$1")" ${2:+"$2"}
     ;;
 
 surveil)
