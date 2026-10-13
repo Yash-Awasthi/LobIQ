@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **Market surveillance.** `itch_surveil` / `hft surveil`: spoofing, layering and quote-stuffing
+  candidates over every symbol of a day, ranked with their evidence (docs/results/surveillance.md).
+- **Execution quality.** `itch_bestex` / `hft bestex`: a Rule 605-style report of effective, realized
+  and impact spreads by size and price improvement (docs/results/execution-quality.md).
+- **Point-in-time books.** `itch_book` / `hft book`: any symbol's book at any moment of a day, from the
+  nearest checkpoint; `ingest` takes `CHUNK_MSGS`.
+- **Applications.** docs/APPLICATIONS.md maps each part to the industry systems it mirrors.
+- **Diagnosis.** The book's last outliers traced to idle cores (HW.md H21); one hour live (PERF R19).
+
 ## v1.4 (2026-10-13)
 
 Validation and diagnosis: every stored day checked against the reference book, the book's last
