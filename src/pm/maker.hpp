@@ -145,7 +145,7 @@ class TokenMaker {
         if (last_mid_ > 0 && mid != last_mid_ && ns > last_ns_) {
             const double dt = static_cast<double>(ns - last_ns_) * 1e-9;
             const double dx = logit(mid) - logit(last_mid_);
-            var_ += (1 - std::exp(-dt / p_.var_tau_s)) * (dx * dx / std::max(dt, 1e-3) - var_);
+            var_ += -std::expm1(-dt / p_.var_tau_s) * (dx * dx / dt - var_);
         }
         if (mid != last_mid_ || !last_ns_) last_mid_ = mid, last_ns_ = ns;
         for (Order* o : {&bid_, &ask_}) {  // a level cannot be deeper than what is displayed

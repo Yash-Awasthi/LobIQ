@@ -131,13 +131,14 @@ struct AvellanedaStoikov {
     void decide(const View& v, Desired& d) {
         if (online) recalibrate(v);
         if (!std::isfinite(v.mid)) return;
+        // Each call scores the time since the previous one, so the estimate is the same at any call rate.
         if (std::isfinite(last_mid) && v.now > last_ts) {
             const double dt = (v.now - last_ts) * 1e-9;
-            const double w = 1 - std::exp(-dt / var_tau_s);
+            const double w = -std::expm1(-dt / var_tau_s);
             const double dm = v.mid - last_mid;
-            var += w * (dm * dm / std::max(dt, 1e-3) - var);
+            var += w * (dm * dm / dt - var);
         }
-        if (v.mid != last_mid || !last_ts) last_mid = v.mid, last_ts = v.now;
+        if (v.now > last_ts || !last_ts) last_mid = v.mid, last_ts = v.now;
         const double q = static_cast<double>(v.inventory) / size;
         double bid_d, ask_d;
         if (glft) {

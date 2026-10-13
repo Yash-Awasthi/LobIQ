@@ -106,6 +106,23 @@ TEST(Strategies, AvellanedaStoikovSkewsAgainstInventory) {
     EXPECT_LE(flat.ask_px, 10'0500u + 1000u);
 }
 
+// A mid that moves one tick every second has variance 1 tick^2 / s, however often decide runs.
+TEST(Strategies, AvellanedaStoikovVarianceIgnoresTheCallRate) {
+    book::TickBook b;
+    b.add(1, Side::Buy, 100, 10'0000, 1);
+    b.add(2, Side::Sell, 100, 10'0500, 2);
+    std::vector<Working> w;
+    for (const std::uint64_t step : {1'000'000ull, 250'000'000ull}) {
+        AvellanedaStoikov as;
+        for (std::uint64_t t = 1'000'000'000; t <= 600'000'000'000; t += step) {
+            const double mid = 1000 + static_cast<double>(t / 1'000'000'000 % 2);
+            Desired d;
+            as.decide(View{t, b, nullptr, 0, mid, 0, w, true}, d);
+        }
+        EXPECT_NEAR(as.var, 1.0, 0.1) << step;
+    }
+}
+
 // A distance cap keeps quotes near the mid when the fitted intensity would put them far away.
 TEST(Strategies, AvellanedaStoikovDistanceCap) {
     book::TickBook b;

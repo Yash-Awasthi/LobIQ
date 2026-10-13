@@ -11,8 +11,12 @@
 - **Applications.** docs/APPLICATIONS.md maps each part to the industry systems it mirrors.
 - **Diagnosis.** The book's last outliers traced to idle cores (HW.md H21); one hour live (PERF R19).
 - **Study medians.** Medians over an even count now average the middle pair (they took the upper
-  one); the microstructure pages and the README figures moved by at most 0.02, the 2019
+  one); the microstructure pages and the README figures shift slightly (spreads, depth, volatility); the 2019
   micro-price gain from 10.0% to 8.1%.
+- **Variance estimates.** The Avellaneda-Stoikov backtest strategy decayed its variance once per call
+  between mid changes, so frequent calls drove it toward zero (0.017 instead of 1 tick^2/s at 1 ms
+  calls); each call now scores only its own interval. The prediction-market maker no longer clamps
+  sub-millisecond intervals to 1 ms. Live recordings made before replay to different decisions.
 
 ## v1.4 (2026-10-13)
 
