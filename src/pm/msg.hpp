@@ -263,8 +263,8 @@ class Decoder {
     static constexpr int kMaxDepth = 16;
 
     static bool blank(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
-    void ws() {
-        while (p_ != e_ && blank(*p_)) ++p_;
+    void ws() {  // every token byte is above ' ', so the usual no-whitespace case is one compare
+        while (p_ != e_ && static_cast<unsigned char>(*p_) <= ' ' && blank(*p_)) ++p_;
     }
     bool eat(char c) {
         if (p_ == e_ || *p_ != c) return false;
@@ -437,11 +437,69 @@ class Decoder {
         return ok;
     }
 
+    // `w` (8 to 16 bytes) is next in the input; two overlapping word compares, folded for literals.
+    bool next_is(std::string_view w) const {
+        const std::size_t n = w.size();
+        return static_cast<std::size_t>(e_ - p_) >= n && load<std::uint64_t>(p_) == lit(w.data(), 8) &&
+               load<std::uint64_t>(p_ + n - 8) == lit(w.data() + n - 8, 8);
+    }
+
+    // Fixed layouts, the ones the exchange sends: a literal key and a string value up to its quote.
+    bool fixed_str(std::string_view key, std::string_view& v) {
+        if (!next_is(key)) return false;
+        p_ += key.size();
+        const char* q = quote_or_escape(p_, e_);
+        if (q == e_ || *q != '"') return false;
+        v = {p_, static_cast<std::size_t>(q - p_)};
+        p_ = q + 1;
+        return true;
+    }
+    bool comma() {  // ',' and at most one space, as sent
+        if (!eat(',')) return false;
+        eat(' ');
+        return true;
+    }
+
+    // One price change in its fixed layout, keys matched as literals and only values scanned. Any
+    // difference rewinds, and the general parser decides as it always has.
+    bool change_fixed(Members& m) {
+        static constexpr std::string_view kKey[] = {"\"asset_id\":\"", "\"price\":\"", "\"size\":\"", "\"side\":\"",
+                                                    "\"hash\":\"", "\"best_bid\":\"", "\"best_ask\":\""};
+        static constexpr int kField[] = {AssetId, Price, Size, Side, -1, BestBid, BestAsk};
+        const char* const start = p_;
+        ++p_;  // '{', checked by the caller
+        for (std::size_t i = 0; i < std::size(kKey); ++i) {
+            std::string_view v;
+            if ((i && !comma()) || !fixed_str(kKey[i], v)) return p_ = start, false;
+            if (kField[i] >= 0) m.first(kField[i]), m.set(kField[i], v);
+        }
+        if (!eat('}')) return p_ = start, false;
+        return true;
+    }
+
+    // A whole price_change event in its fixed layout; on any difference the input and the
+    // changes are rewound.
+    bool price_change_fixed(Members& m, Range& chg) {
+        const char* const start = p_;
+        const std::size_t n = ch_.size();
+        const auto fail = [&] { return p_ = start, ch_.resize(n), false; };
+        ++p_;  // '{', checked by the caller
+        std::string_view v;
+        if (!fixed_str("\"market\":\"", v) || !comma() || !next_is("\"price_changes\":")) return fail();
+        p_ += std::string_view("\"price_changes\":").size();
+        if (peek() != '[' || !changes_fast(chg) || !comma() || !fixed_str("\"timestamp\":\"", v)) return fail();
+        m.first(Timestamp), m.set(Timestamp, v);
+        if (!comma() || !fixed_str("\"event_type\":\"", v) || !eat('}')) return fail();
+        m.first(EventType), m.set(EventType, v);
+        m.first(PriceChanges);
+        return true;
+    }
+
     bool changes_fast(Range& r) {
         r.b = static_cast<std::uint32_t>(ch_.size());
         const bool ok = array([&] {
             Members m;
-            if (!object([&](int f) { return member_value(m, f, 3); })) return false;
+            if (!change_fixed(m) && !(m = Members{}, object([&](int f) { return member_value(m, f, 3); }))) return false;
             ch_.push_back({m.str(AssetId), parse_price(m.str(Price)), parse_size(m.str(Size)), m.str(Side) == "BUY", m.str(BestBid), m.str(BestAsk)});
             return true;
         });
@@ -474,7 +532,9 @@ class Decoder {
         Pending& pe = pend_.emplace_back();
         bool bids_arr = false, asks_arr = false, chg_arr = false, ids_arr = false, conn_plain = false;
         std::int64_t conn = 0;
-        const bool ok = object([&](int f) {
+        if (price_change_fixed(m, pe.chg)) chg_arr = true;
+        else m = Members{};
+        const bool ok = chg_arr || object([&](int f) {
             const bool first = m.first(f);
             if (!first) return skip(2);
             switch (f) {

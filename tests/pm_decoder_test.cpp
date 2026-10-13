@@ -245,3 +245,42 @@ TEST(PmReader, ReadsConnectionsAcrossBlockBoundaries) {
     EXPECT_EQ(shares, want);
     EXPECT_NEAR(st.max_gap_s, 29'001 * 1e-9, 1e-12);  // h1 ends at 20,999 ns, h2 starts at 50,000; c1 is apart
 }
+
+// The exchange's own layout for price changes, which has a literal-key fast path, with random
+// values, separators, an occasional extra or missing member and an occasional corrupted byte.
+RC_GTEST_PROP(PmDecoder, FixedLayoutMatchesTheTape, ()) {
+    const auto sep = [] { return *rc::gen::weightedOneOf<std::string>({{8, rc::gen::just<std::string>(", ")},
+                                                                       {2, rc::gen::just<std::string>(",")},
+                                                                       {1, rc::gen::just<std::string>(",  ")}}); };
+    const auto val = [] { return *rc::gen::element<std::string>(R"("0.5")", R"("12")", R"("BUY")", R"("SELL")", R"("")",
+                                                                R"("a\"b")", "7", R"("1791561630336")"); };
+    std::vector<std::pair<std::string, std::string>> keys = {{"asset_id", R"("123456789")"}, {"price", R"("0.45")"},
+                                                             {"size", R"("10")"},           {"side", R"("BUY")"},
+                                                             {"hash", R"("ab12")"},         {"best_bid", R"("0.44")"},
+                                                             {"best_ask", R"("0.46")"}};
+    std::string changes = "[";
+    for (std::size_t c = 0, n = *rc::gen::inRange<std::size_t>(0, 3); c < n; ++c) {
+        std::string o = "{";
+        for (std::size_t i = 0; i < keys.size(); ++i) {
+            if (*rc::gen::inRange(0, 30) == 0) continue;  // a member missing
+            o += (o.size() > 1 ? sep() : "") + "\"" + keys[i].first + "\":" + (*rc::gen::inRange(0, 3) ? keys[i].second : val());
+        }
+        if (*rc::gen::inRange(0, 30) == 0) o += R"(, "extra":"1")";
+        changes += (c ? sep() : "") + o + "}";
+    }
+    changes += "]";
+    std::string text = R"({"market":"0xab")" + sep() + R"("price_changes":)" + changes + sep() + R"("timestamp":)" +
+                       (*rc::gen::inRange(0, 10) ? R"("1791561630336")" : val()) + sep() + R"("event_type":")" +
+                       *rc::gen::element<std::string>("price_change", "book") + "\"}";
+    if (*rc::gen::inRange(0, 4) == 0) {
+        const auto at = *rc::gen::inRange<std::size_t>(0, text.size());
+        text[at] = *rc::gen::element('"', '{', '}', '[', ']', ',', ':', 'x', '\\', ' ');
+    }
+    Decoder fast, tape;
+    std::vector<std::string> a, b;
+    const bool ra = fast.decode(text, [&](const Event& e) { a.push_back(dump(e)); });
+    const bool rb = tape.decode_tape(text, [&](const Event& e) { b.push_back(dump(e)); });
+    RC_TAG(fast.fallbacks() == 0 ? "single pass" : "tape");
+    RC_ASSERT(ra == rb);
+    RC_ASSERT(a == b);
+}

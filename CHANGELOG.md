@@ -13,6 +13,9 @@
   could crash or hang the next call. It now checks sizes before allocating and accepts only an
   image that passes a range-checked `check()` (ID table, free lists, radix links, bitmaps). New
   fuzzer `book_load_fuzz`.
+- **Faster feed decode.** Price changes in the exchange's fixed layout are decoded with literal key
+  matches, falling back to the general parser on any difference: 38% fewer instructions per
+  message, identical results (PERF R20).
 - **Methods.** docs/METHODS.md: every model and estimator as implemented, with sources, code and tests.
 - **Diagnosis.** The book's last outliers traced to idle cores (HW.md H21); one hour live (PERF R19).
 - **Study medians.** Medians over an even count now average the middle pair (they took the upper
