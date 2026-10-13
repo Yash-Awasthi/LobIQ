@@ -80,10 +80,28 @@ inline bool valid_id(std::string_view s) {
     return true;
 }
 
+// Control characters (tabs, newlines) would split fields in the tab-separated files these
+// strings are written to; they become spaces.
+inline std::string one_line(std::string s) {
+    for (char& c : s)
+        if (static_cast<unsigned char>(c) < 0x20 || c == 0x7f) c = ' ';
+    return s;
+}
+
+// An id sent as a string or a number; empty unless valid_id.
+inline std::string id_of(const net::Json& j) {
+    std::string id = j.str("id");
+    if (const double d = j.num("id"); id.empty() && d >= 0 && d < 1e15 && d == std::floor(d))
+        id = std::to_string(static_cast<long long>(d));
+    return valid_id(id) ? id : std::string();
+}
+
 inline Market market_from(const net::Json& m, const std::string& tag) {
-    Market mk{tag, m.str("slug"), m.str("conditionId"), m.str("endDate"), m.str("groupItemTitle"), {}, true, {}};
+    Market mk{one_line(tag), one_line(m.str("slug")), one_line(m.str("conditionId")), one_line(m.str("endDate")),
+              one_line(m.str("groupItemTitle")), {}, true, {}};
     const auto ids = string_array(m, "clobTokenIds");
-    const auto names = string_array(m, "outcomes");
+    auto names = string_array(m, "outcomes");
+    for (std::string& n : names) n = one_line(std::move(n));
     bool ok = true;  // one bad id drops the whole market
     for (const std::string& id : ids) ok = ok && valid_id(id);
     for (std::size_t i = 0; ok && i < ids.size(); ++i) mk.tokens.emplace_back(ids[i], i < names.size() ? names[i] : std::to_string(i));
@@ -109,9 +127,8 @@ inline std::vector<Market> discover_markets(const std::vector<std::string>& tags
     const std::string min_end = utc_time(std::time(nullptr) + min_days * 86400L, "%Y-%m-%dT%H:%M:%SZ");
     for (const std::string& tag : tags) {
         const net::Json t = net::parse_json(net::http_get(kGammaHost, "/tags/slug/" + url_encode(tag)));
-        std::string id = t.str("id");
-        if (id.empty()) id = std::to_string(static_cast<long long>(t.num("id")));
-        if (!valid_id(id)) continue;  // goes into the request path
+        const std::string id = id_of(t);
+        if (id.empty()) continue;  // goes into the request path
         const net::Json ms = net::parse_json(net::http_get(
             kGammaHost, "/markets?active=true&closed=false&order=volume24hr&ascending=false&limit=80&tag_id=" + id +
                             "&end_date_min=" + url_encode(min_end)));
@@ -130,9 +147,8 @@ inline std::vector<Market> discover_markets(const std::vector<std::string>& tags
 
 inline EventInfo event_from(const net::Json& e) {
     EventInfo ev;
-    ev.id = e.str("id");
-    if (ev.id.empty()) ev.id = std::to_string(static_cast<long long>(e.num("id")));
-    ev.slug = e.str("slug");
+    ev.id = id_of(e);
+    ev.slug = one_line(e.str("slug"));
     ev.neg_risk = e.flag("negRisk");
     std::size_t open = 0, placeholders = 0;
     if (const net::Json* ms = e.find("markets"))

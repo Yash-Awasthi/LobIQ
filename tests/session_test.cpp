@@ -71,6 +71,27 @@ TEST(Gamma, DropsMarketsWhoseTokenIdsAreNotPlainDigits) {
     EXPECT_FALSE(hft::pm::valid_id("12/../x"));
 }
 
+// Exchange strings end up in tab-separated files, ids in names: neither may break them.
+TEST(Gamma, KeepsExchangeStringsOnOneLineAndIdsInRange) {
+    const auto m = hft::net::parse_json(
+        R"({"slug":"a\tb\nc","endDate":"2026\r","conditionId":"0x\u0001","clobTokenIds":"[\"11\", \"12\"]",)"
+        R"("outcomes":"[\"Ye\\ts\", \"No\"]","orderPriceMinTickSize":0.00001})");
+    const Market mk = hft::pm::market_from(m, "t\tx");
+    EXPECT_EQ(mk.slug, "a b c");
+    EXPECT_EQ(mk.end, "2026 ");
+    EXPECT_EQ(mk.condition, "0x ");
+    EXPECT_EQ(mk.tag, "t x");
+    ASSERT_EQ(mk.tokens.size(), 2u);
+    EXPECT_EQ(mk.tokens[0].second, "Ye s");
+    EXPECT_EQ(mk.rules.tick, 0);  // rounds to 0: unknown, the book's tick is used
+
+    const auto e = hft::net::parse_json(R"({"id":1e300,"slug":"s\nt","markets":[]})");
+    const hft::pm::EventInfo ev = hft::pm::event_from(e);
+    EXPECT_EQ(ev.id, "");
+    EXPECT_EQ(ev.slug, "s t");
+    EXPECT_EQ(hft::pm::event_from(hft::net::parse_json(R"({"id":4961360})")).id, "4961360");
+}
+
 TEST(Session, KeepsMarketRulesAndReadsOlderFilesWithDefaults) {
     TempDir dir("pm_session_rules");
     Session s;

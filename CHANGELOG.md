@@ -16,6 +16,9 @@
 - **Dashboard Host check.** The loopback HTTP server now answers only requests whose Host is
   `127.0.0.1:<port>` or `localhost:<port>`: a DNS-rebinding page could otherwise read the metrics
   and set the kill switch.
+- **Exchange metadata.** Market and event strings from the metadata API have control characters
+  replaced, so a tab or newline in a slug can no longer add rows to `markets.tsv`; numeric ids out of
+  range no longer go through an undefined conversion.
 - **Faster feed decode.** Price changes in the exchange's fixed layout are decoded with literal key
   matches, falling back to the general parser on any difference: 38% fewer instructions per
   message, identical results (PERF R20).
