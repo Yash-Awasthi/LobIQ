@@ -129,6 +129,14 @@ inline Fit ols(const std::vector<double>& x, const std::vector<double>& y) {
     f.r2 = sxy * sxy / (sxx * syy);
     return f;
 }
+// NaN entries are skipped; NaN when none is left.
+inline double median(std::vector<double> v) {
+    std::erase_if(v, [](double x) { return std::isnan(x); });
+    if (v.empty()) return NAN;
+    std::sort(v.begin(), v.end());
+    const std::size_t h = v.size() / 2;
+    return v.size() % 2 ? v[h] : (v[h - 1] + v[h]) / 2;
+}
 // R^2 of fixed predictions against y: 1 - SSE / SST, negative when worse than y's own mean.
 inline double r2_of(const std::vector<double>& pred, const std::vector<double>& y) {
     if (y.size() < 3) return NAN;

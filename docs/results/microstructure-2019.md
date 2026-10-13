@@ -39,7 +39,7 @@ OFI sums the order flow at the best quotes over 10 s intervals; the model is dmi
 | GDX | 351 | 0.669 | 0.71 | -1834.55 | 0.73 |
 | MSFT | 73 | 4.207 | 0.46 | -60.69 | 0.61 |
 
-Median over symbols with 95% bootstrap interval: R2 train 0.72 [0.63, 0.80], test with own beta 0.11 [-0.06, 0.23], test with the universal model 0.61 [0.44, 0.70].
+Median over symbols with 95% bootstrap interval: R2 train 0.72 [0.60, 0.80], test with own beta 0.10 [-0.09, 0.23], test with the universal model 0.59 [0.44, 0.69].
 
 ## Micro-price (Stoikov, 2018)
 
@@ -68,7 +68,7 @@ States: top-of-book imbalance bid / (bid + ask) in 10 buckets, times spread of 1
 | XLK | 0.99 | 542520 | +12.0% | +13.6% | +16.3% | +16.0% | +12.0% |
 | GDX | 1.00 | 353771 | +13.5% | +11.4% | +21.0% | +18.4% | +21.9% |
 
-Median over the 20 symbols with 95% bootstrap interval, test days: next change, weighted mid +1.5 [-5.5, +7.9]%, micro-price +10.0 [+1.3, +11.9]%; 1 s, weighted mid +0.6 [-0.8, +3.6]%, micro-price +3.5 [+0.7, +7.1]%.
+Median over the 20 symbols with 95% bootstrap interval, test days: next change, weighted mid +1.4 [-6.7, +6.6]%, micro-price +8.1 [+1.2, +11.7]%; 1 s, weighted mid +0.5 [-1.4, +3.6]%, micro-price +3.1 [+0.5, +6.4]%.
 
 Mean adjustment G at a 1-tick spread by imbalance bucket, in ticks (train fit, averaged over those symbols):
 
@@ -82,7 +82,7 @@ Medians over symbols on each test day, with the train-day parameters unchanged.
 
 | Test day | OFI R2, own beta | OFI R2, universal | Next change: weighted mid | Next change: micro-price |
 |---|---|---|---|---|
-| 2019-10-18 | 0.11 | 0.61 | +1.5% | +10.0% |
+| 2019-10-18 | 0.10 | 0.59 | +1.4% | +8.1% |
 
 ## Queue position (Moallemi and Yuan, 2017)
 
@@ -131,17 +131,17 @@ Per half-hour window, medians over every symbol-day: mid changes per minute, the
 
 | Window (ET) | Mid changes / min | Spread (ticks) | Depth (shares) | Branching ratio |
 |---|---|---|---|---|
-| 10:00-10:30 | 411 | 2.11 | 249 | 0.51 |
-| 10:30-11:00 | 294 | 1.94 | 263 | 0.51 |
-| 11:00-11:30 | 258 | 1.95 | 273 | 0.51 |
-| 11:30-12:00 | 221 | 1.83 | 274 | 0.51 |
-| 12:00-12:30 | 214 | 1.89 | 274 | 0.50 |
-| 12:30-13:00 | 192 | 1.86 | 291 | 0.52 |
-| 13:00-13:30 | 163 | 1.93 | 271 | 0.51 |
-| 13:30-14:00 | 148 | 1.92 | 273 | 0.51 |
-| 14:00-14:30 | 140 | 1.81 | 269 | 0.49 |
-| 14:30-15:00 | 118 | 1.68 | 299 | 0.50 |
-| 15:00-15:30 | 145 | 1.48 | 335 | 0.52 |
+| 10:00-10:30 | 409 | 2.01 | 245 | 0.51 |
+| 10:30-11:00 | 293 | 1.93 | 253 | 0.51 |
+| 11:00-11:30 | 256 | 1.93 | 272 | 0.51 |
+| 11:30-12:00 | 220 | 1.80 | 265 | 0.51 |
+| 12:00-12:30 | 210 | 1.85 | 273 | 0.50 |
+| 12:30-13:00 | 190 | 1.85 | 284 | 0.52 |
+| 13:00-13:30 | 163 | 1.87 | 271 | 0.51 |
+| 13:30-14:00 | 148 | 1.87 | 271 | 0.51 |
+| 14:00-14:30 | 139 | 1.79 | 266 | 0.49 |
+| 14:30-15:00 | 117 | 1.62 | 290 | 0.50 |
+| 15:00-15:30 | 143 | 1.48 | 328 | 0.52 |
 
 ## VPIN and volatility
 
@@ -149,9 +149,9 @@ VPIN (Easley, Lopez de Prado and O'Hara 2012) from exact trade signs: each symbo
 
 | Day | VPIN, mean | corr(VPIN, next bucket abs return) | corr(VPIN, current bucket abs return) |
 |---|---|---|---|
-| 2025-12-08 | 0.341 | +0.021 | +0.026 |
-| 2025-12-09 | 0.359 | -0.027 | -0.034 |
-| 2019-10-18 | 0.568 | -0.032 | -0.053 |
+| 2025-12-08 | 0.332 | +0.017 | +0.021 |
+| 2025-12-09 | 0.356 | -0.035 | -0.035 |
+| 2019-10-18 | 0.563 | -0.032 | -0.056 |
 
 ## Volatility signature
 
@@ -159,9 +159,9 @@ Realized variance of the mid over the window, sampled every k seconds (averaged 
 
 | Day | RV(1 s) / RV(300 s) | RV(5 s) / RV(300 s) | RV(10 s) / RV(300 s) | RV(30 s) / RV(300 s) | RV(60 s) / RV(300 s) | Window volatility (bp) |
 |---|---|---|---|---|---|---|
-| 2025-12-08 | 1.19 | 1.20 | 1.19 | 1.12 | 1.08 | 109 |
-| 2025-12-09 | 1.41 | 1.36 | 1.33 | 1.32 | 1.29 | 72 |
-| 2019-10-18 | 1.00 | 0.92 | 0.89 | 0.89 | 0.90 | 87 |
+| 2025-12-08 | 1.18 | 1.19 | 1.19 | 1.12 | 1.07 | 109 |
+| 2025-12-09 | 1.38 | 1.33 | 1.30 | 1.31 | 1.28 | 71 |
+| 2019-10-18 | 0.98 | 0.92 | 0.89 | 0.89 | 0.89 | 85 |
 
 ## Self-excitation of mid-price changes (Hawkes)
 

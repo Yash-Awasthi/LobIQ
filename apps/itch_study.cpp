@@ -41,9 +41,9 @@ constexpr std::uint64_t kStart = 10 * 3600 * kSec;          // 10:00 ET: the ope
 constexpr std::uint64_t kEnd = (15 * 3600 + 30 * 60) * kSec;  // 15:30 ET: before the closing cross
 constexpr std::uint64_t kInterval = 10 * kSec;               // OFI aggregation interval (as in the paper)
 constexpr std::uint64_t kWindow = 30 * 60 * kSec;            // half-hour regression windows
-constexpr std::uint64_t kHorizon = kSec;
+constexpr std::uint64_t kHorizon = kSec;               // time target for the micro-price
 constexpr double kVpinBuckets = 500;    // volume buckets per symbol-day
-constexpr std::size_t kVpinWindow = 50; // buckets averaged into one VPIN value                     // time target for the micro-price
+constexpr std::size_t kVpinWindow = 50; // buckets averaged into one VPIN value
 using namespace strategy::micro;
 
 struct Interval {
@@ -462,13 +462,6 @@ std::string day_of(const fs::path& p) {
     const std::string s = p.filename().string();  // store-S120825-v50
     const auto at = s.find('S');
     return at == std::string::npos || s.size() < at + 7 ? s : "20" + s.substr(at + 5, 2) + "-" + s.substr(at + 1, 2) + "-" + s.substr(at + 3, 2);
-}
-
-double median(std::vector<double> v) {
-    std::erase_if(v, [](double x) { return std::isnan(x); });
-    if (v.empty()) return NAN;
-    std::sort(v.begin(), v.end());
-    return v[v.size() / 2];
 }
 
 // Median with a 95% bootstrap interval over symbols (fixed seed: the report is reproducible).

@@ -145,3 +145,9 @@ TEST(Vpin, BucketsSplitTradesAndMeasureImbalance) {
     EXPECT_DOUBLE_EQ(b[2].imbalance, 0.0);    // 100 buy + 100 sell
     EXPECT_DOUBLE_EQ(b[2].mid, 13);
 }
+
+TEST(Median, AveragesTheMiddlePairAndSkipsNaN) {
+    EXPECT_DOUBLE_EQ(median({4, 1, 3, 2}), 2.5);
+    EXPECT_DOUBLE_EQ(median({5, NAN, 1, 3}), 3);
+    EXPECT_TRUE(std::isnan(median({NAN})));
+}

@@ -10,6 +10,9 @@
   nearest checkpoint; `ingest` takes `CHUNK_MSGS`.
 - **Applications.** docs/APPLICATIONS.md maps each part to the industry systems it mirrors.
 - **Diagnosis.** The book's last outliers traced to idle cores (HW.md H21); one hour live (PERF R19).
+- **Study medians.** Medians over an even count now average the middle pair (they took the upper
+  one); the microstructure pages and the README figures moved by at most 0.02, the 2019
+  micro-price gain from 10.0% to 8.1%.
 
 ## v1.4 (2026-10-13)
 

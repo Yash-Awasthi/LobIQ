@@ -494,8 +494,8 @@ scripts/results.sh                                          # every results page
   price changes over 10 s are linear in the order flow at the best quotes. The slope falls with
   depth as 1 / depth^lambda with lambda = 1.01 (log-fit R2 0.94 over 660 half-hour windows; the
   paper reports about 1). Median R2 0.72 in sample; on the December test days 0.55-0.66 with each
-  stock's own slope and 0.60-0.64 with the single two-parameter law. Six months later the own
-  slopes drop to 0.27 while the depth law keeps 0.48: depth moved, the relation did not.
+  stock's own slope and 0.60-0.63 with the single two-parameter law. Six months later the own
+  slopes drop to 0.26 while the depth law keeps 0.47: depth moved, the relation did not.
 - **Micro-price** ([Stoikov 2018](https://doi.org/10.1080/14697688.2018.1489139)): a Markov chain
   on (imbalance, spread) states, estimated from symmetrised train transitions, gives the expected
   future mid. It cuts the squared error against the next mid change by a median 11.6-12.5% on
@@ -517,15 +517,15 @@ scripts/results.sh                                          # every results page
   spread is negative on every day (-0.32 to -0.59 bp) and worse for bigger executions (-1.39 bp
   above 2,000 shares): before rebates, passive liquidity on these names loses money.
 - **Intraday pattern**: per half-hour, activity falls from about 700 mid changes a minute at 10:00 to
-  under 300 at midday, spreads narrow (1.77 to 1.42 ticks) and depth grows through the day, while
+  under 300 at midday, spreads narrow (1.71 to 1.42 ticks) and depth grows through the day, while
   the Hawkes branching ratio stays at 0.51-0.52 in every window, so the self-excitation above is not
   intraday seasonality.
 - **VPIN** (Easley, Lopez de Prado and O'Hara 2012) on exact trade signs, 500 volume buckets per
   symbol-day: its correlation with the next bucket's absolute return is -0.07 to +0.04 on every day,
   the same as with the current bucket's, so on these names it carries no volatility signal (as
-  Andersen and Bondarenko 2014 argue). Average VPIN fell from 0.57 in 2019 to 0.31-0.37 in 2025-26.
+  Andersen and Bondarenko 2014 argue). Average VPIN fell from 0.56 in 2019 to 0.31-0.36 in 2025-26.
 - **Volatility signature**: realized variance of the mid sampled every 1-60 s against every 300 s.
-  The median ratio stays between 0.82 and 1.44 on every day (0.89-1.00 in 2019): on the mid, which
+  The median ratio stays between 0.82 and 1.44 on every day (0.89-0.98 in 2019): on the mid, which
   has no bid-ask bounce, microstructure noise does not dominate even at 1 s for these names.
 - **Self-excitation** (Hawkes, after Filimonov and Sornette 2012): an exponential Hawkes process fitted
   by maximum likelihood (checked on simulated processes) to each symbol's mid changes per half-hour.
@@ -559,8 +559,8 @@ scripts/results.sh                                          # every results page
   significant ([-$2.4k, +$69.5k]).
 
 Six years back, the same train fit scored on 2019-10-18 (`TEST=S101819`, symbols that existed
-then): each stock's own OFI slope no longer transfers (median R2 0.11) while the depth law still
-scores 0.61; the micro-price still cuts next-mid error by 10.0%; and the imbalance-filtered maker
+then): each stock's own OFI slope no longer transfers (median R2 0.10) while the depth law still
+scores 0.59; the micro-price still cuts next-mid error by 8.1%; and the imbalance-filtered maker
 makes money that day (+$1.3k against -$6.7k for the joiner without fees, +$1.3k against -$6.1k
 with the rebate and 2019's Section 31 and TAF rates; paired over the 9 symbols +$8.0k, 95% interval
 [+$2.6k, +$13.7k]) until one-way latency reaches 50 µs. One
