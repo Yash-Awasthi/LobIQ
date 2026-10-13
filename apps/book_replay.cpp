@@ -25,11 +25,19 @@ namespace {
 
 using namespace hft;
 
+// Order-sensitive digest of the BBO stream, a word at a time: byte-wise FNV was a fifth of the
+// replay's instructions (one dependent multiply per byte).
 struct Fnv {
     std::uint64_t h = 1469598103934665603ull;
     void add(const void* p, std::size_t n) {
         const auto* b = static_cast<const std::uint8_t*>(p);
-        for (std::size_t i = 0; i < n; ++i) h = (h ^ b[i]) * 1099511628211ull;
+        for (; n >= 8; b += 8, n -= 8) {
+            std::uint64_t w;
+            std::memcpy(&w, b, 8);
+            h = (h ^ w) * 0x9E3779B97F4A7C15ull;
+            h ^= h >> 29;
+        }
+        for (; n; ++b, --n) h = (h ^ *b) * 1099511628211ull;
     }
 };
 

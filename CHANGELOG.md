@@ -28,6 +28,8 @@
   parse p99 1,818 -> 691 ns on a P-core, identical decisions (PERF R21).
 - **Snapshot levels.** Book levels use the literal-key path too: parse p99.9 3,921 -> 2,859 ns
   (PERF R22).
+- **Faster full-day replay.** `book_replay` digests the BBO stream a word at a time: a full day on
+  one thread 34.9 -> 31.8 s; `bbo_hash` values change (PERF R23).
 - **Peak figures re-measured** (docs/results/max-performance.md): book p50 22.1 ns on a P-core,
   prediction-market parse p50 177 ns, a full Nasdaq day in 4.89 s at 173M messages/s.
 - **Methods.** docs/METHODS.md: every model and estimator as implemented, with sources, code and tests.
