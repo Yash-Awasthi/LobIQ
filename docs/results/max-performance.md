@@ -14,29 +14,29 @@ and over the E-cores (12-19).
 
 | Run | Batch ns/event | p50 ns | p99 ns | Max us |
 |---|---|---|---|---|
-| P-core alone (CPU 4) | 26.2 | 22.1 | 68.5 | 24 |
-| E-core alone (CPU 12) | 35.4 | 32.1 | 110.1 | 170 |
-| Whole chip, P-core threads | 52.5 | 41.0 | 172.5 | 2189 |
-| Whole chip, E-cores | 61.7 | 43.5 | 264.4 | 1084 |
+| P-core alone (CPU 4) | 26.2 | 22.1 | 68.5 | 19 |
+| E-core alone (CPU 12) | 36.4 | 32.5 | 111.3 | 244 |
+| Whole chip, P-core threads | 52.7 | 41.7 | 169.6 | 912 |
+| Whole chip, E-cores | 63.4 | 43.8 | 272.9 | 7673 |
 
-Whole chip: 358M book updates/s over 20 instances.
+Whole chip: 354M book updates/s over 20 instances.
 
 ## Prediction-market replay (pm_live --replay, 2.0M messages, PGO build)
 
 | Run | Parse p50 / p99 ns | Engine p50 / p99 ns | Messages/s per instance |
 |---|---|---|---|
-| P-core alone (CPU 4) | 177 / 2094 | 112 / 333 | 1.33M |
-| E-core alone (CPU 12) | 252 / 2714 | 163 / 476 | 1.00M |
-| Whole chip, P-core threads | 389 / 4140 | 243 / 2296 | 0.44M |
-| Whole chip, E-cores | 329 / 3646 | 221 / 1805 | 0.47M |
+| P-core alone (CPU 4) | 183 / 807 | 114 / 327 | 1.35M |
+| E-core alone (CPU 12) | 253 / 1060 | 164 / 474 | 1.03M |
+| Whole chip, P-core threads | 388 / 1455 | 247 / 2226 | 0.45M |
+| Whole chip, E-cores | 330 / 1417 | 224 / 1818 | 0.47M |
 
-Whole chip: 8.8M messages/s over 20 instances.
+Whole chip: 8.9M messages/s over 20 instances.
 
 ## Full Nasdaq day (S121025, 846781990 messages, 12,000+ symbols, book_replay, PGO build)
 
 | Run | Seconds | Messages/s |
 |---|---|---|
-| 1 thread, P-core (CPU 4) | 48.73 | 17.4M |
-| 1 thread, E-core (CPU 12) | 62.75 | 13.5M |
-| 16 threads, non-isolated CPUs | 4.89 | 173.1M |
-| 20 threads, all 20 CPUs | 5.13 | 165.1M |
+| 1 thread, P-core (CPU 4) | 46.89 | 18.1M |
+| 1 thread, E-core (CPU 12) | 51.06 | 16.6M |
+| 16 threads, non-isolated CPUs | 4.48 | 189.1M |
+| 20 threads, all 20 CPUs | 4.78 | 177.1M |

@@ -143,10 +143,10 @@ Peak, turbo on ([docs/results/max-performance.md](docs/results/max-performance.m
 
 | | One P-core | One E-core | P-core thread, full load | E-core, full load | Whole chip |
 |---|---|---|---|---|---|
-| Book update p50 / p99 (busiest symbol) | 22.1 / 68.5 ns | 32.1 / 110.1 ns | 41.0 / 172.5 ns | 43.5 / 264.4 ns | 358M updates/s |
-| Prediction-market parse p50 / p99 | 177 / 2,094 ns | 252 / 2,714 ns | 389 / 4,140 ns | 329 / 3,646 ns | 8.8M msg/s |
-| Prediction-market engine p50 / p99 | 112 / 333 ns | 163 / 476 ns | 243 / 2,296 ns | 221 / 1,805 ns | |
-| Full Nasdaq day, 847M messages | 48.7 s, 17.4M msg/s | 62.8 s, 13.5M msg/s | | | 4.89 s, 173M msg/s (16 threads) |
+| Book update p50 / p99 (busiest symbol) | 22.1 / 68.5 ns | 32.5 / 111.3 ns | 41.7 / 169.6 ns | 43.8 / 272.9 ns | 354M updates/s |
+| Prediction-market parse p50 / p99 | 183 / 807 ns | 253 / 1,060 ns | 388 / 1,455 ns | 330 / 1,417 ns | 8.9M msg/s |
+| Prediction-market engine p50 / p99 | 114 / 327 ns | 164 / 474 ns | 247 / 2,226 ns | 224 / 1,818 ns | |
+| Full Nasdaq day, 847M messages | 46.9 s, 18.1M msg/s | 51.1 s, 16.6M msg/s | | | 4.48 s, 189M msg/s (16 threads) |
 
 Whole-chip figures are power and thermal limited and move about 10% between runs (138.8M to 183M msg/s
 for the full day over five runs); the book figures move about as much between sessions with the same instruction count.

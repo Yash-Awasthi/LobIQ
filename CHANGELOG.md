@@ -30,8 +30,9 @@
   (PERF R22).
 - **Faster full-day replay.** `book_replay` digests the BBO stream a word at a time: a full day on
   one thread 34.9 -> 31.8 s; `bbo_hash` values change (PERF R23).
-- **Peak figures re-measured** (docs/results/max-performance.md): book p50 22.1 ns on a P-core,
-  prediction-market parse p50 177 ns, a full Nasdaq day in 4.89 s at 173M messages/s.
+- **Peak figures re-measured** (docs/results/max-performance.md) after this round's decode and replay
+  changes: book p50 22.1 ns on a P-core, prediction-market parse p50 / p99 183 / 807 ns, a full
+  Nasdaq day in 4.48 s at 189M messages/s.
 - **Methods.** docs/METHODS.md: every model and estimator as implemented, with sources, code and tests.
 - **Diagnosis.** The book's last outliers traced to idle cores (HW.md H21); one hour live (PERF R19).
 - **Study medians.** Medians over an even count now average the middle pair (they took the upper
