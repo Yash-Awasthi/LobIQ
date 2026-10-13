@@ -9,6 +9,10 @@
 - **Point-in-time books.** `itch_book` / `hft book`: any symbol's book at any moment of a day, from the
   nearest checkpoint; `ingest` takes `CHUNK_MSGS`.
 - **Applications.** docs/APPLICATIONS.md maps each part to the industry systems it mirrors.
+- **Checkpoint hardening.** `TickBook::load` accepted any image whose sizes matched; a corrupt one
+  could crash or hang the next call. It now checks sizes before allocating and accepts only an
+  image that passes a range-checked `check()` (ID table, free lists, radix links, bitmaps). New
+  fuzzer `book_load_fuzz`.
 - **Methods.** docs/METHODS.md: every model and estimator as implemented, with sources, code and tests.
 - **Diagnosis.** The book's last outliers traced to idle cores (HW.md H21); one hour live (PERF R19).
 - **Study medians.** Medians over an even count now average the middle pair (they took the upper

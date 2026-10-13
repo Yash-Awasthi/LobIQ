@@ -164,12 +164,47 @@ class LevelRadix {
         used_mids_ = head[2];
         used_pages_ = head[3];
         count_ = head[4];
+        const std::uint64_t need = sizeof top_ + sizeof top_bits_ + std::uint64_t{used_mids_} * sizeof(Mid) +
+                                   std::uint64_t{used_pages_} * sizeof(Page);
+        if (static_cast<std::uint64_t>(end - p) < need) return false;
         mids_.reserve(used_mids_);
         pages_.reserve(used_pages_);
         return detail::get(p, end, top_, sizeof top_) &&
                detail::get(p, end, top_bits_, sizeof top_bits_) &&
                detail::get(p, end, mids_.data(), used_mids_ * sizeof(Mid)) &&
                detail::get(p, end, pages_.data(), used_pages_ * sizeof(Page));
+    }
+
+    // Bitmaps match the child links, every link and free-list entry is in range and used once,
+    // and count matches: what a loaded image needs before any other call.
+    bool valid() const {
+        std::vector<bool> mid(used_mids_), page(used_pages_);
+        std::size_t n = 0;
+        for (std::uint32_t t = 0; t < 256; ++t) {
+            const bool set = (top_bits_[t / 64] >> (t % 64)) & 1;
+            if (set != (top_[t] != kNone)) return false;
+            if (!set) continue;
+            const std::uint32_t m = top_[t];
+            if (m >= used_mids_ || mid[m] || !any(mids_[m].bits)) return false;
+            mid[m] = true;
+            for (std::uint32_t i = 0; i < 256; ++i) {
+                const std::uint32_t c = mids_[m].child[i];
+                if (((mids_[m].bits[i / 64] >> (i % 64)) & 1) != (c != kNone)) return false;
+                if (c == kNone) continue;
+                if (c >= used_pages_ || page[c] || !any(pages_[c].bits)) return false;
+                page[c] = true;
+                for (const std::uint64_t w : pages_[c].bits) n += static_cast<std::size_t>(std::popcount(w));
+            }
+        }
+        for (std::uint32_t m = free_mid_; m != kNone; m = mids_[m].next_free) {
+            if (m >= used_mids_ || mid[m]) return false;
+            mid[m] = true;
+        }
+        for (std::uint32_t c = free_page_; c != kNone; c = pages_[c].next_free) {
+            if (c >= used_pages_ || page[c]) return false;
+            page[c] = true;
+        }
+        return n == count_;
     }
 
    private:

@@ -65,6 +65,7 @@ class HotCold {
         detail::put(out, cold_.data(), used * sizeof(Cold));
     }
     bool load(const std::uint8_t*& p, const std::uint8_t* end, std::size_t used) {
+        if (static_cast<std::size_t>(end - p) / (sizeof(Hot) + sizeof(Cold)) < used) return false;
         reserve(used);
         return detail::get(p, end, hot_.data(), used * sizeof(Hot)) &&
                detail::get(p, end, cold_.data(), used * sizeof(Cold));

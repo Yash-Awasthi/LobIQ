@@ -202,13 +202,24 @@ class TickBook {
 
     // Levels non-empty and equal to the sum of their orders, links and bitmaps consistent,
     // overflow sorted and outside the window, every order in the ID map exactly once.
+    // Safe on any loaded image: every index is range-checked before use.
     bool check() const {
+        if (used_ > kMaxOrders || live_ > used_ || (free_ != kNoOrder && free_ >= used_)) return false;
+        if (!deep_[0].valid() || !deep_[1].valid()) return false;
+        // At most half the ID slots full, so every probe ends at an empty one.
+        std::size_t slots = 0;
+        bool ids_ok = true;
+        ids_.for_each([&](std::uint64_t, std::uint32_t v) { ++slots, ids_ok = ids_ok && v < used_; });
+        if (!ids_ok || slots != live_ || ids_.size() != live_ || slots * 2 > ids_.capacity()) return false;
+        std::vector<bool> seen(used_);
         std::size_t n = 0;
         auto level_ok = [&](const Level& l, int s, std::uint32_t px) {
             if (l.head == kNoOrder || l.tail == kNoOrder) return false;
             std::uint64_t sum = 0;
             std::uint32_t prev = kNoOrder;
             for (std::uint32_t j = l.head; j != kNoOrder; prev = j, j = o_.next(j)) {
+                if (j >= used_ || seen[j]) return false;
+                seen[j] = true;
                 if (o_.prev(j) != prev || side_of(o_.px(j)) != s || price_of(o_.px(j)) != px ||
                     o_.qty(j) == 0)
                     return false;
@@ -219,6 +230,7 @@ class TickBook {
             return prev == l.tail && sum == l.qty;
         };
         for (int s = 0; s < 2; ++s) {
+            if (summary_[s] >> kWords) return false;
             for (std::uint32_t w = 0; w < kWords; ++w) {
                 if (((summary_[s] >> w) & 1) != (bits_[s][w] != 0)) return false;
                 for (std::uint32_t b = 0; b < 64; ++b) {
@@ -226,6 +238,7 @@ class TickBook {
                     const Level& l = win_[s][k];
                     const bool set = (bits_[s][w] >> b) & 1;
                     if (set != (l.head != kNoOrder)) return false;
+                    if (!set && (l.tail != kNoOrder || l.qty)) return false;  // reused as is by the next add
                     if (set && !level_ok(l, s, base_ + k * tick_)) return false;
                 }
             }
@@ -240,7 +253,12 @@ class TickBook {
             });
             if (!deep_ok) return false;
         }
-        return n == live_ && ids_.size() == live_;
+        std::size_t free = 0;
+        for (std::uint32_t i = free_; i != kNoOrder; i = o_.next(i), ++free) {
+            if (i >= used_ || seen[i]) return false;
+            seen[i] = true;
+        }
+        return n == live_ && n + free == used_;
     }
 
     // Fork: copies the used part of every pool and the fixed-size state. Indices replace
@@ -298,7 +316,7 @@ class TickBook {
         ids_.save(out);
     }
 
-    // Returns false and leaves the book unspecified on a malformed image.
+    // Returns false and leaves the book unspecified on a malformed image; an accepted one passes check().
     bool load(const std::uint8_t* p, std::size_t n) {
         const std::uint8_t* end = p + n;
         Header h;
@@ -308,6 +326,7 @@ class TickBook {
             return false;
         if (!o_.load(p, end, h.used)) return false;
         for (int s = 0; s < 2; ++s) {
+            if (static_cast<std::size_t>(end - p) / sizeof(OverLevel) < h.n_over[s]) return false;
             over_[s].reserve(h.n_over[s]);
             if (!detail::get(p, end, over_[s].data(), h.n_over[s] * sizeof(OverLevel)))
                 return false;
@@ -324,7 +343,7 @@ class TickBook {
         base_ = h.base;
         base_g_ = tick_ ? base_ / tick_ : 0;
         recentres_ = h.recentres;
-        return true;
+        return check();
     }
 
    private:

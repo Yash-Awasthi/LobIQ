@@ -13,3 +13,7 @@ target_link_libraries(oms_fuzz PRIVATE hft_core -fsanitize=fuzzer)
 add_executable(ws_fuzz ws_fuzz.cpp)
 target_compile_options(ws_fuzz PRIVATE -fsanitize=fuzzer)
 target_link_libraries(ws_fuzz PRIVATE hft_core -fsanitize=fuzzer)
+
+add_executable(book_load_fuzz book_load_fuzz.cpp)
+target_compile_options(book_load_fuzz PRIVATE -fsanitize=fuzzer)
+target_link_libraries(book_load_fuzz PRIVATE hft_core -fsanitize=fuzzer)
