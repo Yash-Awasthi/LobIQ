@@ -1,6 +1,6 @@
 # Status
 
-v1.4 (2026-10-13), on bare-metal Arch Linux. Nothing is open ([docs/ROADMAP.md](docs/ROADMAP.md));
+v1.5 (2026-10-13), on bare-metal Arch Linux. Nothing is open ([docs/ROADMAP.md](docs/ROADMAP.md));
 what is deliberately left out is listed there under "Not planned". Changes per version: [CHANGELOG.md](CHANGELOG.md).
 The research-phase log is in
 [STATUS-research.md](https://github.com/Yash-Awasthi/hft/blob/research-archive/archive/docs/STATUS-research.md) at the research-archive tag.
@@ -17,6 +17,17 @@ Ctrl-C or SIGTERM):
 On GitHub, CI builds and tests every pull request; on main it also publishes the container image
 (`ghcr.io/yash-awasthi/hft`) and the demo reports (https://yash-awasthi.github.io/hft/); a `v*`
 tag publishes a release with Linux binaries.
+
+## Verification (2026-10-13, bare metal, v1.5)
+
+Release 340 tests (sanitizer presets 336, ASan, UBSan and TSan run locally as well as in CI),
+`check_parity.sh` SAME on all 14 runs, both fault campaigns with zero illegal reports and zero
+residual sets (the dropped-fill run ends in the kill switch, as designed), demos with their pinned
+hashes (paper `510bf844d3995b0b`), CLI and security gates. `checkpoint --verify` ok on all eight
+stores; map and tick books give the same BBO hash on S112825 and S121025 with 0 check failures.
+Fuzzers beyond CI's 60 s: book_load 1.1M inputs, oms 2.9M, tape 145k seeded with recorded
+messages, no crash. Peak figures re-measured (docs/results/max-performance.md); machine defaults
+restored afterwards.
 
 ## Verification (2026-10-12, bare metal, before v1.2)
 

@@ -1,14 +1,24 @@
 # Changelog
 
-## Unreleased
+## v1.5 (2026-10-13)
 
+Applications on real data, a security and correctness pass over every input boundary, and a
+faster feed decoder: surveillance, execution-quality and point-in-time book tools; corrupt
+checkpoints, session files and exchange metadata rejected instead of trusted; parse latency
+halved at the median and cut by 62% at p99, with identical decisions.
+
+Applications
 - **Market surveillance.** `itch_surveil` / `hft surveil`: spoofing, layering and quote-stuffing
   candidates over every symbol of a day, ranked with their evidence (docs/results/surveillance.md).
 - **Execution quality.** `itch_bestex` / `hft bestex`: a Rule 605-style report of effective, realized
   and impact spreads by size and price improvement (docs/results/execution-quality.md).
 - **Point-in-time books.** `itch_book` / `hft book`: any symbol's book at any moment of a day, from the
   nearest checkpoint; `ingest` takes `CHUNK_MSGS`.
-- **Applications.** docs/APPLICATIONS.md maps each part to the industry systems it mirrors.
+- **Applications and methods.** docs/APPLICATIONS.md maps each part to the industry systems it
+  mirrors; docs/METHODS.md gives every model and estimator as implemented, with sources, code and
+  tests.
+
+Fixes
 - **Checkpoint hardening.** `TickBook::load` accepted any image whose sizes matched; a corrupt one
   could crash or hang the next call. It now checks sizes before allocating and accepts only an
   image that passes a range-checked `check()` (ID table, free lists, radix links, bitmaps). New
@@ -16,32 +26,32 @@
 - **Dashboard Host check.** The loopback HTTP server now answers only requests whose Host is
   `127.0.0.1:<port>` or `localhost:<port>`: a DNS-rebinding page could otherwise read the metrics
   and set the kill switch.
+- **Strict session files.** `session.tsv` is parsed with range checks; a negative connection number
+  used to wrap to 2^32 - 1 in the engine. Malformed lines reject the file with their line number.
 - **Exchange metadata.** Market and event strings from the metadata API have control characters
   replaced, so a tab or newline in a slug can no longer add rows to `markets.tsv`; numeric ids out of
   range no longer go through an undefined conversion.
-- **Strict session files.** `session.tsv` is parsed with range checks; a negative connection number
-  used to wrap to 2^32 - 1 in the engine. Malformed lines reject the file with their line number.
-- **Faster feed decode.** Price changes in the exchange's fixed layout are decoded with literal key
-  matches, falling back to the general parser on any difference: 38% fewer instructions per
-  message, identical results; parse p50 340 -> 175 ns on a P-core, p99 unchanged (PERF R20).
-- **Parse tail.** Market listings with escaped text no longer fall back to the tape parser:
-  parse p99 1,818 -> 691 ns on a P-core, identical decisions (PERF R21).
-- **Snapshot levels.** Book levels use the literal-key path too: parse p99.9 3,921 -> 2,859 ns
-  (PERF R22).
-- **Faster full-day replay.** `book_replay` digests the BBO stream a word at a time: a full day on
-  one thread 34.9 -> 31.8 s; `bbo_hash` values change (PERF R23).
-- **Peak figures re-measured** (docs/results/max-performance.md) after this round's decode and replay
-  changes: book p50 22.1 ns on a P-core, prediction-market parse p50 / p99 183 / 807 ns, a full
-  Nasdaq day in 4.48 s at 189M messages/s.
-- **Methods.** docs/METHODS.md: every model and estimator as implemented, with sources, code and tests.
-- **Diagnosis.** The book's last outliers traced to idle cores (HW.md H21); one hour live (PERF R19).
-- **Study medians.** Medians over an even count now average the middle pair (they took the upper
-  one); the microstructure pages and the README figures shift slightly (spreads, depth, volatility); the 2019
-  micro-price gain from 10.0% to 8.1%.
+- **Recording gaps.** Corrupt timestamps no longer overflow the gap statistic (found by UBSan).
 - **Variance estimates.** The Avellaneda-Stoikov backtest strategy decayed its variance once per call
   between mid changes, so frequent calls drove it toward zero (0.017 instead of 1 tick^2/s at 1 ms
   calls); each call now scores only its own interval. The prediction-market maker no longer clamps
-  sub-millisecond intervals to 1 ms. Live recordings made before replay to different decisions.
+  sub-millisecond intervals to 1 ms. Decisions change: the paper demo's pinned hash is now
+  510bf844d3995b0b, and live recordings made before replay to different decisions.
+- **Study medians.** Medians over an even count now average the middle pair (they took the upper
+  one); the microstructure pages and the README figures shift slightly; the 2019 micro-price gain
+  moves from 10.0% to 8.1%.
+- **`itch_bestex`** read a store index through a destroyed reader on compilers without C++23
+  temporary lifetime extension.
+
+Performance
+- **Feed decode.** Price changes, book levels and market listings are decoded in the exchange's
+  fixed layouts with literal key matches (key words computed at compile time), falling back to the
+  general parser on any difference; identical decisions. Parse p50 340 -> 175 ns, p99 1,818 ->
+  691 ns, p99.9 3,921 -> 2,859 ns on a P-core (PERF R20-R22).
+- **Full-day replay.** `book_replay` digests the BBO stream a word at a time: a full day on one
+  thread 34.9 -> 31.8 s; `bbo_hash` values change (PERF R23).
+- **Peak figures re-measured** (docs/results/max-performance.md): book p50 22.1 ns on a P-core,
+  prediction-market parse p50 / p99 183 / 807 ns, a full Nasdaq day in 4.48 s at 189M messages/s.
 
 ## v1.4 (2026-10-13)
 

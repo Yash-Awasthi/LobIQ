@@ -124,7 +124,7 @@ the sections below.
 - **Determinism:** a live session replays from its recording to bit-identical decisions,
   checked by hash, under GCC and Clang; so do fault-injected runs and kill-switch runs.
 - **Correctness:** zero heap allocations on the hot path in steady state; property tests against
-  reference implementations; 332 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
+  reference implementations; 340 tests, also run under ASan, UBSan and TSan; five fuzzers; fault
   campaigns at 20-30% dropped, duplicated and delayed reports with zero illegal order states.
 - **FPGA feed parser (simulated):** ITCH 5.0 in SystemVerilog, 8 bytes per clock, one message
   per clock, output one clock after a message's last byte; field-identical to the C++ decoder in
@@ -272,7 +272,7 @@ replay is unchanged within noise. A lookahead prefetch on the per-symbol path wa
 
 ## Tests
 
-`ctest` runs 332 tests: GoogleTest, RapidCheck and end-to-end runs of `hft`, `itch_study` and `itch_leadlag` (328 under the sanitizers, which leave out
+`ctest` runs 340 tests: GoogleTest, RapidCheck and end-to-end runs of `hft`, `itch_study` and `itch_leadlag` (336 under the sanitizers, which leave out
 `alloc_test`); one (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine
 exposes no hardware performance counters.
 
@@ -289,6 +289,9 @@ exposes no hardware performance counters.
   `cmake -S fpga -B build/fpga && cmake --build build/fpga && build/fpga/itch_rtl_test [file]`
   (needs Verilator 5). Shifting one field offset makes it fail.
 - WebSocket framing, SHA-1, base64 and JSON have known-answer tests.
+- The prediction-market decoder, fast paths included, gives the same events as the reference
+  tape parser on random, re-ordered and corrupted messages (RapidCheck), and each fast path's
+  test fails when a field is swapped.
 - The order manager, ledger, risk checks, simulated venue and arbitrage executor have unit tests,
   each checked by mutating the code it covers (counts in docs/exec/PHASES.md).
 
@@ -296,7 +299,8 @@ CI (`.github/workflows/ci.yml`) builds and tests GCC and Clang across the `debug
 `release`, `asan`, `ubsan` and `tsan` presets, runs the benchmarks once as a smoke test,
 checks that every app refuses bad arguments (`scripts/check_cli.sh`), runs the security gates
 (`scripts/security_gates.sh`: no order entry code, no secrets, no shell-outs) and fuzzes the
-ITCH decoder, the JSON tape, the order manager and WebSocket framing for 60 s each, and
+ITCH decoder, the JSON tape, the order manager, WebSocket framing and corrupted book
+checkpoints for 60 s each, and
 lints and simulates the FPGA parser.
 
 Checks on the recordings, run by hand: `scripts/check_parity.sh` (maker fills identical through
@@ -448,6 +452,13 @@ The decision hash and `pm_stats` output are unchanged (`pm_stats` on 278 MB of r
 and by the fuzzer. Metrics no longer render on the trading thread: once a second it swaps a
 snapshot and its window of histograms under a lock it only tries, and the HTTP thread does
 the rest (stall 376 µs to 24 µs at p50, 718 µs to 76 µs at worst, over 60 s live).
+
+The exchange sends each message kind in one fixed layout, so the decoder now matches those keys
+as literals and scans only the values, falling back to the general single pass on any
+difference. On bare metal (CPU 4, turbo on, the hour-long recording, each step timed against the
+commit before it, docs/exec/PERF.md R20-R22): price changes halve the parse p50 (340 to 175 ns);
+listings with escaped text stay on the single pass (p99 1,818 to 691 ns); book snapshot levels
+take the literal path too (p99.9 3,921 to 2,859 ns). Decisions are identical throughout.
 
 ## Paper execution
 
