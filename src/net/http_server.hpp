@@ -31,16 +31,13 @@ inline std::string_view request_path(std::string_view req) {
     return end == std::string_view::npos ? std::string_view() : req.substr(0, end);
 }
 
-// "POST /kill" carrying the header "X-Hft-Kill: 1". Other sites can make a browser POST to
-// loopback but not add a custom header without a CORS preflight, which is never answered.
-inline bool kill_request(std::string_view req) {
-    if (!req.starts_with("POST /kill ")) return false;
+// Whether a header line equals `want` (lower case), ignoring the case of the request.
+inline bool header_line(std::string_view req, std::string_view want) {
     const std::size_t end = req.find("\r\n\r\n");
     std::size_t at = req.find("\r\n");
     while (at != std::string_view::npos && at < end) {
         const std::size_t next = req.find("\r\n", at + 2);
         const std::string_view line = req.substr(at + 2, (next == std::string_view::npos ? req.size() : next) - at - 2);
-        constexpr std::string_view want = "x-hft-kill: 1";
         if (line.size() == want.size()) {
             bool same = true;
             for (std::size_t i = 0; i < want.size(); ++i)
@@ -50,6 +47,19 @@ inline bool kill_request(std::string_view req) {
         at = next;
     }
     return false;
+}
+
+// "POST /kill" carrying the header "X-Hft-Kill: 1". Other sites can make a browser POST to
+// loopback but not add a custom header without a CORS preflight, which is never answered.
+inline bool kill_request(std::string_view req) {
+    return req.starts_with("POST /kill ") && header_line(req, "x-hft-kill: 1");
+}
+
+// Host names this server answers to. A rebound DNS name reaching 127.0.0.1 is same-origin to
+// the browser and could send the kill header; its Host header still names the attacker's site.
+inline bool loopback_host(std::string_view req, std::uint16_t port) {
+    const std::string p = std::to_string(port);
+    return header_line(req, "host: 127.0.0.1:" + p) || header_line(req, "host: localhost:" + p);
 }
 
 class HttpServer {
@@ -99,9 +109,10 @@ class HttpServer {
         }
         const std::string_view path = kill_request(req) ? std::string_view("POST /kill") : request_path(req);
         HttpResponse r;
-        if (path.empty()) r = {405, "text/plain; charset=utf-8", "GET only\n"};
+        if (!loopback_host(req, port_)) r = {403, "text/plain; charset=utf-8", "loopback Host only\n"};
+        else if (path.empty()) r = {405, "text/plain; charset=utf-8", "GET only\n"};
         else r = handler(path);
-        const char* reason = r.status == 200 ? "OK" : r.status == 404 ? "Not Found" : "Error";
+        const char* reason = r.status == 200 ? "OK" : r.status == 403 ? "Forbidden" : r.status == 404 ? "Not Found" : "Error";
         std::string out = "HTTP/1.1 " + std::to_string(r.status) + " " + reason + "\r\nContent-Type: " + r.type +
                           "\r\nContent-Length: " + std::to_string(r.body.size()) +
                           "\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n" + r.body;

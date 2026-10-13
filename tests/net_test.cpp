@@ -248,6 +248,36 @@ TEST(Http, KillNeedsPostAndTheDashboardHeader) {
     EXPECT_FALSE(kill_request("POST /kill HTTP/1.1\r\nX-Other: X-Hft-Kill: 1\r\n\r\n"));
 }
 
+// DNS rebinding: a site whose name resolves to 127.0.0.1 is same-origin to the browser, so it
+// could read the metrics and send the kill header. Only loopback Host names are served.
+TEST(Http, OnlyLoopbackHostNames) {
+    EXPECT_TRUE(loopback_host("GET / HTTP/1.1\r\nHost: 127.0.0.1:8080\r\n\r\n", 8080));
+    EXPECT_TRUE(loopback_host("GET / HTTP/1.1\r\nhost: localhost:8080\r\n\r\n", 8080));
+    EXPECT_FALSE(loopback_host("GET / HTTP/1.1\r\nHost: evil.example:8080\r\n\r\n", 8080));
+    EXPECT_FALSE(loopback_host("GET / HTTP/1.1\r\nHost: 127.0.0.1:8081\r\n\r\n", 8080));
+    EXPECT_FALSE(loopback_host("GET / HTTP/1.1\r\nHost: 127.0.0.1:80800\r\n\r\n", 8080));
+    EXPECT_FALSE(loopback_host("GET / HTTP/1.1\r\n\r\n", 8080));
+
+    HttpServer srv;
+    ASSERT_TRUE(srv.listen(0));
+    std::atomic<bool> stop{false}, killed{false};
+    std::thread t([&] {
+        while (!stop)
+            srv.poll_once(50, [&](std::string_view p) {
+                if (p == "POST /kill") killed = true;
+                return HttpResponse{200, "text/plain", "up 1\n"};
+            });
+    });
+    const std::string evil = "Host: evil.example:" + std::to_string(srv.port()) + "\r\n";
+    const std::string read = http_fetch(srv.port(), "GET /metrics.json HTTP/1.1\r\n" + evil + "\r\n");
+    const std::string kill = http_fetch(srv.port(), "POST /kill HTTP/1.1\r\n" + evil + "X-Hft-Kill: 1\r\n\r\n");
+    stop = true;
+    t.join();
+    EXPECT_TRUE(read.starts_with("HTTP/1.1 403 ")) << read;
+    EXPECT_TRUE(kill.starts_with("HTTP/1.1 403 ")) << kill;
+    EXPECT_FALSE(killed);
+}
+
 TEST(Http, ServesRoutesOnLoopback) {
     HttpServer srv;
     ASSERT_TRUE(srv.listen(0));
@@ -259,9 +289,10 @@ TEST(Http, ServesRoutesOnLoopback) {
                 return HttpResponse{404, "text/plain", "no\n"};
             });
     });
-    const std::string ok = http_fetch(srv.port(), "GET /metrics HTTP/1.1\r\nHost: x\r\n\r\n");
-    const std::string missing = http_fetch(srv.port(), "GET /nope HTTP/1.1\r\n\r\n");
-    const std::string post = http_fetch(srv.port(), "POST /metrics HTTP/1.1\r\n\r\n");
+    const std::string host = "Host: 127.0.0.1:" + std::to_string(srv.port()) + "\r\n";
+    const std::string ok = http_fetch(srv.port(), "GET /metrics HTTP/1.1\r\n" + host + "\r\n");
+    const std::string missing = http_fetch(srv.port(), "GET /nope HTTP/1.1\r\n" + host + "\r\n");
+    const std::string post = http_fetch(srv.port(), "POST /metrics HTTP/1.1\r\n" + host + "\r\n");
     stop = true;
     t.join();
     EXPECT_TRUE(ok.starts_with("HTTP/1.1 200 OK\r\n")) << ok;

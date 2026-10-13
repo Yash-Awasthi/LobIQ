@@ -6,7 +6,7 @@ Scope: local paper system, no live orders (D1). Assets: correctness of results, 
 
 - SEC1 Market feed (TLS WebSocket, exchange) is untrusted input: every message goes through the decoder that the property test and fuzzer cover; malformed -> counted, dropped; never crashes, never UB (asan/ubsan/fuzz gates).
 - SEC2 Recordings on disk are untrusted input too (same decoder path).
-- SEC3 HTTP server: binds 127.0.0.1 only (check at E4.5 with `ss -ltnp`). Read-only endpoints only (D13).
+- SEC3 HTTP server: binds 127.0.0.1 only (check at E4.5 with `ss -ltnp`). Read-only endpoints only (D13). Requests must name `127.0.0.1:<port>` or `localhost:<port>` as Host, else 403: binding to loopback alone does not stop DNS rebinding, where a site's name resolves to 127.0.0.1 and the browser treats it as same-origin (it could read the metrics and send the kill header).
 - SEC4 Config file `exec.cfg`: parsed strictly; unknown key -> refuse to start; every limit has a hard upper bound in code (a typo cannot set capital to 1e12).
 - SEC5 Gamma HTTP API (discovery) untrusted: ids and names validated (length, charset) before use in subscriptions, file names or HTML.
 
@@ -24,6 +24,6 @@ Scope: local paper system, no live orders (D1). Assets: correctness of results, 
 - SEC-G1 `grep -rnE '[/"]clob\.|"/orders?\b|private_key|secp256k1|keccak|signTypedData' src apps` -> no hits. (First form `clob\.|/order` also matched the read-only market-data host `ws-subscriptions-clob...` and `book/order_store.hpp`.)
 - SEC-G2 `git ls-files | grep -E "\.(key|pem|env|secret)$"` -> empty.
 - SEC-G3 `ss -ltnp` during a paper run shows the HTTP port on 127.0.0.1 only.
-- SEC-G4 fuzz targets (itch, tape, oms, ws) 60 s each clean in CI.
+- SEC-G4 fuzz targets (itch, tape, oms, ws, book_load) 60 s each clean in CI.
 - SEC-G5 `grep -rnE 'std::system\(|\bsystem\(\s*"|popen\(|\bexec[lv]p?e?\(' src apps` -> no hits. (First form `system\(` also matched the ITCH writers' system-event methods.)
 - SEC-G1, G2, G5 run as scripts/security_gates.sh (CI job `gates`); G4 in the CI fuzz job; G3 is a runtime check, done at E4.5 (127.0.0.1 only).

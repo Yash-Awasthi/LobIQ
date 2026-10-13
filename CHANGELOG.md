@@ -13,6 +13,9 @@
   could crash or hang the next call. It now checks sizes before allocating and accepts only an
   image that passes a range-checked `check()` (ID table, free lists, radix links, bitmaps). New
   fuzzer `book_load_fuzz`.
+- **Dashboard Host check.** The loopback HTTP server now answers only requests whose Host is
+  `127.0.0.1:<port>` or `localhost:<port>`: a DNS-rebinding page could otherwise read the metrics
+  and set the kill switch.
 - **Faster feed decode.** Price changes in the exchange's fixed layout are decoded with literal key
   matches, falling back to the general parser on any difference: 38% fewer instructions per
   message, identical results (PERF R20).
