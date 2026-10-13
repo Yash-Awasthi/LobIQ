@@ -117,6 +117,13 @@ class Decoder {
         std::memcpy(&v, p, sizeof v);
         return v;
     }
+    // A literal key of 8 to 16 bytes with its first and last words computed at compile time: left
+    // to the optimiser, GCC 13 rebuilt them byte by byte on every compare.
+    struct Key {
+        std::string_view s;
+        std::uint64_t head, tail;
+        consteval Key(const char* k) : s(k), head(lit(k, 8)), tail(lit(k + s.size() - 8, 8)) {}
+    };
 
     // Keys are matched as sent; the exchange does not escape them.
     static int field(std::string_view k) {
@@ -466,17 +473,16 @@ class Decoder {
         return ok;
     }
 
-    // `w` (8 to 16 bytes) is next in the input; two overlapping word compares, folded for literals.
-    bool next_is(std::string_view w) const {
-        const std::size_t n = w.size();
-        return static_cast<std::size_t>(e_ - p_) >= n && load<std::uint64_t>(p_) == lit(w.data(), 8) &&
-               load<std::uint64_t>(p_ + n - 8) == lit(w.data() + n - 8, 8);
+    // `k` is next in the input; two overlapping word compares.
+    bool next_is(const Key& k) const {
+        return static_cast<std::size_t>(e_ - p_) >= k.s.size() && load<std::uint64_t>(p_) == k.head &&
+               load<std::uint64_t>(p_ + k.s.size() - 8) == k.tail;
     }
 
     // Fixed layouts, the ones the exchange sends: a literal key and a string value up to its quote.
-    bool fixed_str(std::string_view key, std::string_view& v) {
+    bool fixed_str(const Key& key, std::string_view& v) {
         if (!next_is(key)) return false;
-        p_ += key.size();
+        p_ += key.s.size();
         const char* q = quote_or_escape(p_, e_);
         if (q == e_ || *q != '"') return false;
         v = {p_, static_cast<std::size_t>(q - p_)};
@@ -493,7 +499,7 @@ class Decoder {
     // difference rewinds, and the general parser decides as it always has.
     // v: asset_id, price, size, side, hash, best_bid, best_ask.
     bool change_fixed(std::string_view (&v)[7]) {
-        static constexpr std::string_view kKey[] = {"\"asset_id\":\"", "\"price\":\"", "\"size\":\"", "\"side\":\"",
+        static constexpr Key kKey[] = {"\"asset_id\":\"", "\"price\":\"", "\"size\":\"", "\"side\":\"",
                                                     "\"hash\":\"", "\"best_bid\":\"", "\"best_ask\":\""};
         const char* const start = p_;
         ++p_;  // '{', checked by the caller
