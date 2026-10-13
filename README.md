@@ -118,7 +118,7 @@ the sections below.
 - **Determinism:** a live session replays from its recording to bit-identical decisions,
   checked by hash, under GCC and Clang; so do fault-injected runs and kill-switch runs.
 - **Correctness:** zero heap allocations on the hot path in steady state; property tests against
-  reference implementations; 323 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
+  reference implementations; 330 tests, also run under ASan, UBSan and TSan; four fuzzers; fault
   campaigns at 20-30% dropped, duplicated and delayed reports with zero illegal order states.
 - **FPGA feed parser (simulated):** ITCH 5.0 in SystemVerilog, 8 bytes per clock, one message
   per clock, output one clock after a message's last byte; field-identical to the C++ decoder in
@@ -266,7 +266,7 @@ replay is unchanged within noise. A lookahead prefetch on the per-symbol path wa
 
 ## Tests
 
-`ctest` runs 323 tests: GoogleTest, RapidCheck and end-to-end runs of `hft`, `itch_study` and `itch_leadlag` (319 under the sanitizers, which leave out
+`ctest` runs 330 tests: GoogleTest, RapidCheck and end-to-end runs of `hft`, `itch_study` and `itch_leadlag` (326 under the sanitizers, which leave out
 `alloc_test`); one (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine
 exposes no hardware performance counters.
 
@@ -568,6 +568,25 @@ Full tables: [docs/results/microstructure.md](docs/results/microstructure.md),
 [docs/results/leader-walkforward.md](docs/results/leader-walkforward.md). The estimators are in
 `src/strategy/microstructure.hpp`, unit-tested against the papers' cases and a chain with a known
 answer (`tests/microstructure_test.cpp`).
+
+## Market surveillance
+
+`itch_surveil` (or `hft surveil DAY`) scans every symbol of a stored day for the patterns exchange and
+broker surveillance desks review, and lists each candidate with its evidence:
+
+- **Spoofing:** an order at the best price, at least 10x the usual depth and 5,000 shares, cancelled
+  unfilled within 2 s while at least 1,000 shares traded on the other side.
+- **Layering:** one participant's (attributed MPID) burst of orders over several price levels near
+  the best, cancelled unfilled together.
+- **Quote stuffing:** a 100 ms burst of 50x the symbol's usual message rate, mostly cancels, almost no
+  executions.
+
+On the eight stored days it flags 6-68 spoofing, 14-128 layering and 3-409 stuffing candidates per day
+out of 8,900-12,800 symbols ([docs/results/surveillance.md](docs/results/surveillance.md), with the
+full report for 2025-12-10). The public feed is anonymous apart from MPIDs, so these are leads for a
+reviewer, not findings; the detectors are unit-tested on injected patterns and near misses
+(`tests/surveil_test.cpp`). `hft book DAY SYMBOL HH:MM:SS` shows the book at any moment of a flagged
+incident, from the nearest stored checkpoint.
 
 ## Not planned
 

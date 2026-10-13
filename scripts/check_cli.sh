@@ -3,7 +3,7 @@
 B=${1:-$(dirname "$0")/../build/native/apps}
 fail=0
 for app in book_replay checkpoint gen_day gen_fixture ingest itch_backtest itch_count itch_dump \
-           itch_study itch_leadlag itch_book pm_arb pm_exec pm_live pm_mm pm_record pm_stats store_cat transcode; do
+           itch_study itch_leadlag itch_book itch_surveil pm_arb pm_exec pm_live pm_mm pm_record pm_stats store_cat transcode; do
   for args in "--bogus-flag" "/nonexistent/dir"; do
     case "$app $args" in
       "gen_fixture /nonexistent/dir"|"ingest /nonexistent/dir"|"itch_dump /nonexistent/dir"|"pm_exec /nonexistent/dir"|"pm_live /nonexistent/dir"|"pm_record /nonexistent/dir") continue;;  # no input directory first
