@@ -37,6 +37,8 @@ Nasdaq ITCH days (DAY is S121025, 2025-12-10 or a store path):
   hft get DAY...                   download from Nasdaq, verify, build the store
   hft days                         stores on disk, with symbols and size
   hft replay DAY                   rebuild every book of the day, check invariants, time it
+  hft book DAY SYMBOL HH:MM:SS[.f] [LEVELS]
+                                   the order book at that moment (from the nearest checkpoint)
   hft strategies                   strategies available to backtest
   hft backtest DAY SYMBOLS STRATEGY [key=value...]
                                    queue-position backtest with an HTML report (SYMBOLS: INTC,AAPL)
@@ -114,6 +116,12 @@ study)
     need
     join() { local o= x; for x in ${1//,/ }; do o+="${o:+,}$(store "$x")"; done; echo "$o"; }
     "$bin/itch_study" --train "$(join "$1")" --test "$(join "$2")" --symbols "${SYMBOLS:-30}"
+    ;;
+
+book)
+    [ $# -ge 3 ] && [ $# -le 4 ] || die "usage: hft book DAY SYMBOL HH:MM:SS[.fraction] [LEVELS]"
+    need
+    exec "$bin/itch_book" "$(store "$1")" "$2" "$3" ${4:+"$4"}
     ;;
 
 leadlag)

@@ -18,6 +18,7 @@
 #include "args.hpp"
 #include "book/itch_apply.hpp"
 #include "book/tick_book.hpp"
+#include "data/checkpoint.hpp"
 #include "data/store.hpp"
 #include "feed/itch.hpp"
 #include "core/parallel.hpp"
@@ -26,23 +27,6 @@ namespace {
 
 using namespace hft;
 using Book = book::TickBook;
-
-struct CheckpointEntry {
-    std::uint64_t offset;
-    std::uint32_t comp_size;
-    std::uint32_t raw_size;
-    std::uint32_t chunk;  // state before this chunk; == number of chunks for end of day
-    std::uint32_t reserved;
-    std::uint64_t seq;  // first sequence number of that chunk, or last applied + 1 at end
-};
-static_assert(sizeof(CheckpointEntry) == 32);
-
-std::filesystem::path path_for(const std::filesystem::path& dir, std::uint16_t loc,
-                               const char* ext) {
-    char name[16];
-    std::snprintf(name, sizeof name, "%05u%s", loc, ext);
-    return dir / name;
-}
 
 // Replays `n` records (all when n == 0) and returns the number applied.
 std::uint64_t play(data::SymbolReader& rd, book::ItchApply<Book>& ap, std::uint64_t n) {
@@ -64,8 +48,8 @@ std::uint64_t write(const std::filesystem::path& dir, std::uint16_t loc, std::ui
     if (msgs < every) return 0;
     Book b;
     book::ItchApply<Book> ap{b};
-    std::ofstream ckp(path_for(dir, loc, ".ckp"), std::ios::binary | std::ios::trunc);
-    std::ofstream cki(path_for(dir, loc, ".cki"), std::ios::binary | std::ios::trunc);
+    std::ofstream ckp(data::checkpoint_path(dir, loc, ".ckp"), std::ios::binary | std::ios::trunc);
+    std::ofstream cki(data::checkpoint_path(dir, loc, ".cki"), std::ios::binary | std::ios::trunc);
     std::vector<std::uint8_t> raw, comp;
     std::uint64_t offset = 0, since = 0, written = 0;
     for (std::size_t k = 0; k <= idx.size(); ++k) {
@@ -78,7 +62,7 @@ std::uint64_t write(const std::filesystem::path& dir, std::uint16_t loc, std::ui
                 ZSTD_compress(comp.data(), comp.size(), raw.data(), raw.size(), 3);
             if (ZSTD_isError(n)) throw std::runtime_error("zstd compress failed");
             const std::uint64_t seq = k < idx.size() ? idx[k].first_seq : ap.seq + 1;
-            const CheckpointEntry e{offset,
+            const data::CheckpointEntry e{offset,
                                     static_cast<std::uint32_t>(n),
                                     static_cast<std::uint32_t>(raw.size()),
                                     static_cast<std::uint32_t>(k),
@@ -94,30 +78,17 @@ std::uint64_t write(const std::filesystem::path& dir, std::uint16_t loc, std::ui
     return written;
 }
 
-std::vector<std::uint8_t> read_state(std::ifstream& ckp, const CheckpointEntry& e) {
-    std::vector<std::uint8_t> comp(e.comp_size), raw(e.raw_size);
-    ckp.seekg(static_cast<std::streamoff>(e.offset));
-    ckp.read(reinterpret_cast<char*>(comp.data()), e.comp_size);
-    if (!ckp) throw std::runtime_error("short checkpoint read");
-    const std::size_t n = ZSTD_decompress(raw.data(), raw.size(), comp.data(), comp.size());
-    if (ZSTD_isError(n) || n != raw.size()) throw std::runtime_error("corrupt checkpoint");
-    return raw;
-}
-
 // Returns the number of checkpoints that failed to reproduce their successor.
 std::uint64_t verify(const std::filesystem::path& dir, std::uint16_t loc) {
-    std::ifstream cki(path_for(dir, loc, ".cki"), std::ios::binary);
-    if (!cki) return 0;
-    std::vector<CheckpointEntry> es;
-    CheckpointEntry e{};
-    while (cki.read(reinterpret_cast<char*>(&e), sizeof e)) es.push_back(e);
-    std::ifstream ckp(path_for(dir, loc, ".ckp"), std::ios::binary);
+    const std::vector<data::CheckpointEntry> es = data::read_checkpoints(dir, loc);
+    if (es.empty()) return 0;
+    std::ifstream ckp(data::checkpoint_path(dir, loc, ".ckp"), std::ios::binary);
     data::SymbolReader rd(dir, loc);
     std::uint64_t bad = 0;
     std::vector<std::uint8_t> got;
     for (std::size_t i = 0; i + 1 < es.size(); ++i) {
         Book b;
-        const std::vector<std::uint8_t> s = read_state(ckp, es[i]);
+        const std::vector<std::uint8_t> s = data::read_state(ckp, es[i]);
         if (!b.load(s.data(), s.size()) || !b.check()) {
             ++bad;
             continue;
@@ -127,7 +98,7 @@ std::uint64_t verify(const std::filesystem::path& dir, std::uint16_t loc) {
         for (std::uint32_t k = es[i].chunk; k < es[i + 1].chunk; ++k)
             play(rd, ap, rd.index()[k].n_msgs);
         b.save(got);
-        bad += got != read_state(ckp, es[i + 1]);
+        bad += got != data::read_state(ckp, es[i + 1]);
     }
     return bad;
 }

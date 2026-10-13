@@ -51,3 +51,6 @@ target_link_libraries(itch_study PRIVATE hft_core hft_data)
 
 add_executable(itch_leadlag itch_leadlag.cpp)
 target_link_libraries(itch_leadlag PRIVATE hft_core hft_data)
+
+add_executable(itch_book itch_book.cpp)
+target_link_libraries(itch_book PRIVATE hft_core hft_data)

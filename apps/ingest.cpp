@@ -1,7 +1,8 @@
 // Splits a BinaryFILE ITCH stream (stdin, or a .gz with CRC check and SHA-256 recorded) into the store.
-// Usage: ingest <empty-output-dir> [day.gz] [--codec lz4|zstd]
+// Usage: ingest <empty-output-dir> [day.gz] [--codec lz4|zstd]; env CHUNK_MSGS (default 1048576).
 
 #include <cstdio>
+#include <cstdlib>
 #include <algorithm>
 #include <cstring>
 #include <exception>
@@ -55,7 +56,9 @@ int run(const std::filesystem::path& out, const char* gz_path, hft::data::Codec 
         read_chunk = [](std::uint8_t* p, std::size_t n) { return std::fread(p, 1, n, stdin); };
     }
 
-    hft::data::StoreWriter writer(out, kBudget, kChunkMsgs, codec);
+    const char* cm = std::getenv("CHUNK_MSGS");  // small chunks let tests exercise checkpoints
+    const std::uint32_t chunk_msgs = cm ? static_cast<std::uint32_t>(std::strtoul(cm, nullptr, 10)) : kChunkMsgs;
+    hft::data::StoreWriter writer(out, kBudget, chunk_msgs ? chunk_msgs : kChunkMsgs, codec);
     SymbolMap symbols;
     std::vector<std::uint8_t> buf(kChunk + 2 + 65535);
     std::size_t have = 0;
