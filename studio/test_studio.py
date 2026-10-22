@@ -286,6 +286,14 @@ class EndToEnd(unittest.TestCase):
         self.assertEqual(max(float(r["summary"]["total_usd"]) for r in sweep), 8551.50)
         self.assertTrue(all(r["trials"] == 10 for r in sweep))
         self.assertTrue(all(r["dsr"] is None or r["dsr"] <= r["psr"] + 1e-12 for r in sweep))
+        # The backend (src/backtest/metrics.hpp) writes the same statistics into summary.csv.
+        for r in sweep:
+            s = r["summary"]
+            self.assertEqual(int(s["trials"]), 10)
+            self.assertAlmostEqual(float(s["sharpe_minute"]), r["sharpe_minute"], places=5)
+            self.assertAlmostEqual(float(s["psr"]), r["psr"], places=5)
+            self.assertAlmostEqual(float(s["dsr"]), r["dsr"], places=5)
+            self.assertAlmostEqual(float(s["max_drawdown_usd"]), r["max_drawdown_usd"], places=2)
 
     def test_replay_job(self):
         v = run_job({"kind": "replay", "day": "S010125"})

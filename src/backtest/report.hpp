@@ -7,6 +7,7 @@
 #include <string>
 
 #include "backtest/backtest.hpp"
+#include "backtest/metrics.hpp"
 #include "report/html.hpp"
 
 namespace hft::backtest {
@@ -31,13 +32,14 @@ inline void write_minutes(const std::string& path, const Summary& r, char sep = 
     std::fclose(f);
 }
 
-// DIR/report.html, DIR/fills.csv, DIR/pnl_minutes.csv, DIR/summary.csv.
+// DIR/report.html, DIR/fills.csv, DIR/pnl_minutes.csv, DIR/summary.csv. `risk` carries the DSR when
+// the run is one of a sweep's trials.
 inline void write_report(const std::string& dir, const std::string& symbol, const std::string& strategy, const Config& c,
-                         const Summary& s) {
+                         const Summary& s, const RiskStats& risk) {
     std::filesystem::create_directories(dir);
     write_fills(dir + "/fills.csv", s, ',');
     write_minutes(dir + "/pnl_minutes.csv", s, ',');
-    const std::vector<std::pair<std::string, std::string>> rows = {
+    std::vector<std::pair<std::string, std::string>> rows = {
         {"total_usd", report::num(usd(s.total))},
         {"spread_usd", report::num(usd(s.spread))},
         {"inventory_usd", report::num(usd(s.inventory_pnl))},
@@ -55,6 +57,13 @@ inline void write_report(const std::string& dir, const std::string& symbol, cons
         {"through_fills", std::to_string(s.divergence.through_fills)},
         {"hidden_fills", std::to_string(s.divergence.hidden_fills)},
         {"events", std::to_string(s.events)},
+        {"sharpe_minute", report::num(risk.sharpe, 6)},
+        {"sharpe_annual", report::num(risk.sharpe_annual, 4)},
+        {"psr", report::num(risk.psr, 6)},
+        {"dsr", report::num(risk.dsr, 6)},
+        {"trials", std::to_string(risk.trials)},
+        {"max_drawdown_usd", report::num(risk.max_drawdown_usd)},
+        {"longest_underwater_min", std::to_string(risk.longest_underwater)},
     };
     std::string csv = "key,value\n";
     for (const auto& [k, v] : rows) csv += k + "," + v + "\n";
@@ -80,7 +89,12 @@ inline void write_report(const std::string& dir, const std::string& symbol, cons
                                       {"Inventory PnL", report::money(usd(s.inventory_pnl))},
                                       {"Fees (+ is net rebate)", report::money(usd(s.fees))},
                                       {"Fills", std::to_string(s.fills) + " (" + std::to_string(maker) + " maker)"},
-                                      {"Max |inventory|", std::to_string(s.max_abs_inventory)}});
+                                      {"Max |inventory|", std::to_string(s.max_abs_inventory)},
+                                      {"Sharpe (minute PnL, annualised)", report::num(risk.sharpe_annual)},
+                                      {"P(Sharpe > 0)", report::num(risk.psr, 3)},
+                                      {risk.trials > 1 ? "Deflated Sharpe, " + std::to_string(risk.trials) + " trials" : std::string("Deflated Sharpe"),
+                                       report::num(risk.dsr, 3)},
+                                      {"Max drawdown", report::money(risk.max_drawdown_usd)}});
     body += report::chart("PnL over the trading window (USD, end of each minute)", "minute", "USD", {pnl});
     body += report::chart("Inventory after each fill (shares)", "hours since midnight", "shares", {inv});
     body += report::chart("Fill prices", "hours since midnight", "USD", {buys, sells}, false);
@@ -97,12 +111,18 @@ inline void write_report(const std::string& dir, const std::string& symbol, cons
                                                           "itch_backtest, ITCH replay with virtual orders in the real queues", body));
 }
 
+inline void write_report(const std::string& dir, const std::string& symbol, const std::string& strategy, const Config& c,
+                         const Summary& s) {
+    write_report(dir, symbol, strategy, c, s, risk_stats(s.minute_pnl));
+}
+
 // One run of a parameter sweep: the swept values and the result.
 struct SweepRun {
     std::string symbol;  // set when several symbols run
     std::uint16_t locate = 0;
     std::vector<std::pair<std::string, double>> params;
     Summary summary;
+    RiskStats risk;
     std::string params_label() const {
         std::string s;
         for (const auto& [k, v] : params) {
@@ -138,10 +158,11 @@ inline void write_sweep_report(const std::string& dir, const std::string& symbol
         rows += "<tr><td><a href=\"" + report::esc(r.label()) + "/report.html\">" + report::esc(r.label()) + "</a></td><td>" +
                 report::num(usd(s.total)) + "</td><td>" + report::num(usd(s.spread)) + "</td><td>" + report::num(usd(s.inventory_pnl)) +
                 "</td><td>" + report::num(usd(s.fees)) + "</td><td>" + std::to_string(s.fills) + "</td><td>" +
-                std::to_string(s.max_abs_inventory) + "</td><td>" + std::to_string(s.divergence.diverted) + "</td></tr>";
+                std::to_string(s.max_abs_inventory) + "</td><td>" + std::to_string(s.divergence.diverted) + "</td><td>" +
+                report::num(r.risk.sharpe_annual) + "</td><td>" + report::num(r.risk.dsr, 3) + "</td></tr>";
     }
     body += "<h2>Runs, best total first</h2><table><thead><tr><th>parameters</th><th>total</th><th>spread</th><th>inventory</th>"
-            "<th>fees</th><th>fills</th><th>max |inv|</th><th>diverted</th></tr></thead><tbody>" +
+            "<th>fees</th><th>fills</th><th>max |inv|</th><th>diverted</th><th>Sharpe</th><th>DSR</th></tr></thead><tbody>" +
             rows + "</tbody></table>";
     if (!runs.empty() && !runs[0].symbol.empty()) {  // several symbols: totals per parameter set
         std::vector<std::pair<std::string, std::pair<std::int64_t, std::size_t>>> by;
@@ -157,7 +178,8 @@ inline void write_sweep_report(const std::string& dir, const std::string& symbol
         body = "<h2>Total over symbols, per parameter set</h2>" + report::table({"parameters", "total", "symbols"}, t) + body;
     }
     body += "<p class=\"muted\">USD. A parameter that wins on one day can lose on the next: pick on some days, "
-            "confirm on others.</p>";
+            "confirm on others. Sharpe: minute PnL, annualised. DSR: the probability that a run's Sharpe beats the best "
+            "one luck would give across this many runs of the symbol (docs/METHODS.md).</p>";
     report::write_file(dir + "/index.html",
                        report::page("Sweep: " + strategy + " on " + symbol, std::to_string(runs.size()) + " runs", body));
 }

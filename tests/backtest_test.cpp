@@ -357,6 +357,29 @@ TEST(Registry, ARegisteredStrategyRunsLikeTheTypeItself) {
     EXPECT_EQ(imb.end_inventory, 0);
 }
 
+// microprice without edge or skew joins the best on both sides, so it is naive fill for fill; with
+// them it only steps back, and the accounting identity still holds.
+TEST(Registry, MicroPriceReducesToNaiveWithoutEdgeOrSkew) {
+    FixtureStore fx;
+    RunSpec r;
+    r.config = window();
+    r.store = fx.dir.path.string();
+    r.target = 1;
+    r.index = {3};
+    Params flat;
+    flat.kv["edge_ticks"] = 0;
+    flat.kv["skew_ticks"] = 0;
+    const Summary naive = find_strategy("naive")->run(r, Params{});
+    const Summary mp = find_strategy("microprice")->run(r, flat);
+    EXPECT_GT(naive.fills, 10u);
+    EXPECT_EQ(mp.total, naive.total);
+    EXPECT_EQ(mp.fill_ts, naive.fill_ts);
+    const Summary skewed = find_strategy("microprice")->run(r, Params{});
+    EXPECT_EQ(skewed.total, skewed.spread + skewed.inventory_pnl + skewed.fees);
+    EXPECT_EQ(skewed.end_inventory, 0);
+    EXPECT_NE(skewed.fill_ts, naive.fill_ts);
+}
+
 // leader with the leader ignored is the imbalance maker at threshold 0; heeding it only withdraws quotes.
 TEST(Registry, LeaderReducesToImbalanceWhenTheLeaderIsIgnored) {
     FixtureStore fx;
@@ -426,4 +449,77 @@ TEST(Report, SeveralSymbolsAreTotalledPerParameterSet) {
     const std::string html((std::istreambuf_iterator<char>(page)), {});
     EXPECT_NE(html.find("<td>size=200</td><td>7.00</td><td>2</td>"), std::string::npos);  // 3 + 4 USD
     EXPECT_NE(html.find("<td>size=100</td><td>3.00</td><td>2</td>"), std::string::npos);
+}
+
+// Cumulative minute PnL in micro-dollars from per-minute steps in cents.
+static std::vector<std::int64_t> cumulative(const std::vector<std::int64_t>& cents) {
+    std::vector<std::int64_t> out;
+    std::int64_t x = 0;
+    for (const std::int64_t c : cents) out.push_back(x += c * 10'000);
+    return out;
+}
+
+TEST(Metrics, DrawdownAndUnderwater) {
+    const RiskStats r = risk_stats(cumulative({1000, 1000, -1500, 2500, 1000}));  // 10, 20, 5, 30, 40 USD
+    EXPECT_DOUBLE_EQ(r.max_drawdown_usd, 15);
+    EXPECT_EQ(r.longest_underwater, 1u);
+    EXPECT_EQ(r.minutes, 5u);
+}
+
+TEST(Metrics, NormalQuantileInvertsTheCdf) {
+    EXPECT_NEAR(normal_quantile(0.975), 1.959963984540054, 1e-8);
+    EXPECT_NEAR(normal_quantile(0.01), -2.326347874040841, 1e-8);
+    for (const double p : {1e-9, 1e-4, 0.02, 0.3, 0.5, 0.9, 0.999999})
+        EXPECT_NEAR(normal_cdf(normal_quantile(p)), p, 1e-9 + 1e-8 * p) << p;
+}
+
+TEST(Metrics, ProbabilisticSharpe) {
+    EXPECT_DOUBLE_EQ(probabilistic_sharpe(0, 100, 0, 3), 0.5);
+    EXPECT_GT(probabilistic_sharpe(0.3, 100, 0, 3), 0.99);
+    EXPECT_LT(probabilistic_sharpe(0.3, 100, 0, 3, 0.5), 0.05);
+    EXPECT_TRUE(std::isnan(probabilistic_sharpe(0.3, 1, 0, 3)));
+    EXPECT_EQ(expected_max_sharpe({0.1}), 0);
+}
+
+// Same series and expected values as studio/metrics.py gives (pinned from it): the backend and the
+// studio must agree on every run of a sweep.
+TEST(Metrics, DeflatedSharpeMatchesTheStudio) {
+    std::vector<RiskStats> runs;
+    for (const std::int64_t drift : {0, 5, 10, 15, 20}) {
+        std::vector<std::int64_t> cents;
+        for (int i = 0; i < 300; ++i) cents.push_back((i % 2 ? 100 : -100) + drift + (i % 7 == 0 ? 50 : 0));
+        runs.push_back(risk_stats(cumulative(cents)));
+    }
+    const RiskStats alone = runs[0];
+    EXPECT_DOUBLE_EQ(alone.dsr, alone.psr);
+    deflate(runs);
+    const double sr[] = {0.07058786131281201, 0.11983520641477387, 0.16908255151673574, 0.21832989661869762, 0.26757724172065944};
+    const double psr[] = {0.8889317828250758, 0.9809042756057562, 0.9982757307476839, 0.9999203876839169, 0.999998148170461};
+    const double dsr[] = {0.3500170766195811, 0.6795816032413078, 0.9063098404371273, 0.984998807693779, 0.9987420212318454};
+    for (std::size_t i = 0; i < runs.size(); ++i) {
+        EXPECT_NEAR(runs[i].sharpe, sr[i], 1e-12) << i;
+        EXPECT_NEAR(runs[i].psr, psr[i], 1e-9) << i;
+        EXPECT_NEAR(runs[i].dsr, dsr[i], 1e-7) << i;
+        EXPECT_EQ(runs[i].trials, 5u);
+        EXPECT_LT(runs[i].dsr, runs[i].psr);
+    }
+    EXPECT_NEAR(runs[0].sharpe_hurdle, 0.09286358543762016, 1e-9);
+    EXPECT_NEAR(runs[0].kurtosis, 1.1192207730578303, 1e-12);
+}
+
+TEST(Report, SweepReportCarriesSharpeAndDsr) {
+    SweepRun a, b;
+    a.params = {{"size", 100}};
+    b.params = {{"size", 200}};
+    a.summary.minute_pnl = cumulative({100, -50, 200, 100});
+    b.summary.minute_pnl = cumulative({50, 50, 60, 40});
+    std::vector<RiskStats> st = {risk_stats(a.summary.minute_pnl), risk_stats(b.summary.minute_pnl)};
+    deflate(st);
+    a.risk = st[0], b.risk = st[1];
+    TempDir out{"sweep_dsr"};
+    write_sweep_report(out.path.string(), "SYM", "naive", {a, b});
+    std::ifstream page(out.path / "index.html");
+    const std::string html((std::istreambuf_iterator<char>(page)), {});
+    EXPECT_NE(html.find("<th>DSR</th>"), std::string::npos);
+    EXPECT_NE(html.find("<td>" + hft::report::num(b.risk.dsr, 3) + "</td></tr>"), std::string::npos);
 }
