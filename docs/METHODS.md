@@ -144,6 +144,12 @@ Code: `lead_response`. Test: `LeadLag.AnswersAreTheFollowersNextMoveWithinTheHor
     \sqrt{\frac{\sigma^2\gamma}{2kA}\Bigl(1 + \frac\gamma k\Bigr)^{1 + k/\gamma}},$$
   with $+(2q+1)$ for the bid and $-(2q-1)$ for the ask. Quotes are rounded away from the mid and
   never cross the opposite best. Code: `AvellanedaStoikov` in `src/backtest/strategies.hpp`.
+- **Micro-price maker.** Fair value is the micro-price $P_\mu = (P_b Q_a + P_a Q_b)/(Q_a + Q_b)$
+  (see above), shifted against inventory: $r = P_\mu - s\,\tau\,q / n$ for skew $s$ ticks per
+  quote size $n$ and tick $\tau$. Quotes are $\lfloor (r - e\tau)/\tau \rfloor\tau$ and
+  $\lceil (r + e\tau)/\tau \rceil\tau$ for edge $e$, then held at or behind the best: a quote
+  joins or steps back, never improves. With $e = s = 0$ it is the plain joiner. Code:
+  `strategies/microprice.cpp`. Test: `Registry.MicroPriceReducesToNaiveWithoutEdgeOrSkew`.
 - **Prediction markets.** Avellaneda-Stoikov with a fixed horizon $h$ in logit space,
   $x = \log(p / (1 - p))$, since prices are probabilities in $(0, 1)$: $r = x - q\gamma\sigma^2 h$,
   half-spread $\frac12\gamma\sigma^2 h + \frac1\gamma\log(1 + \gamma/k)$, mapped back through the
@@ -180,8 +186,15 @@ fees, checked after every event. Details: docs/STRATEGIES.md.
   hurdle is the best Sharpe expected from luck,
   $SR_0 = \sqrt{V[\widehat{SR}_n]}\,\big((1-\gamma)\Phi^{-1}(1 - 1/N) + \gamma\,\Phi^{-1}(1 - 1/(Ne))\big)$ with
   $\gamma$ the Euler-Mascheroni constant, and $DSR = PSR(SR_0)$. A sweep's best run with a high PSR
-  but a low DSR is what the number of trials alone would produce. Code: `studio/metrics.py`. Tests:
-  `Metrics.*` in `studio/test_studio.py`.
+  but a low DSR is what the number of trials alone would produce. One symbol's runs in one sweep
+  are one set of trials. $\Phi^{-1}$ uses Acklam's approximation (relative error below $1.2 \times 10^{-9}$).
+  Code: `src/backtest/metrics.hpp` (`itch_backtest`, `summary.csv`, sweep tables) and, independently,
+  `studio/metrics.py`. Tests: `Metrics.*` (values pinned from the Python implementation) and
+  `Studio.EndToEnd`, which requires both to agree on a real sweep.
+- **Block bootstrap of the day's PnL.** Circular block bootstrap of the minute PnL changes, blocks
+  of $\mathrm{round}(T^{1/3})$ minutes, 2,000 resamples with a fixed seed: the 2.5% and 97.5%
+  quantiles of the summed PnL and the share of resamples below zero. Code: `block_bootstrap` in
+  `studio/metrics.py`.
 
 ## Surveillance rules
 

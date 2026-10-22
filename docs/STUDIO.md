@@ -29,8 +29,11 @@ From each report's one-minute PnL path: Sharpe (annualised by sqrt(252 * 390)), 
 Sharpe ratio against 0, maximum drawdown and the longest time under water, profit factor, hit rate,
 skewness and kurtosis; from its fills: maker share and captured spread per share.
 
-The runs of one sweep share a group, and each run's **deflated Sharpe ratio** is its PSR against
-the best Sharpe expected from luck across that many trials. A sweep of ten settings will usually
+One symbol's runs in one sweep are one set of trials, and each run's **deflated Sharpe ratio** is
+its PSR against the best Sharpe expected from luck across that many trials. `itch_backtest`
+computes the same statistics in C++ and writes them to `summary.csv`; the studio recomputes them
+from the PnL path, so it also scores reports written before the backend had them, and
+`Studio.EndToEnd` checks that both agree. A sweep of ten settings will usually
 have a winner with a high PSR; the DSR says whether it beats what ten tries at random would give.
 Formulas and sources: [METHODS.md](METHODS.md#evaluation). Code: `studio/metrics.py`.
 
@@ -40,6 +43,15 @@ Formulas and sources: [METHODS.md](METHODS.md#evaluation). Code: `studio/metrics
 reports in OUT to `OUT/studio/`: the same page and metrics, from a `snapshot.json`, with no server.
 `scripts/demo/all.sh` writes one after the demos, so the published demo reports include the
 leaderboard (`studio/index.html` next to `index.html`).
+
+## Themes
+
+Both follow the system setting. Dark: black `#0a0a0a`, cerulean `#007ba7` for actions and bids,
+neon red `#ff2d95` for losses and asks. Light: ice silver `#dde3e8`, aubergine `#3a0f34` for
+actions and bids, marigold `#eaaa00` for losses and asks. Every text colour keeps at least 4.5:1
+contrast; where an accent is too pale or dark for text on its background (marigold on silver,
+`#007ba7` on black) it fills bars, borders and shading, and text uses a darker marigold `#8f5000`
+or a lighter cerulean `#3fb0dc`. Tokens: the top of `studio/static/style.css`.
 
 ## Safety
 
