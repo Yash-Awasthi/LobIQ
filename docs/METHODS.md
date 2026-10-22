@@ -170,6 +170,18 @@ fees, checked after every event. Details: docs/STRATEGIES.md.
 - **Paired comparisons.** Strategy against baseline per symbol-day, summed, with 95% intervals
   from 10,000 resamples of symbol-days (`scripts/maker_walkforward.sh`,
   `scripts/leader_walkforward.sh`). Pairing removes the day and symbol effects both share.
+- **Risk-adjusted backtest metrics.** On one-minute PnL changes $r_1..r_T$ (from `pnl_minutes.csv`):
+  Sharpe $\widehat{SR} = \bar r / s_r$, annualised by $\sqrt{252 \cdot 390}$; maximum drawdown from
+  the running peak (the day starts at 0); profit factor; hit rate over non-zero minutes.
+- **Probabilistic Sharpe ratio (Bailey and Lopez de Prado 2012).**
+  $PSR(SR^*) = \Phi\big((\widehat{SR} - SR^*)\sqrt{T-1} / \sqrt{1 - \gamma_3 \widehat{SR} + \tfrac{\gamma_4 - 1}{4}\widehat{SR}^2}\big)$,
+  with $\gamma_3$ the skewness and $\gamma_4$ the (non-excess) kurtosis of $r$; $PSR(0)$ is reported.
+- **Deflated Sharpe ratio (Bailey and Lopez de Prado 2014).** For the $N$ runs of one sweep, the
+  hurdle is the best Sharpe expected from luck,
+  $SR_0 = \sqrt{V[\widehat{SR}_n]}\,\big((1-\gamma)\Phi^{-1}(1 - 1/N) + \gamma\,\Phi^{-1}(1 - 1/(Ne))\big)$ with
+  $\gamma$ the Euler-Mascheroni constant, and $DSR = PSR(SR_0)$. A sweep's best run with a high PSR
+  but a low DSR is what the number of trials alone would produce. Code: `studio/metrics.py`. Tests:
+  `Metrics.*` in `studio/test_studio.py`.
 
 ## Surveillance rules
 
@@ -190,6 +202,8 @@ Code: `src/surveil/surveil.hpp`. Tests: `Surveil.*`.
 - Andersen, T., Bollerslev, T., Diebold, F. and Labys, P. (2000). Great realizations. *Risk* 13.
 - Andersen, T. and Bondarenko, O. (2014). VPIN and the flash crash. *Journal of Financial Markets* 17.
 - Avellaneda, M. and Stoikov, S. (2008). High-frequency trading in a limit order book. *Quantitative Finance* 8(3).
+- Bailey, D. and Lopez de Prado, M. (2012). The Sharpe ratio efficient frontier. *Journal of Risk* 15(2).
+- Bailey, D. and Lopez de Prado, M. (2014). The deflated Sharpe ratio. *Journal of Portfolio Management* 40(5).
 - Cont, R., Kukanov, A. and Stoikov, S. (2014). The price impact of order book events. *Journal of Financial Econometrics* 12(1).
 - Easley, D., Lopez de Prado, M. and O'Hara, M. (2012). Flow toxicity and liquidity in a high-frequency world. *Review of Financial Studies* 25(5).
 - Filimonov, V. and Sornette, D. (2012). Quantifying reflexivity in financial markets. *Physical Review E* 85.

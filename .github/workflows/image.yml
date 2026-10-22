@@ -26,7 +26,7 @@ jobs:
         run: |
           mkdir -p out && chmod 777 out
           docker run --rm -e HFT_COMMIT="${GITHUB_SHA::7}" -v "$PWD/out:/hft/out" "$IMG:${GITHUB_SHA::12}"
-          test -s out/index.html && test -s out/paper/report.html && test -s out/backtest/naive/report.html
+          test -s out/index.html && test -s out/paper/report.html && test -s out/backtest/naive/report.html && test -s out/studio/snapshot.json
       - name: publish
         if: github.event_name == 'push'
         run: |
@@ -35,6 +35,12 @@ jobs:
           if [ "$GITHUB_REF_TYPE" = tag ]; then tag="$GITHUB_REF_NAME"; else tag=latest; fi
           docker tag "$IMG:${GITHUB_SHA::12}" "$IMG:$tag"
           docker push "$IMG:$tag"
+      - if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-reports
+          path: out
+          retention-days: 7
       - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:

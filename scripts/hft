@@ -57,6 +57,7 @@ Prediction market, paper only (no order is ever sent):
   hft review RUN                   replay a recorded run and write its HTML report
 
 Other:
+  hft studio [--port N]            web UI on localhost: run all of the above, leaderboard, book viewer
   hft demo                         every demo on bundled data, reports in out/
   hft doctor                       tools, data and machine tuning
 EOF
@@ -110,6 +111,7 @@ backtest)
     need
     s=$(store "$1")
     dir="$reports/backtest-$(stamp)"
+    [ -e "$dir" ] && dir="$dir-$$"  # two runs in the same second
     "$bin/itch_backtest" "$s" "$2" "$3" "${@:4}" --report "$dir"
     ;;
 
@@ -180,6 +182,11 @@ review)
 demo)
     need
     HFT_BIN=$bin "$root/scripts/demo/all.sh" "${1:-out}"
+    ;;
+
+studio)
+    command -v python3 >/dev/null || die "hft studio needs python3"
+    HFT_BIN=$bin HFT_DATA=$data HFT_REPORTS=$reports exec python3 "$root/studio/server.py" "$@"
     ;;
 
 doctor)

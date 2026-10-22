@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>hft studio</title>
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+<header>
+  <strong class="brand">hft studio</strong>
+  <nav id="tabs">
+    <button data-tab="overview" class="on">Overview</button>
+    <button data-tab="backtest">Backtest</button>
+    <button data-tab="leaderboard">Leaderboard</button>
+    <button data-tab="book">Order book</button>
+    <button data-tab="analysis">Analysis</button>
+    <button data-tab="live">Live paper</button>
+    <button data-tab="jobs">Jobs <span id="running" class="pill" hidden></span></button>
+  </nav>
+</header>
+<main>
+
+<section id="overview" class="tab on">
+  <div id="warn" class="banner" hidden></div>
+  <div class="cards" id="cards"></div>
+  <div class="grid2">
+    <div class="panel">
+      <h2>Nasdaq days</h2>
+      <table id="days"><thead><tr><th>Day</th><th>Date</th><th class="n">Symbols</th><th class="n">Size</th><th></th></tr></thead><tbody></tbody></table>
+      <form id="get-form" class="row">
+        <input name="days" placeholder="2025-12-10" pattern="[0-9S,\-]+" required aria-label="Days to download">
+        <button>Download day</button>
+      </form>
+      <p class="muted">Downloads from Nasdaq, verifies, builds the store and checkpoints (several GB per day).</p>
+    </div>
+    <div class="panel">
+      <h2>Quick start</h2>
+      <p>No data yet? Run every demo on bundled data: a synthetic Nasdaq session through two strategies and a
+        10-run sweep, and paper execution on a 20-minute live recording. Results land in the leaderboard.</p>
+      <button id="demo">Run demos</button>
+      <h2>Recent jobs</h2>
+      <ul id="recent" class="plain"></ul>
+    </div>
+  </div>
+</section>
+
+<section id="backtest" class="tab">
+  <div class="grid2">
+    <form id="bt-form" class="panel">
+      <h2>Queue-position backtest</h2>
+      <label>Day <select name="day" required></select></label>
+      <label>Symbols <input name="symbols" placeholder="INTC,AAPL" required pattern="[A-Z0-9.,]+"></label>
+      <label>Strategy <select name="strategy" required></select></label>
+      <p id="strat-help" class="muted"></p>
+      <label>Parameters <span class="muted">key=value, one per line</span>
+        <textarea name="params" rows="4" placeholder="maker_rebate=2000&#10;taker_fee=3000&#10;market_data_ns=50000&#10;order_entry_ns=20000"></textarea></label>
+      <label>Sweep <span class="muted">key=v1,v2,... per line; every combination runs</span>
+        <textarea name="sweeps" rows="2" placeholder="threshold=0.2,0.4,0.6"></textarea></label>
+      <button>Run backtest</button>
+      <p class="muted">Orders join the real queues after the order-entry latency; the strategy sees the market a
+        market-data latency late. Venue keys: tick, maker_rebate, taker_fee, fill_rule, market_data_ns,
+        order_entry_ns, max_position, max_order, hysteresis_ticks...</p>
+    </form>
+    <div class="panel">
+      <h2>Output</h2>
+      <div id="bt-status" class="muted">Nothing running.</div>
+      <pre id="bt-log" class="log"></pre>
+      <div id="bt-result"></div>
+    </div>
+  </div>
+</section>
+
+<section id="leaderboard" class="tab">
+  <div class="panel">
+    <div class="row between">
+      <h2>Every backtest report on disk</h2>
+      <div class="row">
+        <label class="inline"><input type="checkbox" id="lb-best"> best of each sweep only</label>
+        <button type="button" id="lb-compare">Compare selected</button>
+        <button type="button" id="lb-csv">Export CSV</button>
+      </div>
+    </div>
+    <p class="muted">Sharpe is on one-minute PnL changes, annualised by &radic;(252&middot;390). PSR: probability the true
+      Sharpe is above 0. <b>DSR</b>: the same against the best Sharpe expected from luck alone across the runs of one
+      sweep (Bailey &amp; L&oacute;pez de Prado). A sweep winner with low DSR is likely overfit. Click a row for detail.</p>
+    <div class="scroll" id="lb-wrap"></div>
+  </div>
+  <div id="compare" class="panel" hidden></div>
+  <div id="detail" class="panel" hidden></div>
+</section>
+
+<section id="book" class="tab">
+  <div class="grid2">
+    <form id="book-form" class="panel">
+      <h2>Order book at any moment</h2>
+      <label>Day <select name="day" required></select></label>
+      <label>Symbol <input name="symbol" placeholder="AAPL" required pattern="[A-Z0-9.]+"></label>
+      <label>Time (ET) <input name="time" value="10:00:00" required pattern="\d{2}:\d{2}:\d{2}(\.\d{1,9})?"></label>
+      <label>Levels <input name="levels" type="number" min="1" max="99" value="10"></label>
+      <div class="row">
+        <button>Show book</button>
+        <button type="button" id="book-prev" title="one second earlier">&minus;1 s</button>
+        <button type="button" id="book-next" title="one second later">+1 s</button>
+        <button type="button" id="book-play">Play</button>
+      </div>
+      <p class="muted">Rebuilt from the nearest checkpoint, so any moment of the day loads in milliseconds.</p>
+    </form>
+    <div class="panel">
+      <h2 id="book-title">Depth</h2>
+      <p id="book-header" class="muted"></p>
+      <div id="ladder"></div>
+      <div id="book-stats" class="cards small"></div>
+    </div>
+  </div>
+</section>
+
+<section id="analysis" class="tab">
+  <form id="an-form" class="panel">
+    <h2>Market analysis</h2>
+    <div class="row wrap">
+      <label>Tool <select name="kind">
+        <option value="surveil">Surveillance: spoofing, layering, quote stuffing</option>
+        <option value="bestex">Execution quality (Rule 605 style)</option>
+        <option value="replay">Replay every book, check invariants</option>
+        <option value="leadlag">Lead-lag between products</option>
+        <option value="study">Microstructure study, out of sample</option>
+      </select></label>
+      <label data-for="surveil bestex replay leadlag">Day(s) <input name="day" placeholder="2025-12-10"></label>
+      <label data-for="surveil bestex">Symbols <input name="symbols" placeholder="optional: AAPL,MSFT"></label>
+      <label data-for="leadlag">Pairs <input name="pairs" placeholder="QQQ:TQQQ,QQQ:SQQQ:-1"></label>
+      <label data-for="study">Train days <input name="train" placeholder="2025-12-08,2025-12-09"></label>
+      <label data-for="study">Test days <input name="test" placeholder="2025-12-10"></label>
+      <button>Run</button>
+    </div>
+  </form>
+  <div class="panel">
+    <div id="an-status" class="muted">Pick a tool.</div>
+    <div id="an-out" class="md"></div>
+  </div>
+</section>
+
+<section id="live" class="tab">
+  <div class="grid2">
+    <div class="panel">
+      <h2>Paper market making on the live feed</h2>
+      <p>Market makers and an arbitrage executor on Polymarket's live books, through pre-trade risk, an order manager
+        and a simulated venue. <b>No order is ever sent.</b></p>
+      <form id="live-form" class="row">
+        <label class="inline">Minutes <input name="minutes" type="number" min="1" max="1440" value="30"></label>
+        <button>Start live run</button>
+      </form>
+      <p><a href="http://127.0.0.1:8088/" target="_blank" rel="noopener">Open the live dashboard (latency, positions, PnL)</a></p>
+    </div>
+    <div class="panel">
+      <h2>Past runs</h2>
+      <table id="runs"><thead><tr><th>Run</th><th>Status</th><th class="n">PnL USD</th><th class="n">Orders</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+  <div class="panel"><iframe id="dash" title="live dashboard" src="about:blank"></iframe></div>
+</section>
+
+<section id="jobs" class="tab">
+  <div class="panel">
+    <h2>Jobs</h2>
+    <table id="jobtable"><thead><tr><th>#</th><th>Command</th><th>Status</th><th class="n">Time</th><th></th></tr></thead><tbody></tbody></table>
+    <pre id="job-log" class="log"></pre>
+  </div>
+</section>
+
+</main>
+<script src="static/app.js"></script>
+</body>
+</html>

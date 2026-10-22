@@ -25,7 +25,7 @@ jobs:
           name="hft-$GITHUB_REF_NAME-linux-x86_64"
           mkdir -p "$name/bin"
           find build/release/apps -maxdepth 1 -type f -executable -exec cp {} "$name/bin/" \;
-          cp -r scripts config data README.md CHANGELOG.md LICENSE "$name/"
+          cp -r scripts studio config data README.md CHANGELOG.md LICENSE "$name/"
           ln -s ../scripts/hft "$name/bin/hft"
           cp docs/STRATEGIES.md "$name/"
           {

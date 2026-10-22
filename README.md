@@ -64,6 +64,17 @@ hft runs                                    # past runs, PnL, killed or not
 hft review 20261012T172311                  # replay a run bit for bit, write its report
 ```
 
+**3. Drive it all from a browser.** `hft studio` serves a local web UI on http://127.0.0.1:8000/:
+run backtests, sweeps, replays, surveillance and execution-quality reports as streamed jobs; rank every
+report on disk in a leaderboard with Sharpe, drawdown and the deflated Sharpe ratio (which discounts
+a sweep's winner for the number of runs tried); scrub through any symbol's order book second by
+second; start a live paper run and trip its kill switch ([docs/STUDIO.md](docs/STUDIO.md)).
+
+```
+hft studio                                  # then open http://127.0.0.1:8000/
+docker run --rm -p 8000:8000 ghcr.io/yash-awasthi/hft hft studio --bind 0.0.0.0
+```
+
 `hft doctor` checks the tools, the data and the machine tuning; `hft demo` runs every demo on
 bundled data. Without building anything, with Docker or Podman:
 
