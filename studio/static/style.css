@@ -98,6 +98,11 @@ details { margin: 4px 0 12px; } summary { cursor: pointer; color: var(--link); m
 ol.steps { padding-left: 20px; } ol.steps li { margin: 6px 0; } ol.steps code { overflow-wrap: anywhere; }
 ul.guide li { padding: 4px 0; }
 form > label.inline { display: flex; margin: 0 0 12px; }
+.grid2.even { grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); }
+form.model .params { margin-bottom: 8px; }
+svg .l1 { fill: none; stroke: var(--link); stroke-width: 1.8; } svg .l2 { fill: none; stroke: var(--neg); stroke-width: 1.8; }
+svg .l3 { fill: none; stroke: var(--pos); stroke-width: 1.4; stroke-dasharray: 4 3; } svg .dot { fill: var(--muted); opacity: .45; }
+svg .hit { fill: var(--neg-fill); stroke: var(--fg); }
 table.heatmap td.heat { text-align: center; font-variant-numeric: tabular-nums; min-width: 84px; }
 table.heatmap td.heat small { display: block; color: var(--muted); font-size: 11px; }
 svg .node { stroke: var(--line); stroke-width: 1; }
@@ -107,3 +112,4 @@ svg .cloud { fill: var(--muted); opacity: .3; }
 svg .single { fill: var(--link); }
 svg .mark { fill: var(--neg-fill); stroke: var(--fg); stroke-width: 1; }
 #frontier td:last-child { white-space: normal; }
+svg .l1-t { fill: var(--link); } svg .l2-t { fill: var(--neg); } svg .l3-t { fill: var(--pos); }

@@ -123,7 +123,7 @@ Ten runs of a full synthetic day take about 0.4 s on 20 threads. Pick parameters
 check them on others: the best row of one day is partly luck. `dsr` says how much: it is the
 probability that a run's Sharpe beats the best one ten random settings would give (each symbol's
 runs count as one set of trials; README "Evaluating a strategy", docs/METHODS.md).
-`hft studio` ranks every report on disk by these numbers and overlays any runs' PnL curves. `scripts/maker_walkforward.sh` and
+`lobiq studio` ranks every report on disk by these numbers and overlays any runs' PnL curves. `scripts/maker_walkforward.sh` and
 `scripts/leader_walkforward.sh` do exactly that and print paired bootstrap intervals, since a
 maker's total moves with its inventory as much as with its edge.
 

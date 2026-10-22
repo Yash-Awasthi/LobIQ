@@ -1,4 +1,4 @@
-"""Tests for hft studio: the metrics, and the server driving scripts/hft.
+"""Tests for lobiq studio: the metrics, and the server driving scripts/lobiq.
 
 Without arguments the server runs against stub tools. With a directory of built tools
 (python3 studio/test_studio.py build/release/apps) it also runs end to end on a synthetic Nasdaq day

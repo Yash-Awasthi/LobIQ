@@ -1,6 +1,6 @@
-"""hft studio: a local web UI over the hft command. Standard library only.
+"""lobiq studio: a local web UI over the lobiq command. Standard library only.
 
-It runs scripts/hft as jobs (argument lists, never a shell), streams their output, and reads the
+It runs scripts/lobiq as jobs (argument lists, never a shell), streams their output, and reads the
 stores, live runs and reports on disk. Only loopback Host names are answered, and state-changing
 requests must be same-origin JSON, so other web pages cannot drive it.
 """
@@ -23,7 +23,7 @@ import metrics  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 STATIC = os.path.join(HERE, "static")
-HFT = os.path.join(ROOT, "scripts", "hft")
+HFT = os.path.join(ROOT, "scripts", "lobiq")
 DATA = os.environ.get("HFT_DATA") or os.path.join(os.path.expanduser("~"), "data")
 REPORTS = os.environ.get("HFT_REPORTS") or os.path.join(DATA, "reports")
 OUT = os.path.join(ROOT, "out")
@@ -78,7 +78,7 @@ def strings(spec, name, kind):
 
 
 def hft_args(spec):
-    """Validated job spec -> arguments to scripts/hft. Every value matches a fixed pattern."""
+    """Validated job spec -> arguments to scripts/lobiq. Every value matches a fixed pattern."""
     kind = spec.get("kind")
     opt = lambda *xs: [x for x in xs if x]
     if kind == "backtest":
@@ -297,7 +297,7 @@ _TOOL_LISTS = {}
 
 
 def tool_list(cmd):
-    """Names and help printed by `hft strategies` / `hft quoters`, cached; empty without built tools."""
+    """Names and help printed by `lobiq strategies` / `lobiq quoters`, cached; empty without built tools."""
     if cmd not in _TOOL_LISTS:
         out = []
         if bin_dir():
@@ -336,7 +336,7 @@ def recordings():
 
 
 def paper_reports():
-    """Paper replay reports (hft paper), newest first, with their summary."""
+    """Paper replay reports (lobiq paper), newest first, with their summary."""
     out = []
     if not os.path.isdir(REPORTS):
         return out
@@ -571,7 +571,7 @@ def snapshot(out):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="hft studio", description="Local web UI for the hft toolkit.")
+    ap = argparse.ArgumentParser(prog="lobiq studio", description="Local web UI for the lobiq toolkit.")
     ap.add_argument("--port", type=int, default=int(os.environ.get("HFT_STUDIO_PORT", 8000)))
     ap.add_argument("--bind", default="127.0.0.1", help="address to listen on (0.0.0.0 inside a container)")
     ap.add_argument("--snapshot", metavar="OUT", help="write a read-only copy of the UI over the reports in OUT and exit")
@@ -580,7 +580,7 @@ def main(argv=None):
         return snapshot(a.snapshot)
     srv = ThreadingHTTPServer((a.bind, a.port), Handler)
     srv.daemon_threads = True
-    print(f"hft studio on http://127.0.0.1:{srv.server_address[1]}/  (data {DATA}, Ctrl-C stops)", flush=True)
+    print(f"lobiq studio on http://127.0.0.1:{srv.server_address[1]}/  (data {DATA}, Ctrl-C stops)", flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

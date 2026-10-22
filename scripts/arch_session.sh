@@ -127,7 +127,7 @@ fi
     echo
     echo "## Back up before removing the install"
     echo
-    echo "Live recordings cannot be downloaded again; Nasdaq days can (\`hft get\`) while Nasdaq keeps them."
+    echo "Live recordings cannot be downloaded again; Nasdaq days can (\`lobiq get\`) while Nasdaq keeps them."
     echo
     echo '```'
     du -sh "$d"/pm-live "$d"/pm "$d"/live "$d"/reports 2>/dev/null

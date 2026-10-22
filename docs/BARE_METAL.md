@@ -108,9 +108,9 @@ studio, and CI's perf gate checks every change for regressions on the hot paths.
    Results go to `docs/results/session-<date>.md`; the logs' directory is printed at the end.
    `SYMBOLS`, `TRAIN` and `TEST` override the defaults (`SPY,...,TSLA`, `S120825`, `S121025`).
 
-3. Optional, with the studio on real data: `hft studio`, then in the browser the Prediction tab on a
+3. Optional, with the studio on real data: `lobiq studio`, then in the browser the Prediction tab on a
    few symbols, the leaderboard's portfolio frontier on the session's runs, and a short live run
-   from the Live paper tab (`hft live 15` does the same from the shell). Screenshots of these can
+   from the Live paper tab (`lobiq live 15` does the same from the shell). Screenshots of these can
    replace the ones in `docs/img/`.
 
 4. Commit the results:
@@ -121,7 +121,7 @@ studio, and CI's perf gate checks every change for regressions on the hot paths.
 
 5. Back up what cannot be fetched again. The end of the results page lists the sizes. Live
    recordings (`~/data/pm-live`, `~/data/live`, `~/data/pm`) are unique; Nasdaq days can be fetched
-   again with `hft get` for as long as Nasdaq publishes them. To an external disk, for example:
+   again with `lobiq get` for as long as Nasdaq publishes them. To an external disk, for example:
 
        rsync -a --info=progress2 ~/data/pm-live ~/data/live ~/data/pm /run/media/$USER/<disk>/lobiq-data/
 

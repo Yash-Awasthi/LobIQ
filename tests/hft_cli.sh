@@ -4,8 +4,9 @@ set -euo pipefail
 export HFT_BIN=$1 HFT_DATA
 HFT_DATA=$(mktemp -d)
 trap 'rm -rf "$HFT_DATA"' EXIT
-hft=$(dirname "$0")/../scripts/hft
-"$hft" help | grep "hft live" >/dev/null
+hft=$(dirname "$0")/../scripts/lobiq
+"$hft" help | grep "lobiq live" >/dev/null
+"$(dirname "$0")/../scripts/hft" help | grep "lobiq live" >/dev/null  # the former name still works
 rc=0; "$hft" bogus 2>/dev/null || rc=$?; [ $rc -eq 2 ]
 rc=0; "$hft" replay S010101 2>/dev/null || rc=$?; [ $rc -eq 1 ]  # no such store
 "$HFT_BIN/gen_day" 1 120 2>/dev/null | "$HFT_BIN/ingest" "$HFT_DATA/store-S010125-v50" >/dev/null 2>&1
