@@ -123,6 +123,17 @@ if [ "${1:-}" = --bench ]; then
     fi
 fi
 
+if have_store "$test"; then
+    echo "== multi-level OFI and realism on $test"
+    "$B/itch_mlofi" "$d/store-$test-v50" "$syms" 2>/dev/null | sed 's/^# /## /' >>"$out"
+    first=${syms%%,*}
+    tmp=$(mktemp -d)
+    "$B/gen_day" 7 390 2>/dev/null | "$B/ingest" "$tmp/store-synthetic" >/dev/null 2>&1
+    echo >>"$out"
+    "$B/itch_realism" "$d/store-$test-v50" "$first" "$tmp/store-synthetic" QRSIM 2>/dev/null | sed 's/^# /## /' >>"$out"
+    rm -rf "$tmp"
+fi
+
 {
     echo
     echo "## Back up before removing the install"
