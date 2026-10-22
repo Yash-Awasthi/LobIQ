@@ -105,8 +105,18 @@ def hft_args(spec):
     raise BadRequest(f"unknown kind {kind!r}")
 
 
+def find_bash():
+    # On Windows the first bash on PATH is often the WSL launcher; Git's bash runs the stub tools.
+    git = shutil.which("git") if os.name == "nt" else None
+    gb = git and os.path.join(os.path.dirname(os.path.dirname(git)), "bin", "bash.exe")
+    return gb if gb and os.path.isfile(gb) else shutil.which("bash") or "bash"
+
+
+BASH = find_bash()
+
+
 def run_hft(args, timeout=None):
-    return subprocess.run([shutil.which("bash") or "bash", HFT, *args], cwd=ROOT, capture_output=True, text=True,
+    return subprocess.run([BASH, HFT, *args], cwd=ROOT, capture_output=True, text=True,
                           timeout=timeout)
 
 
@@ -116,7 +126,7 @@ class Job:
         self.lines, self.rc, self.report = [], None, None
         self.started, self.ended = time.time(), None
         self.cond = threading.Condition()
-        self.proc = subprocess.Popen([shutil.which("bash") or "bash", HFT, *args], cwd=ROOT, stdout=subprocess.PIPE,
+        self.proc = subprocess.Popen([BASH, HFT, *args], cwd=ROOT, stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, text=True, bufsize=1)
         threading.Thread(target=self._pump, daemon=True).start()
 
@@ -420,6 +430,15 @@ class Handler(BaseHTTPRequestHandler):
             pass
 
     def do_POST(self):
+        # Read the body before any refusal: closing with unread bytes resets the connection.
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 <= n <= 65536:
+            self.close_connection = True
+            return self._send(413, {"error": "body too large or bad length"})
+        raw = self.rfile.read(n)
         if not self._host_ok():
             return self._send(403, {"error": "loopback only"})
         origin = self.headers.get("Origin")
@@ -428,10 +447,7 @@ class Handler(BaseHTTPRequestHandler):
         if (self.headers.get("Content-Type") or "").split(";")[0].strip() != "application/json":
             return self._send(415, {"error": "send application/json"})
         try:
-            n = int(self.headers.get("Content-Length") or 0)
-            if n > 65536:
-                raise BadRequest("body too large")
-            body = json.loads(self.rfile.read(n) or b"{}")
+            body = json.loads(raw or b"{}")
             if not isinstance(body, dict):
                 raise BadRequest("send a JSON object")
             p = self.path
