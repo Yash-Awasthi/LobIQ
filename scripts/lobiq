@@ -46,6 +46,9 @@ Nasdaq ITCH days (DAY is S121025, 2025-12-10 or a store path):
   lobiq lobster DAY SYMBOL,.. [DIR] [--levels N]
                                    the day in LOBSTER's message and orderbook CSV format, for LOBCAST, LOBFrame
                                    and other order book models (default DIR: the reports directory, lobster-DAY)
+  lobiq realism DAY SYMBOL [DAY2 SYMBOL2]
+                                   market realism scorecard (LOB-Bench statistics): the second symbol-day, or a
+                                   synthetic queue-reactive day if none is given, against the first
   lobiq surveil DAY [SYMBOL,..]    spoofing, layering and quote-stuffing candidates, with evidence
   lobiq bestex DAY [SYMBOL,..]     execution quality, Rule 605 style (default: 25 most active)
   lobiq strategies                 strategies available to backtest
@@ -169,6 +172,19 @@ lobster)
     if [ $# -gt 0 ] && [[ $1 != -* ]]; then dir=$1; shift; fi
     "$bin/itch_lobster" "$s" "$syms" "$dir" "$@"
     echo "report: $dir"
+    ;;
+
+realism)
+    [ $# -eq 2 ] || [ $# -eq 4 ] || die "usage: lobiq realism DAY SYMBOL [DAY2 SYMBOL2]"
+    need
+    a=$(store "$1")
+    if [ $# -eq 4 ]; then
+        exec "$bin/itch_realism" "$a" "$2" "$(store "$3")" "$4"
+    fi
+    tmp=$(mktemp -d)
+    trap 'rm -rf "$tmp"' EXIT
+    "$bin/gen_day" 7 390 2>/dev/null | "$bin/ingest" "$tmp/store-synthetic" >/dev/null 2>&1
+    "$bin/itch_realism" "$a" "$2" "$tmp/store-synthetic" QRSIM
     ;;
 
 markov)

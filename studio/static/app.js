@@ -351,7 +351,8 @@ $('#an-form').onsubmit = async e => {
   e.preventDefault();
   const f = e.target, kind = f.kind.value;
   const spec = {kind, day: f.day.value.trim(), days: f.day.value.trim(), symbols: f.symbols.value.trim().toUpperCase(),
-    pairs: f.pairs.value.trim().toUpperCase(), train: f.train.value.trim(), test: f.test.value.trim()};
+    pairs: f.pairs.value.trim().toUpperCase(), train: f.train.value.trim(), test: f.test.value.trim(),
+    symbol: f.symbol.value.trim().toUpperCase()};
   $('#an-out').innerHTML = '';
   const job = await runJob(spec, null, $('#an-status'));
   if (job) $('#an-out').innerHTML = job.lines.some(l => /^[#|]/.test(l)) ? markdown(job.lines.join('\n')) : `<pre class="log">${esc(job.lines.join('\n'))}</pre>`;

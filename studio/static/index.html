@@ -294,9 +294,11 @@
         <option value="study">Microstructure study, out of sample</option>
         <option value="mlofi">Multi-level OFI and cross-impact (Cont, Cucuringu, Zhang 2023)</option>
         <option value="lobster">Export to LOBSTER format (for LOBCAST, LOBFrame, DeepMarket)</option>
+        <option value="realism">Market realism: a real day against the simulator (LOB-Bench statistics)</option>
       </select></label>
-      <label data-for="surveil bestex replay leadlag mlofi lobster">Day(s) <input name="day" placeholder="2025-12-10"></label>
+      <label data-for="surveil bestex replay leadlag mlofi lobster realism">Day(s) <input name="day" placeholder="2025-12-10"></label>
       <label data-for="surveil bestex mlofi lobster">Symbols <input name="symbols" placeholder="optional: AAPL,MSFT"></label>
+      <label data-for="realism">Symbol <input name="symbol" placeholder="AAPL"></label>
       <label data-for="leadlag">Pairs <input name="pairs" placeholder="QQQ:TQQQ,QQQ:SQQQ:-1"></label>
       <label data-for="study">Train days <input name="train" placeholder="2025-12-08,2025-12-09"></label>
       <label data-for="study">Test days <input name="test" placeholder="2025-12-10"></label>
