@@ -1,7 +1,7 @@
 # LobIQ
 
-[![ci](https://github.com/Yash-Awasthi/LobIQ/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Yash-Awasthi/LobIQ/actions/workflows/ci.yml)
-[![image](https://github.com/Yash-Awasthi/LobIQ/actions/workflows/image.yml/badge.svg?branch=main)](https://github.com/Yash-Awasthi/LobIQ/actions/workflows/image.yml)
+[![ci](https://github.com/Yash-Awasthi/LobIQ/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Yash-Awasthi/LobIQ/actions/workflows/ci.yml)
+[![image](https://github.com/Yash-Awasthi/LobIQ/actions/workflows/image.yml/badge.svg?branch=master)](https://github.com/Yash-Awasthi/LobIQ/actions/workflows/image.yml)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Yash-Awasthi/LobIQ)
 
 **LobIQ** (limit order book intelligence) is a low-latency market-data, surveillance and trading
