@@ -67,6 +67,7 @@ struct View {
     std::int64_t inventory;
     const std::vector<Working>& working;
     bool quoting;  // false outside the trading window and once flattening has begun
+    std::int64_t pnl;  // the run's total PnL now, micro-dollars: a reward signal, not a latency-delayed view
 };
 
 // What the strategy wants: resting quotes per side (qty 0 for none) and an optional take.
@@ -236,7 +237,7 @@ class Backtest {
         mf_->row(0, mf_->last_event().ts, row_.data());
         const bool quoting = now >= c_.start_ns && now < c_.stop_ns && !risk_.killed();
         const View v{now,        mf_->book(0), row_.data(), row_.size(), mf_->symbol(0).mid(),
-                     inventory_, working_,     quoting};
+                     inventory_, working_,     quoting,       acct_.total_pnl()};
         Desired d;
         if (now >= c_.start_ns && now < c_.end_ns) {
             if (quoting)

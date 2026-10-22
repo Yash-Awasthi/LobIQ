@@ -10,6 +10,7 @@
     {"name": "random_taker", "help": "takes on a random side (loses about half the spread plus fees)", "keys": {"rate": 0.001, "size": 100}},
     {"name": "random_passive", "help": "quotes at random distances", "keys": {"size": 100}},
     {"name": "perfect_foresight", "help": "sees the future mid (an upper bound, not a strategy)", "keys": {"horizon_ns": 1000000000, "cost_ticks": 0.3, "size": 100}},
+    {"name": "agent", "help": "an external agent over stdin and stdout, for reinforcement learning (rl/lobiq_env.py)", "keys": {"step_ms": 1000}},
     {"name": "dp:", "help": "offline-solved policy table: dp:<policy.bin>", "keys": {}},
     {"name": "ext:", "help": "policy table with guards: ext:<policy.bin>", "keys": {"toxicity": 1, "taking": 1, "vol_limit": 1.0, "take_margin": 0.1}}
   ],
