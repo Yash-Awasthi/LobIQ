@@ -27,6 +27,13 @@ TEST(Realism, DistancesOfIdenticalShiftedAndDisjointSamples) {
     EXPECT_NEAR(rl::total_variation(a, b), 0.05, 0.02);  // about the shift over the range
 }
 
+TEST(Realism, OutliersDoNotHideAShiftFromTotalVariation) {
+    // Limit orders far from the mid: one in a thousand would put the whole bulk in one bin.
+    auto a = ramp(1000), b = ramp(1000, 5);
+    a.push_back(1e6), b.push_back(1e6);
+    EXPECT_NEAR(rl::total_variation(a, b), 0.5, 0.05);
+}
+
 TEST(Realism, AutocorrelationAndKurtosis) {
     std::vector<double> alt;
     for (int i = 0; i < 100; ++i) alt.push_back(i % 2 ? 1 : -1);

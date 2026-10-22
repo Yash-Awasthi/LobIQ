@@ -64,19 +64,22 @@ inline double wasserstein(std::vector<double> ref, std::vector<double> other) {
     return d / kPoints / sd;
 }
 
-// Total variation between histograms over the pooled range, in [0, 1]: 0 identical, 1 disjoint.
+// Total variation between histograms in [0, 1]: 0 identical, 1 disjoint. Bins hold equal shares of the
+// pooled sample, so heavy tails (orders far from the mid) cannot squeeze the bulk into one bin.
 inline double total_variation(const std::vector<double>& a, const std::vector<double>& b, int bins = 50) {
     if (a.empty() || b.empty()) return NAN;
-    const auto [amin, amax] = std::minmax_element(a.begin(), a.end());
-    const auto [bmin, bmax] = std::minmax_element(b.begin(), b.end());
-    const double lo = std::min(*amin, *bmin), hi = std::max(*amax, *bmax);
-    if (hi == lo) return 0;
-    std::vector<double> ha(static_cast<std::size_t>(bins), 0), hb(static_cast<std::size_t>(bins), 0);
-    auto bin = [&](double x) { return std::min<std::size_t>(static_cast<std::size_t>((x - lo) / (hi - lo) * bins), static_cast<std::size_t>(bins - 1)); };
+    std::vector<double> pooled(a);
+    pooled.insert(pooled.end(), b.begin(), b.end());
+    std::sort(pooled.begin(), pooled.end());
+    std::vector<double> edges;
+    for (int i = 1; i < bins; ++i) edges.push_back(quantile(pooled, static_cast<double>(i) / bins));
+    edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
+    std::vector<double> ha(edges.size() + 1, 0), hb(edges.size() + 1, 0);
+    auto bin = [&](double x) { return static_cast<std::size_t>(std::upper_bound(edges.begin(), edges.end(), x) - edges.begin()); };
     for (const double x : a) ha[bin(x)] += 1.0 / static_cast<double>(a.size());
     for (const double x : b) hb[bin(x)] += 1.0 / static_cast<double>(b.size());
     double tv = 0;
-    for (int i = 0; i < bins; ++i) tv += std::fabs(ha[static_cast<std::size_t>(i)] - hb[static_cast<std::size_t>(i)]);
+    for (std::size_t i = 0; i < ha.size(); ++i) tv += std::fabs(ha[i] - hb[i]);
     return tv / 2;
 }
 

@@ -170,8 +170,9 @@ best-level size, log time between messages, log time from submission to deletion
 ask sizes, depth of new and of deleted limit orders in ticks from the mid, traded volume per minute
 in one-second buckets, and best-level OFI per second, the statistics LOB-Bench compares (Nagy et al.
 2025). Each pair of samples (at most 200,000 values each, a reservoir sample with a fixed seed) is
-compared by total variation between 50-bin histograms over the pooled range (LOB-Bench's $L_1$,
-halved to lie in $[0, 1]$) and by the Wasserstein-1 distance between quantile functions at 1,000
+compared by total variation between 50-bin histograms whose bins each hold 2% of the pooled
+sample (LOB-Bench's $L_1$, halved to lie in $[0, 1]$; equal-width bins over the pooled range let a
+few orders thousands of ticks from the mid put the whole bulk in one bin) and by the Wasserstein-1 distance between quantile functions at 1,000
 points, divided by A's standard deviation. Stylised facts beside them: messages per minute,
 cancellations and executions per new order, the kurtosis and lag-1 autocorrelation of one-minute
 returns, and the mean autocorrelation of absolute one-minute returns at lags 1 to 5 (volatility
