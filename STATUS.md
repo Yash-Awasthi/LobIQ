@@ -1,6 +1,6 @@
 # Status
 
-v1.5 (2026-10-13), on bare-metal Arch Linux. Nothing is open ([docs/ROADMAP.md](docs/ROADMAP.md));
+v1.6 (2026-10-22), on bare-metal Arch Linux. Nothing is open ([docs/ROADMAP.md](docs/ROADMAP.md));
 what is deliberately left out is listed there under "Not planned". Changes per version: [CHANGELOG.md](CHANGELOG.md).
 The research-phase log is in
 [STATUS-research.md](https://github.com/Yash-Awasthi/lobiq/blob/research-archive/archive/docs/STATUS-research.md) at the research-archive tag.
@@ -15,7 +15,7 @@ Ctrl-C or SIGTERM):
     scripts/pm_live_supervise.sh ~/data/pm-live --record-cap-gb 20 --port 8088 --seconds 21600
 
 On GitHub, CI builds and tests every pull request; on main it also publishes the container image
-(`ghcr.io/yash-awasthi/lobiq`) and the demo reports (https://yash-awasthi.github.io/lobiq/); a `v*`
+(`ghcr.io/yash-awasthi/lobiq`) and the demo reports (https://yash-awasthi.github.io/LobIQ/); a `v*`
 tag publishes a release with Linux binaries.
 
 ## Verification (2026-10-22, CI, main after hft studio and the risk statistics)
@@ -27,7 +27,7 @@ builds, runs the demos with their pinned totals and writes the studio snapshot. 
 metal: the latency figures below are unchanged by these changes, which touch reporting and add a
 strategy and a UI.
 
-## Verification (2026-10-22, bare metal, main after LobIQ)
+## Verification (2026-10-22, bare metal, v1.6)
 
 Release and native 366 tests, ASan, UBSan and TSan 362 each, `check_parity.sh` SAME on all 14
 runs, both fault campaigns with zero illegal reports and zero residual sets, demos with their pinned
@@ -36,7 +36,8 @@ days: `itch_mlofi`, `itch_markov` and `itch_realism` on five days (docs/results/
 identical on a second run); `itch_lobster` on AAPL, MSFT and NVDA of 2025-12-10 from 00:00, every
 orderbook line matched by `tests/lobster_check.py`; the RL environment through a full INTC day
 (20,225 steps, 0.9 s). The realism scorecard's total variation was wrong on real days and is fixed
-(CHANGELOG).
+(CHANGELOG). `scripts/perf_gate.sh` against v1.5: book, book_replay and pm_live replay within
+0.01% in instructions, so the peak figures of 2026-10-13 stand.
 
 ## Verification (2026-10-13, bare metal, v1.5)
 

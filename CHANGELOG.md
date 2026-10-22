@@ -1,7 +1,13 @@
 # Changelog
 
-## Unreleased
+## v1.6 (2026-10-22)
 
+LobIQ: the project's new name, a local web studio with a risk-adjusted leaderboard, and order book
+research from 2023-2025 measured on the stored Nasdaq days: multi-level OFI, a Markov chain of the
+top of book, a LOBSTER export, a market realism scorecard and a reinforcement learning environment.
+Hot paths unchanged: instruction counts within 0.01% of v1.5 (`scripts/perf_gate.sh`).
+
+Research
 - **Realism scorecard on real days.** Total variation now bins each statistic into equal shares of
   the pooled sample: with equal-width bins over the pooled range, the few limit orders thousands of
   ticks from the mid put the whole bulk in one bin, so depth and volume scored about 0 between
@@ -10,7 +16,6 @@
   writes docs/results/book-models.md: multi-level OFI, the Markov chain and the realism scorecard on
   five stored days. `tests/lobster_check.py` keeps the occupied prices sorted instead of sorting
   the book on every line, so it checks a full real day in about a minute instead of hours.
-
 - **Multi-level OFI and cross-impact** (Cont, Cucuringu and Zhang 2023). `itch_mlofi` / `lobiq mlofi`:
   order flow at the top 10 levels, an integrated OFI from their first principal component, its price
   impact against the best level's out of sample, and whether other symbols' lagged OFI forecasts the
@@ -29,6 +34,7 @@
 - **How firms work.** docs/FIRMS.md maps what HRT, Jane Street and Optiver publish (huge pages,
   FPGAs, message buses, feature engineering, synthetic market data) to LobIQ's components.
 
+Studio and backtests
 - **LobIQ.** The project is now LobIQ (limit order book intelligence): repository, published site,
   container image and release archives are named `lobiq`, and so is the command
   (`scripts/lobiq`; `hft` still works).
@@ -42,7 +48,6 @@
   against their known identities.
 - **Portfolio frontier.** The leaderboard combines selected runs on a Markowitz frontier: expected
   daily PnL against risk for every mix, with the least-risk and best-Sharpe weights.
-
 - **hft studio.** `hft studio` serves a local web UI (Python standard library, no build step):
   every `hft` command as a job with streamed output, a leaderboard of every backtest report on disk,
   a per-run view with the equity curve and drawdown, an order-book ladder that steps through a day,
@@ -235,7 +240,7 @@ Usable by others: plug in strategies, run everything without setup, see results 
 - **No setup needed.** Container image `ghcr.io/yash-awasthi/lobiq` (Docker or Podman) runs the
   demos; a dev container (Codespaces) builds everything; `gen_day` writes a synthetic Nasdaq
   session; a 20-minute real recording is bundled in `data/sample`.
-- **Published demo reports** on every commit to main: https://yash-awasthi.github.io/lobiq/
+- **Published demo reports** on every commit to main: https://yash-awasthi.github.io/LobIQ/
 - **Fixes.** The arbitrage executor counted an attempt twice when a failed settlement reopened a
   completed set. The decoder read past an empty numeric field and overflowed on long integer
   prices (found by the property test under UBSan). Pool mapping counters raced when pools grew on
