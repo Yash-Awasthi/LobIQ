@@ -102,6 +102,7 @@ int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, c
     if (runs.size() > 1024) throw std::runtime_error("sweep has " + std::to_string(runs.size()) + " runs; at most 1024");
     std::string error;
     std::mutex error_lock;
+    std::vector<backtest::Config> configs(runs.size());
     hft::parallel_for(runs.size(), [&](std::size_t i) {
         {
             backtest::Params q = p;
@@ -109,10 +110,9 @@ int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, c
             backtest::RunSpec r = base;
             r.target = runs[i].locate;
             configure(r, q);
+            configs[i] = r.config;
             try {
                 runs[i].summary = entry.run(r, q);
-                if (!report_dir.empty()) backtest::write_report(report_dir + "/" + runs[i].label(), runs[i].symbol.empty() ? symbols[0].first : runs[i].symbol,
-                                                          strategy, r.config, runs[i].summary);
             } catch (const std::exception& e) {
                 const std::lock_guard g(error_lock);
                 error = e.what();
@@ -120,16 +120,37 @@ int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, c
         }
     });
     if (!error.empty()) throw std::runtime_error(error);
+    // Each symbol's runs are one set of trials for the deflated Sharpe ratio.
+    for (const auto& [name, locate] : symbols) {
+        std::vector<std::size_t> idx;
+        std::vector<backtest::RiskStats> stats;
+        for (std::size_t i = 0; i < runs.size(); ++i)
+            if (runs[i].locate == locate) idx.push_back(i), stats.push_back(backtest::risk_stats(runs[i].summary.minute_pnl));
+        backtest::deflate(stats);
+        for (std::size_t j = 0; j < idx.size(); ++j) runs[idx[j]].risk = stats[j];
+    }
+    if (!report_dir.empty())
+        hft::parallel_for(runs.size(), [&](std::size_t i) {
+            try {
+                backtest::write_report(report_dir + "/" + runs[i].label(), runs[i].symbol.empty() ? symbols[0].first : runs[i].symbol,
+                                       strategy, configs[i], runs[i].summary, runs[i].risk);
+            } catch (const std::exception& e) {
+                const std::lock_guard g(error_lock);
+                error = e.what();
+            }
+        });
+    if (!error.empty()) throw std::runtime_error(error);
     if (symbols.size() > 1) std::printf("symbol\t");
     for (const auto& [k, v] : axes) std::printf("%s\t", k.c_str());
-    std::printf("total_usd\tspread_usd\tinventory_usd\tfees_usd\tfills\tmax_abs_inventory\tdiverted_shares\n");
+    std::printf("total_usd\tspread_usd\tinventory_usd\tfees_usd\tfills\tmax_abs_inventory\tdiverted_shares\tsharpe_annual\tpsr\tdsr\n");
     for (const backtest::SweepRun& run : runs) {
         if (symbols.size() > 1) std::printf("%s\t", run.symbol.c_str());
         for (const auto& [k, v] : run.params) std::printf("%g\t", v);
         const backtest::Summary& s = run.summary;
-        std::printf("%.2f\t%.2f\t%.2f\t%.2f\t%llu\t%lld\t%llu\n", backtest::usd(s.total), backtest::usd(s.spread),
+        std::printf("%.2f\t%.2f\t%.2f\t%.2f\t%llu\t%lld\t%llu\t%.2f\t%.4f\t%.4f\n", backtest::usd(s.total), backtest::usd(s.spread),
                     backtest::usd(s.inventory_pnl), backtest::usd(s.fees), (unsigned long long)s.fills,
-                    (long long)s.max_abs_inventory, (unsigned long long)s.divergence.diverted);
+                    (long long)s.max_abs_inventory, (unsigned long long)s.divergence.diverted, run.risk.sharpe_annual,
+                    run.risk.psr, run.risk.dsr);
     }
     if (!report_dir.empty()) {
         std::string names;
@@ -230,10 +251,12 @@ int main(int argc, char** argv) {
         std::printf("diverted_shares\t%llu\nthrough_fills\t%llu\nhidden_fills\t%llu\nevents\t%llu\nseconds\t%.2f\n",
                     (unsigned long long)s.divergence.diverted, (unsigned long long)s.divergence.through_fills,
                     (unsigned long long)s.divergence.hidden_fills, (unsigned long long)s.events, secs);
+        const backtest::RiskStats risk = backtest::risk_stats(s.minute_pnl);
+        std::printf("sharpe_annual\t%.2f\npsr\t%.4f\nmax_drawdown_usd\t%.2f\n", risk.sharpe_annual, risk.psr, risk.max_drawdown_usd);
         if (!fills_path.empty()) backtest::write_fills(fills_path, s);
         if (!minutes_path.empty()) backtest::write_minutes(minutes_path, s);
         if (!report_dir.empty()) {
-            backtest::write_report(report_dir, argv[2], strategy, r.config, s);
+            backtest::write_report(report_dir, argv[2], strategy, r.config, s, risk);
             std::fprintf(stderr, "report: %s/report.html\n", report_dir.c_str());
         }
     } catch (const std::exception& e) {

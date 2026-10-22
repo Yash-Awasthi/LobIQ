@@ -265,12 +265,12 @@ def report_entry(d, bootstrap=False):
 
 
 def leaderboard():
-    """Every report with metrics; runs of one sweep are deflated together (one group = one set of trials)."""
+    """Every report with metrics; one symbol's runs in one sweep are deflated together, as itch_backtest does."""
     groups = {}
     for d in find_reports():
         e = report_entry(d)
         if e:
-            groups.setdefault(e["group"], []).append(e)
+            groups.setdefault((e["group"], e["symbol"]), []).append(e)
     rows = []
     for runs in groups.values():
         rows += metrics.deflate(runs)
@@ -493,7 +493,7 @@ def snapshot(out):
             rows.append(e)
     groups = {}
     for r in rows:
-        groups.setdefault(r["group"], []).append(r)
+        groups.setdefault((r["group"], r["symbol"]), []).append(r)
     for runs in groups.values():
         metrics.deflate(runs)
     # /files/out/X is ../X from OUT/studio/.
