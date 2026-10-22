@@ -2,6 +2,7 @@
 book from the message file alone and compares it with every orderbook line.
 Usage: python3 lobster_check.py MESSAGE.csv ORDERBOOK.csv LEVELS"""
 
+import bisect
 import csv
 import sys
 
@@ -13,6 +14,7 @@ def main(msg_path, ob_path, levels):
     with open(msg_path) as fm, open(ob_path) as fo:
         assert sum(1 for _ in fm) == sum(1 for _ in fo), "message and orderbook files differ in length"
     depth = {1: {}, -1: {}}  # dir -> price -> shares
+    prices = {1: [], -1: []}  # dir -> occupied prices, ascending; real days rest thousands of levels
     lines, last = 0, 0.0
     with open(msg_path, newline="") as fm, open(ob_path, newline="") as fo:
         for msg, ob in zip(csv.reader(fm), csv.reader(fo)):
@@ -24,6 +26,8 @@ def main(msg_path, ob_path, levels):
             if typ == 1:
                 assert oid not in orders, f"line {lines}: order {oid} submitted twice"
                 orders[oid] = [price, size, d]
+                if price not in depth[d]:
+                    bisect.insort(prices[d], price)
                 depth[d][price] = depth[d].get(price, 0) + size
             elif typ in (2, 3, 4):
                 p, left, od = orders[oid]
@@ -33,11 +37,13 @@ def main(msg_path, ob_path, levels):
                 depth[d][price] -= size
                 if not depth[d][price]:
                     del depth[d][price]
+                    del prices[d][bisect.bisect_left(prices[d], price)]
                 orders[oid][1] -= size
                 if not orders[oid][1]:
                     del orders[oid]
             want = []
-            asks, bids = sorted(depth[-1].items()), sorted(depth[1].items(), reverse=True)
+            asks = [(q, depth[-1][q]) for q in prices[-1][:levels]]
+            bids = [(q, depth[1][q]) for q in reversed(prices[1][-levels:])]
             for m in range(levels):
                 want += list(asks[m]) if m < len(asks) else [NO_ASK, 0]
                 want += list(bids[m]) if m < len(bids) else [NO_BID, 0]
