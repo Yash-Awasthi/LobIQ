@@ -21,4 +21,5 @@ ls "$HFT_DATA"/reports/backtest-*/report.html >/dev/null
 "$hft" leadlag 2025-01-01 QRSIM:QRSIM | grep '^| QRSIM -> QRSIM | 1 |' >/dev/null
 "$hft" markov 2025-01-01 QRSIM | grep '^## Prediction, out of sample' >/dev/null
 "$hft" markov 2025-01-01 QRSIM --json | grep '"test":{"moves":' >/dev/null
+"$hft" mlofi 2025-01-01 QRSIM --interval 60 --split 10:30 | grep '^## Price impact, out of sample' >/dev/null
 echo "hft cli ok"

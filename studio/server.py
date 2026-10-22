@@ -89,6 +89,8 @@ def hft_args(spec):
         return args
     if kind == "replay":
         return ["replay", field(spec, "day", "day")]
+    if kind == "mlofi":
+        return ["mlofi", field(spec, "day", "day"), field(spec, "symbols", "symbols")]
     if kind in ("surveil", "bestex"):
         return opt(kind, field(spec, "day", "day"), field(spec, "symbols", "symbols", False))
     if kind == "study":

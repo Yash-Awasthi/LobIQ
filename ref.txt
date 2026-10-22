@@ -1,0 +1,56 @@
+
+What's new in 2022–2026, and whether it fits LobIQ
+
+┌──────────────────────────────────────────┬──────────────────────────────────────────────────────────────────────────────────────┬─────────────────────┬─────────────────────────────────────────────────┐
+│                  Topic                   │                                      What it is                                      │    Repo / source    │                       Fit                       │
+├──────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+│ Multi-level OFI and cross-impact (Cont,  │ Combines order-flow imbalance across the top 10 book levels into one signal, which   │                     │ Best fit. LobIQ already has full books and      │
+│ Cucuringu, Zhang, Quant. Finance 2023)   │ explains price impact better than the top level alone. Other stocks' past order flow │ paper, example code │ single-level OFI.                               │
+│                                          │  helps forecast short-term returns.                                                  │                     │                                                 │
+├──────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+│ Deep-learning order-book benchmarks      │ They train about 15 neural nets on order books. Their own finding: most collapse on  │ LOBCAST, LOBFrame,  │ Strong. They train on LOBSTER data, which is    │
+│ (LOBCAST 2023, LOBFrame 2024–25, LOBench │ new data, and standard ML metrics mislead.                                           │ LiT                 │ paid; LobIQ could export free Nasdaq ITCH days  │
+│  2025, LiT 2025)                         │                                                                                      │                     │ in that format.                                 │
+├──────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+│ Diffusion models that generate markets   │ A diffusion model generates realistic order flow inside an agent-based simulator,    │ DeepMarket (TRADES  │ Good. A "realism scorecard" could compare       │
+│ (TRADES, ECAI 2025; "Painting the        │ scored against real data.                                                            │ code), paper        │ LobIQ's synthetic days with real ones on a set  │
+│ market" 2025)                            │                                                                                      │                     │ of standard statistics.                         │
+├──────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+│ GPU order-book simulation for RL         │ Thousands of books in parallel on a GPU for reinforcement-learning execution agents. │ jax-lob             │ Medium: a different stack (JAX, GPU).           │
+│ (JAX-LOB 2023)                           │                                                                                      │                     │                                                 │
+├──────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+│ RL environments for market making        │ Gym environments built on Avellaneda–Stoikov-style models, or multi-agent            │                     │ Good. A gym-style wrapper around LobIQ's replay │
+│ (mbt_gym, ICAIF 2023; ABIDES-Gym)        │ simulations.                                                                         │ mbt_gym, ABIDES-Gym │  exchange would let RL agents trade real Nasdaq │
+│                                          │                                                                                      │                     │  queues.                                        │
+├──────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+│ Foundation models for markets (Kronos,   │ A transformer pretrained on 12B+ price bars from 45 exchanges.                       │ Kronos, paper       │ Optional: a forecasting baseline on bars built  │
+│ 2025)                                    │                                                                                      │                     │ from ITCH. Python-heavy.                        │
+├──────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+│ LLM multi-agent trading (TradingAgents   │ LLM agents for analysts, trader and risk, built on LangGraph. Results are backtests  │ TradingAgents       │ Low: daily stock picking, not microstructure.   │
+│ 2024–26)                                 │ only.                                                                                │                     │                                                 │
+├──────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+│ Signatures, rough vol, deep hedging      │ Path signatures and deep hedging for options.                                        │ SigFormer, pfhedge  │ Low: options pricing, a different domain.       │
+│ (SigFormer 2023, pfhedge)                │                                                                                      │                     │                                                 │
+├──────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+│ HFT backtesting peers                    │ hftbacktest (Rust, queue position and latency, crypto data); NautilusTrader          │ hftbacktest,        │ Comparison material for the README. A data      │
+│                                          │ (backtest and live on one codebase).                                                 │ NautilusTrader      │ export for hftbacktest is a possible bridge.    │
+└──────────────────────────────────────────┴──────────────────────────────────────────────────────────────────────────────────────┴─────────────────────┴─────────────────────────────────────────────────┘
+
+How firms work (primary sources):
+- HRT tech blog: includes a low-latency huge-pages series.
+- Jane Street blog: OCaml from research to trading.
+- Optiver FPGA talk.
+- Market maker vs other HFT models: r/quant thread.
+- Reuters reports that part of Jane Street's recent gains come from medium-frequency strategies, not only microseconds.
+
+My picks for LobIQ, highest value first
+
+1. Multi-level OFI and cross-impact (2023). An extension of existing research, measured on real Nasdaq days, with lagged cross-asset forecasting.
+2. Exporting ITCH days in LOBSTER format. Anyone could then train LOBCAST, LOBFrame or DeepMarket on free real Nasdaq data. Good for both SWE and quant credibility.
+3. A market-realism scorecard. Synthetic vs real days on the statistics the TRADES and LOB-Bench papers use: spread, order sizes, arrival gaps, volatility clustering.
+4. A gym-style RL environment on the replay exchange.
+5. A "how firms work" docs page mapping HRT, Jane Street and Optiver practice (huge pages, FPGA, OCaml) to LobIQ's components.
+
+Tell me which to build. I'd start with 1 and 2.
+
+Sources: KDnuggets · awesome-systematic-trading · hftbacktest · NautilusTrader · LOBench · LOBFrame paper · LOBCAST · JAX-LOB · Kronos · rough-vol signatures · TradingAgents · mbt_gym · TRADES · Painting the market · Cont–Cucuringu–Zhang · LOB simulations review · Pragmatic Engineer on Optiver · awesome-quant-ai · Awesome Quant

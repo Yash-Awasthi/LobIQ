@@ -42,6 +42,7 @@ Nasdaq ITCH days (DAY is S121025, 2025-12-10 or a store path):
   lobiq markov DAY SYMBOL [--json]
                                    Markov chain of the top of book: states, the moves between them, and how well
                                    the morning's counts predict the afternoon's mid moves
+  lobiq mlofi DAY SYMBOL,..        multi-level order flow imbalance: price impact, and cross-impact forecasting
   lobiq surveil DAY [SYMBOL,..]    spoofing, layering and quote-stuffing candidates, with evidence
   lobiq bestex DAY [SYMBOL,..]     execution quality, Rule 605 style (default: 25 most active)
   lobiq strategies                 strategies available to backtest
@@ -145,6 +146,14 @@ book)
     [ $# -ge 3 ] && [ $# -le 4 ] || die "usage: lobiq book DAY SYMBOL HH:MM:SS[.fraction] [LEVELS]"
     need
     exec "$bin/itch_book" "$(store "$1")" "$2" "$3" ${4:+"$4"}
+    ;;
+
+mlofi)
+    [ $# -ge 2 ] || die "usage: lobiq mlofi DAY SYMBOL,.. [--interval SECONDS] [--split HH:MM]"
+    need
+    s=$(store "$1")
+    shift
+    exec "$bin/itch_mlofi" "$s" "$@"
     ;;
 
 markov)
