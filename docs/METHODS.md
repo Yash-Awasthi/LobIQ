@@ -121,6 +121,28 @@ otherwise read as excitation.
 Code: `hawkes_loglik`, `fit_hawkes`. Tests: `Hawkes.MaximumLikelihoodRecoversASimulatedProcess`,
 `Hawkes.APoissonProcessHasNoExcitation`.
 
+## Markov chain of the book
+
+The state of the top of the book is $(s, k)$: the spread in ticks, capped at 3, and the bucket of the
+bid's share of best-level size $I = Q_b/(Q_b + Q_a)$, $k = \lfloor nI \rfloor$ for $n$ equal buckets
+(default 5). This is the state space Stoikov (2018) uses for the micro-price. Over a day (09:35 to
+15:55 ET, auctions left out), every book event updates the state; counted are the transitions between
+distinct states and, at each change of the mid, its direction from the state just before:
+$\hat p_{\uparrow}(x) = N_\uparrow(x) / (N_\uparrow(x) + N_\downarrow(x))$. Fitted from 09:35 to 12:45, the
+chain then predicts each mid move of the afternoon as up when $\hat p_\uparrow > 1/2$ (a tie is a miss).
+The hit rate is set against always guessing the afternoon's more frequent direction, a baseline that
+knows the answer's proportion in advance. Code: `src/strategy/markov.hpp`, `apps/itch_markov.cpp`
+(`hft markov`, the studio's Prediction tab). Tests: `Markov.*`.
+
+## Portfolio frontier (Markowitz 1952)
+
+For runs $i = 1..n$ with minute PnL changes $r_{i,t}$ over their $T$ common minutes, $\mu$ and
+$\Sigma$ are the sample means and covariance. A mix $w$ ($w_i \ge 0$, $\sum w_i = 1$, shares of capital)
+has expected day PnL $T\,w^\top\mu$ and risk $\sqrt{T\,w^\top\Sigma w}$ (minutes taken as independent).
+The studio samples 4,000 mixes uniformly over the simplex (normalised exponentials, fixed seed) plus
+each run alone, and marks the least-risk mix and the best ratio of expected PnL to risk. In sample:
+the weights are fitted to the same day they are shown on. Code: `studio/static/app.js` (`lb-frontier`).
+
 ## Lead-lag
 
 For each mid move of symbol A, the first move of B strictly after it within 1 s, and whether it
@@ -221,6 +243,7 @@ Code: `src/surveil/surveil.hpp`. Tests: `Surveil.*`.
 - Easley, D., Lopez de Prado, M. and O'Hara, M. (2012). Flow toxicity and liquidity in a high-frequency world. *Review of Financial Studies* 25(5).
 - Filimonov, V. and Sornette, D. (2012). Quantifying reflexivity in financial markets. *Physical Review E* 85.
 - Gueant, O., Lehalle, C.-A. and Fernandez-Tapia, J. (2013). Dealing with the inventory risk. *Mathematics and Financial Economics* 7(4).
+- Markowitz, H. (1952). Portfolio selection. *Journal of Finance* 7(1).
 - Hasbrouck, J. and Saar, G. (2009). Technology and liquidity provision. *Journal of Financial Markets* 12(2).
 - Moallemi, C. and Yuan, K. (2017). A model for queue position valuation in a limit order book. Working paper, Columbia University.
 - Ozaki, T. (1979). Maximum likelihood estimation of Hawkes' self-exciting point processes. *Annals of the Institute of Statistical Mathematics* 31.

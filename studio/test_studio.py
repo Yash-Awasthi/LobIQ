@@ -60,6 +60,9 @@ printf 'key,value\nledger_pnl_usd,"-12.50"\norders,"40"\nmaker_fills,"7"\ndecisi
 echo "<title>Paper execution replay</title>args: $*" > "$dir/report.html"
 echo "exec orders 40 ledger_pnl_usd -12.50" >&2
 """,
+    "itch_markov": r"""#!/usr/bin/env bash
+echo '{"symbol":"'$2'","buckets":2,"max_spread":1,"split":"12:45","events":9,"states":[{"id":0,"spread":1,"imb_lo":0,"imb_hi":0.5,"time_share":0.4,"up":1,"down":3,"p_up":0.25},{"id":1,"spread":1,"imb_lo":0.5,"imb_hi":1,"time_share":0.6,"up":3,"down":1,"p_up":0.75}],"transitions":[[0,1,5],[1,0,4]],"test":{"moves":10,"hits":7,"hit_rate":0.7,"baseline":0.5},"args":"'"$*"'"}'
+""",
     "itch_surveil": "#!/usr/bin/env bash\nprintf '# Surveillance report\\n\\n## Summary\\n\\n| | Candidates |\\n|---|---|\\n| Spoofing | 0 |\\n'\n",
 }
 
@@ -285,6 +288,15 @@ class Server(unittest.TestCase):
         self.assertLess(b["bids"][0]["price"], b["asks"][0]["price"])
         self.assertEqual(call("/api/book?day=S010125&symbol=QRSIM&time=noon")[0], 400)
 
+    def test_markov(self):
+        code, m = call("/api/markov?day=S010125&symbol=QRSIM&buckets=2")
+        self.assertEqual(code, 200, m)
+        self.assertEqual(len(m["states"]), m["buckets"] * m["max_spread"])
+        self.assertTrue(0 <= m["test"]["hit_rate"] <= 1)
+        if not REAL_BIN:
+            self.assertTrue(m["args"].endswith("QRSIM --json --buckets 2"), m["args"])
+        self.assertEqual(call("/api/markov?day=S010125&symbol=QRSIM&buckets=99")[0], 400)
+
     def test_stream(self):
         code, job = call("/api/jobs", {"kind": "surveil", "day": "S010125"})
         self.assertEqual(code, 201)
@@ -358,6 +370,12 @@ class EndToEnd(unittest.TestCase):
         rows = call("/api/paper")[1]
         mine = next(r for r in rows if v["report"].endswith(r["name"]))
         self.assertEqual(mine["summary"]["decision_hash_v2"], "510bf844d3995b0b")  # scripts/demo/paper.sh
+
+    def test_markov_predicts_the_afternoon(self):
+        _, m = call("/api/markov?day=S010125&symbol=QRSIM")
+        self.assertGreater(m["test"]["moves"], 100)
+        self.assertAlmostEqual(sum(st["time_share"] for st in m["states"]), 1, places=4)
+        self.assertTrue(m["transitions"])
 
     def test_replay_job(self):
         v = run_job({"kind": "replay", "day": "S010125"})

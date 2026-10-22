@@ -61,6 +61,7 @@ hft strategies                              # built in and your own (strategies/
 hft backtest 2025-12-10 INTC,AAPL avellaneda_stoikov gamma=0.05     # -> report.html
 hft study 2025-12-08,2025-12-09 2025-12-10  # imbalance, micro-price, queue value, Hawkes, VPIN...
 hft leadlag 2025-12-10 QQQ:TQQQ,QQQ:SQQQ:-1  # who follows whom, against a placebo
+hft markov 2025-12-10 AAPL                  # Markov chain of the book: predict the afternoon's moves
 ```
 
 **2. Paper-trade the live prediction market.** Market makers and an arbitrage executor run on
@@ -146,6 +147,7 @@ selection):
 | PSR | probability that the true Sharpe is above zero, allowing for skew and fat tails (Bailey and López de Prado 2012) |
 | DSR | the same, but against the best Sharpe that luck alone would give across the sweep's runs of that symbol (Bailey and López de Prado 2014) |
 | Bootstrap interval | 95% range of the day's PnL and the chance of a losing day, from a circular block bootstrap (studio) |
+| Portfolio frontier | Markowitz: every mix of selected runs as risk against expected PnL, with the least-risk and best-Sharpe mixes and their weights (studio) |
 
 ```
 $ itch_backtest <store> QRSIM imbalance --sweep threshold=0.2,0.4,0.6,0.8,1 --sweep size=100,200

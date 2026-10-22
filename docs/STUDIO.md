@@ -26,8 +26,9 @@ backtest reports under `HFT_REPORTS` (default `$HFT_DATA/reports`), demo output 
 | Overview | Stores on disk, live runs, recent jobs; download a day; run the demos | `hft get`, `hft demo` |
 | Backtest | A past Nasdaq day: day, symbols, strategy with an input per parameter, a venue and latency preset, optional sweep axes and extra keys; output streams as it runs, then the run's metrics | `hft backtest` |
 | Paper replay | A recorded live prediction-market session (the bundled 20 minutes or any live run): quote model, maker parameters, arbitrage on or off; the run's PnL, orders and fills, and every past replay | `hft paper` |
-| Leaderboard | Every backtest report on disk with risk-adjusted metrics, sortable; a row opens the equity curve, drawdown and cost breakdown | reads `summary.csv`, `pnl_minutes.csv`, `fills.csv` |
+| Leaderboard | Every backtest report on disk with risk-adjusted metrics, sortable; a row opens the equity curve, drawdown and cost breakdown; selected runs can be compared or combined on a Markowitz frontier | reads `summary.csv`, `pnl_minutes.csv`, `fills.csv` |
 | Order book | Depth ladder of any symbol at any moment, stepping one second at a time; mid, spread, L1 micro-price and depth imbalance | `hft book` |
+| Prediction | Markov chain of the top of book: P(next move up) per state as a heat map, the state graph, and the afternoon's out-of-sample hit rate against always guessing one direction | `hft markov` |
 | Analysis | Surveillance, execution quality, full-day replay, lead-lag and the microstructure study, Markdown output rendered as tables | `hft surveil`, `bestex`, `replay`, `leadlag`, `study` |
 | Live paper | Start a paper run on the live feed with a chosen quote model, embed its dashboard, list past runs, review a run, trip a run's kill switch | `hft live`, `hft review` |
 | Jobs | Every job with its command, exit code, time, log and report link; stop a running one | |

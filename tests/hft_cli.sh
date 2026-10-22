@@ -18,4 +18,6 @@ ls "$HFT_DATA"/reports/backtest-*/report.html >/dev/null
 "$hft" surveil 2025-01-01 | grep '^## Summary' >/dev/null
 "$hft" book 2025-01-01 QRSIM 10:00:00 3 | grep '^QRSIM at 10:00:00' >/dev/null
 "$hft" leadlag 2025-01-01 QRSIM:QRSIM | grep '^| QRSIM -> QRSIM | 1 |' >/dev/null
+"$hft" markov 2025-01-01 QRSIM | grep '^## Prediction, out of sample' >/dev/null
+"$hft" markov 2025-01-01 QRSIM --json | grep '"test":{"moves":' >/dev/null
 echo "hft cli ok"

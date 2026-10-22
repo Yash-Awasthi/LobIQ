@@ -16,6 +16,7 @@
     <button data-tab="live">Live paper</button>
     <button data-tab="leaderboard">Leaderboard</button>
     <button data-tab="book">Order book</button>
+    <button data-tab="predict">Prediction</button>
     <button data-tab="analysis">Analysis</button>
     <button data-tab="jobs">Jobs <span id="running" class="pill" hidden></span></button>
   </nav>
@@ -162,6 +163,7 @@
       <div class="row">
         <label class="inline"><input type="checkbox" id="lb-best"> best of each sweep only</label>
         <button type="button" id="lb-compare">Compare selected</button>
+        <button type="button" id="lb-frontier">Portfolio frontier</button>
         <button type="button" id="lb-csv">Export CSV</button>
       </div>
     </div>
@@ -171,6 +173,7 @@
     <div class="scroll" id="lb-wrap"></div>
   </div>
   <div id="compare" class="panel" hidden></div>
+  <div id="frontier" class="panel" hidden></div>
   <div id="detail" class="panel" hidden></div>
 </section>
 
@@ -196,6 +199,35 @@
       <div id="ladder"></div>
       <div id="book-stats" class="cards small"></div>
     </div>
+  </div>
+</section>
+
+<section id="predict" class="tab">
+  <div class="grid2">
+    <form id="mk-form" class="panel">
+      <h2>Markov chain of the order book</h2>
+      <p class="muted">The top of the book is in one of a few states: the spread (1, 2, or 3+ ticks) and the bid's
+        share of the best-level size. The chain counts how the book moves between states and, from each state,
+        whether the next price move went up or down. Counted from 09:35 to 12:45, it then predicts every move of
+        the afternoon; the hit rate is scored against always guessing the more frequent direction.</p>
+      <div class="row wrap">
+        <label class="grow">Day <select name="day" required></select></label>
+        <label class="grow">Symbol <input name="symbol" placeholder="AAPL" required pattern="[A-Za-z0-9.]+"></label>
+        <label>Buckets <input name="buckets" type="number" min="2" max="20" value="5"></label>
+      </div>
+      <button>Fit and test</button>
+      <div id="mk-cards" class="cards small"></div>
+    </form>
+    <div class="panel">
+      <h2>P(next move up) by state</h2>
+      <div id="mk-heat"></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>State graph</h2>
+    <p class="muted">Circles: states, sized by time spent in them, coloured by the chance the next move is up.
+      Arrows: each state's most likely next states, thicker for more likely.</p>
+    <div id="mk-graph"></div>
   </div>
 </section>
 

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **LobIQ.** The project is now LobIQ (limit order book intelligence): repository, published site,
+  container image and release archives are named `lobiq`; the command stays `hft`.
+- **Markov chain of the book.** `itch_markov` / `hft markov`: the top of book as spread and bid-share
+  states, the moves between them, and the morning's direction counts predicting the afternoon's mid
+  moves, scored against always guessing one direction. The studio's Prediction tab draws the
+  probabilities as a heat map and the chain as a state graph.
+- **Portfolio frontier.** The leaderboard combines selected runs on a Markowitz frontier: expected
+  daily PnL against risk for every mix, with the least-risk and best-Sharpe weights.
+
 - **hft studio.** `hft studio` serves a local web UI (Python standard library, no build step):
   every `hft` command as a job with streamed output, a leaderboard of every backtest report on disk,
   a per-run view with the equity curve and drawdown, an order-book ladder that steps through a day,

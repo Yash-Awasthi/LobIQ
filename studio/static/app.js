@@ -390,6 +390,115 @@ $('#paper-form').onsubmit = async e => {
   if (mine) $('#paper-result').innerHTML = paperCards(mine.summary) + `<p><a href="${mine.report}" target="_blank">Open the HTML report</a>: PnL over time, latency per stage, every arbitrage window.</p>`;
 };
 
+// Markov chain of the book: P(next move up) per state as a heat map and the state graph.
+const upFill = p => p < 0 ? 'var(--code)'
+  : `color-mix(in srgb, ${p >= 0.5 ? 'var(--bid)' : 'var(--neg-fill)'} ${Math.round(12 + 76 * Math.abs(p - 0.5) * 2)}%, var(--card))`;
+const spreadName = (s, max) => s < max ? `${s} tick${s > 1 ? 's' : ''}` : `${s}+ ticks`;
+function drawMarkov(m) {
+  const B = m.buckets, S = m.max_spread, t = m.test;
+  const edge = (t.hit_rate - t.baseline) * 100;
+  $('#mk-cards').innerHTML = [['Afternoon mid moves', t.moves.toLocaleString()], ['Called right', fmt(t.hit_rate * 100, 1) + '%'],
+    ['Always one direction', fmt(t.baseline * 100, 1) + '%'], ['Edge', `<span class="${sign(edge)}">${edge >= 0 ? '+' : ''}${fmt(edge, 1)} pts</span>`],
+    ['Book events', m.events.toLocaleString()]]
+    .map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  const head = Array.from({length: B}, (_, k) => `<th>${fmt(k / B, 1)}-${fmt((k + 1) / B, 1)}</th>`).join('');
+  const rows = Array.from({length: S}, (_, s) => `<tr><th>${spreadName(s + 1, S)}</th>${Array.from({length: B}, (_, k) => {
+    const st = m.states[s * B + k];
+    return `<td class="heat" style="background:${upFill(st.p_up)}" title="${st.up} up, ${st.down} down">
+      ${st.p_up < 0 ? '–' : fmt(st.p_up, 2)}<small>${fmt(st.time_share * 100, 1)}% of time</small></td>`;
+  }).join('')}</tr>`).join('');
+  $('#mk-heat').innerHTML = `<div class="scroll"><table class="heatmap"><thead><tr><th>Spread \\ bid share</th>${head}</tr></thead>
+    <tbody>${rows}</tbody></table></div><p class="muted">From the morning's moves. Above 0.50: the next move is more often up.</p>`;
+
+  const W = 900, H = 120 * S + 40, cw = (W - 80) / B, maxShare = Math.max(...m.states.map(s => s.time_share), 1e-9);
+  const pos = st => ({x: 60 + (st.id % B + 0.5) * cw, y: 50 + Math.floor(st.id / B) * 120});
+  const rad = st => 5 + 24 * Math.sqrt(st.time_share / maxShare);
+  const out = {};
+  for (const [a, b, c] of m.transitions) (out[a] ??= []).push([b, c]);
+  let arcs = '';
+  for (const [a, list] of Object.entries(out)) {
+    const total = list.reduce((x, [, c]) => x + c, 0);
+    for (const [b, c] of list.sort((x, y) => y[1] - x[1]).slice(0, 2)) {
+      const pr = c / total;
+      if (pr < 0.1) continue;
+      const p = pos(m.states[a]), q = pos(m.states[b]), ra = rad(m.states[a]), rb = rad(m.states[b]);
+      const dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+      // Bend each arc to one side so the two directions between a pair stay apart.
+      const cx = (p.x + q.x) / 2 - uy * 22, cy = (p.y + q.y) / 2 + ux * 22;
+      arcs += `<path d="M${p.x + ux * ra},${p.y + uy * ra} Q${cx},${cy} ${q.x - ux * (rb + 4)},${q.y - uy * (rb + 4)}"
+        class="arc" stroke-width="${(1 + 5 * pr).toFixed(1)}" marker-end="url(#mk-arrow)"><title>${fmt(pr * 100, 0)}% of moves out</title></path>`;
+    }
+  }
+  const nodes = m.states.map(st => { const p = pos(st); return `<circle cx="${p.x}" cy="${p.y}" r="${rad(st)}" style="fill:${upFill(st.p_up)}" class="node">
+    <title>${spreadName(Math.floor(st.id / B) + 1, S)}, bid share ${fmt(st.imb_lo, 1)}-${fmt(st.imb_hi, 1)}: P(up) ${st.p_up < 0 ? 'unknown' : fmt(st.p_up, 2)}</title></circle>`; }).join('');
+  const labels = Array.from({length: S}, (_, s) => `<text x="8" y="${54 + s * 120}" class="ax">${spreadName(s + 1, S)}</text>`).join('')
+    + Array.from({length: B}, (_, k) => `<text x="${60 + (k + 0.5) * cw}" y="${H - 6}" class="ax" text-anchor="middle">bid share ${fmt(k / B, 1)}-${fmt((k + 1) / B, 1)}</text>`).join('');
+  $('#mk-graph').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Markov chain state graph">
+    <defs><marker id="mk-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>${arcs}${nodes}${labels}</svg>`;
+}
+$('#mk-form').onsubmit = async e => {
+  e.preventDefault();
+  const f = e.target;
+  $('#mk-cards').innerHTML = '<p class="muted">Replaying the day…</p>';
+  try {
+    drawMarkov(await api('/api/markov?' + new URLSearchParams({day: f.day.value, symbol: f.symbol.value.trim().toUpperCase(), buckets: f.buckets.value})));
+  } catch (err) { $('#mk-cards').innerHTML = ''; toast(err.message, true); }
+};
+
+// Markowitz: mixes of the selected runs, risk against expected PnL. Weights are shares of capital
+// (non-negative, summing to one); statistics are scaled from minutes to a day assuming independence.
+$('#lb-frontier').onclick = () => {
+  const runs = LB.filter(r => SEL.has(r.path) && r.curve?.length > 2).slice(0, 12);
+  if (runs.length < 2) return toast('Tick at least two runs for a portfolio');
+  const T = Math.min(...runs.map(r => r.curve.length)), n = runs.length;
+  const steps = runs.map(r => r.curve.slice(0, T).map((v, i) => v - (i ? r.curve[i - 1] : 0)));
+  const mu = steps.map(s => s.reduce((a, b) => a + b, 0) / T);
+  const cov = mu.map((mi, i) => mu.map((mj, j) => steps[i].reduce((a, x, t) => a + (x - mi) * (steps[j][t] - mj), 0) / (T - 1)));
+  const stat = w => {
+    let m = 0, v = 0;
+    for (let i = 0; i < n; ++i) { m += w[i] * mu[i]; for (let j = 0; j < n; ++j) v += w[i] * w[j] * cov[i][j]; }
+    return {w, m: m * T, sd: Math.sqrt(Math.max(v, 0) * T)};
+  };
+  let seed = 1;
+  const rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
+  const pts = [];
+  for (let k = 0; k < 4000; ++k) {  // uniform over the simplex: normalised exponentials
+    const e = runs.map(() => -Math.log(rnd()));
+    const s = e.reduce((a, b) => a + b, 0);
+    pts.push(stat(e.map(x => x / s)));
+  }
+  const singles = runs.map((_, i) => stat(runs.map((__, j) => +(i === j))));
+  const all = pts.concat(singles);
+  const minVar = all.reduce((a, b) => b.sd < a.sd ? b : a);
+  const best = all.filter(p => p.sd > 0).reduce((a, b) => b.m / b.sd > a.m / a.sd ? b : a);
+  const W = 760, H = 320, P = 52;
+  const xs = all.map(p => p.sd), ys = all.map(p => p.m);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const X = v => P + (v - x0) / ((x1 - x0) || 1) * (W - 2 * P), Y = v => H - P - (v - y0) / ((y1 - y0) || 1) * (H - 2 * P);
+  const dots = pts.map(p => `<circle cx="${X(p.sd).toFixed(1)}" cy="${Y(p.m).toFixed(1)}" r="1.6" class="cloud"/>`).join('');
+  const lab = (p, text, cls) => `<circle cx="${X(p.sd)}" cy="${Y(p.m)}" r="5" class="${cls}"/><text x="${X(p.sd) + 8}" y="${Y(p.m) - 6}" class="ax">${esc(text)}</text>`;
+  const weights = p => runs.map((r, i) => p.w[i] >= 0.005 ? `${esc(r.label)} ${fmt(p.w[i] * 100, 0)}%` : '').filter(Boolean).join(', ');
+  const el = $('#frontier');
+  el.hidden = false;
+  el.innerHTML = `<h2>Portfolio frontier (Markowitz)</h2>
+    <p class="muted">Every mix of the ${n} selected runs, as shares of capital. Up is more expected PnL per day, left is
+      less day-to-day risk; the upper-left edge of the cloud is the efficient frontier. Mixing runs whose PnL does not move
+      together cuts risk faster than it cuts return.</p>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Markowitz efficient frontier">${dots}
+      ${singles.map((p, i) => lab(p, runs[i].label, 'single')).join('')}${lab(minVar, 'least risk', 'mark')}${lab(best, 'best Sharpe', 'mark')}
+      <text x="${W / 2}" y="${H - 10}" class="ax" text-anchor="middle">risk: standard deviation of daily PnL (USD)</text>
+      <text x="14" y="${H / 2}" class="ax" transform="rotate(-90 14 ${H / 2})" text-anchor="middle">expected daily PnL (USD)</text>
+      <text x="${P}" y="${H - P + 16}" class="ax">${fmt(x0)}</text><text x="${W - P}" y="${H - P + 16}" class="ax" text-anchor="end">${fmt(x1)}</text>
+      <text x="${P - 6}" y="${Y(y1) + 4}" class="ax" text-anchor="end">${fmt(y1)}</text><text x="${P - 6}" y="${Y(y0) + 4}" class="ax" text-anchor="end">${fmt(y0)}</text></svg>
+    <table><thead><tr><th>Portfolio</th><th class="n">Expected PnL / day</th><th class="n">Risk / day</th><th class="n">Sharpe (ann.)</th><th>Weights</th></tr></thead><tbody>
+    ${[['Best Sharpe', best], ['Least risk', minVar]].map(([k, p]) => `<tr><td>${k}</td><td class="n">${fmt(p.m)}</td><td class="n">${fmt(p.sd)}</td>
+      <td class="n">${fmt(p.m / p.sd * Math.sqrt(252))}</td><td>${weights(p)}</td></tr>`).join('')}</tbody></table>
+    <p class="muted">${T} common minutes; means and covariances of minute PnL, scaled by ${T} for a day. In-sample: the same
+      warning as any sweep applies.</p>`;
+  el.scrollIntoView({behavior: 'smooth'});
+};
+
 syncAnalysis();
 refresh().then(loadCatalog).then(loadPaper);
 setInterval(() => { if (STATE?.jobs.some(j => j.running)) refresh(); }, 3000);
