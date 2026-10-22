@@ -18,6 +18,15 @@ On GitHub, CI builds and tests every pull request; on main it also publishes the
 (`ghcr.io/yash-awasthi/hft`) and the demo reports (https://yash-awasthi.github.io/hft/); a `v*`
 tag publishes a release with Linux binaries.
 
+## Verification (2026-10-22, CI, main after hft studio and the risk statistics)
+
+GitHub Actions on every pull request and on main: 348 tests under GCC and Clang in the debug,
+release, ASan, UBSan and TSan presets (344 under the sanitizers), including `Studio.EndToEnd` with
+the built tools; perf gate, security gates, FPGA simulation, fuzzers 60 s each; the container image
+builds, runs the demos with their pinned totals and writes the studio snapshot. Not re-run on bare
+metal: the latency figures below are unchanged by these changes, which touch reporting and add a
+strategy and a UI.
+
 ## Verification (2026-10-13, bare metal, v1.5)
 
 Release 340 tests (sanitizer presets 336, ASan, UBSan and TSan run locally as well as in CI),

@@ -110,16 +110,20 @@ itch_backtest /tmp/qrsim QRSIM imbalance --report out/imbalance
 ```
 
 Tuning: `--sweep key=v1,v2,...` (repeatable) runs every combination of the listed values on a
-thread pool (`THREADS=N`, default all cores) and prints one row per run; with `--report DIR` it
-writes `DIR/index.html`, the runs ranked by total PnL with their curves overlaid and a link to each
-run's own report. Any key works, strategy or venue:
+thread pool (`THREADS=N`, default all cores) and prints one row per run, ending with
+`sharpe_annual`, `psr` and `dsr`; with `--report DIR` it writes `DIR/index.html`, the runs ranked by
+total PnL with their curves overlaid and a link to each run's own report. Any key works, strategy or
+venue:
 
 ```
 itch_backtest /tmp/qrsim QRSIM imbalance --sweep threshold=0.2,0.4,0.6,0.8,1 --sweep size=100,200 --report out/sweep
 ```
 
 Ten runs of a full synthetic day take about 0.4 s on 20 threads. Pick parameters on some days and
-check them on others: the best row of one day is partly luck. `scripts/maker_walkforward.sh` and
+check them on others: the best row of one day is partly luck. `dsr` says how much: it is the
+probability that a run's Sharpe beats the best one ten random settings would give (each symbol's
+runs count as one set of trials; README "Evaluating a strategy", docs/METHODS.md).
+`hft studio` ranks every report on disk by these numbers and overlays any runs' PnL curves. `scripts/maker_walkforward.sh` and
 `scripts/leader_walkforward.sh` do exactly that and print paired bootstrap intervals, since a
 maker's total moves with its inventory as much as with its edge.
 
@@ -138,6 +142,15 @@ parallel, combined with any `--sweep`; the report adds the total over symbols fo
 set. On 2025-12-10 (the demo venue settings: 0.2c rebate, 0.3c fee, 50 and 20 us latency),
 `naive` with `size=100` makes $1,799 on AMD and loses $4,799 on MSFT: one
 symbol says little. Four symbols times two sizes take 2.4 s.
+
+A second example worth reading is `strategies/microprice.cpp`: it quotes around Stoikov's
+micro-price, shifted against inventory, and only ever joins or steps back from the best. Its test
+shows a useful pattern: with `edge_ticks=0 skew_ticks=0` it must reproduce `naive` fill for fill,
+which pins the new code to a known strategy before its own parameters change anything.
+
+```
+itch_backtest /tmp/qrsim QRSIM microprice --sweep edge_ticks=0,0.5,1 --sweep skew_ticks=0,0.5,1 --report out/mp
+```
 
 ### What the simulation does and does not model
 

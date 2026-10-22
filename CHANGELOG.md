@@ -14,6 +14,18 @@
 - **Tests.** `Studio.StubTools` (server, validation and security against stub tools) and
   `Studio.EndToEnd` (a synthetic day through the web API with the real tools: backtest totals equal
   the demos' pinned values, a 10-run sweep is deflated as one set of trials).
+- **Risk statistics in the backend.** `src/backtest/metrics.hpp`: `itch_backtest` prints Sharpe,
+  PSR and maximum drawdown per run, writes them with the DSR to `summary.csv` and `report.html`, and
+  adds `sharpe_annual`, `psr` and `dsr` columns to sweeps, each symbol's runs deflated together.
+  `Metrics.*` pins the values to the studio's Python; `Studio.EndToEnd` checks both agree on a real sweep.
+- **Micro-price maker.** `strategies/microprice.cpp` quotes around Stoikov's micro-price, skewed
+  against inventory, never inside the best; it reproduces `naive` fill for fill with no edge or skew.
+- **Studio themes.** Dark: black, cerulean and neon red; light: ice silver, aubergine and marigold,
+  every text colour at 4.5:1 contrast or more.
+- **Published leaderboard.** The demos write a read-only studio snapshot next to the reports, so the
+  CI-published site carries the leaderboard; pull-request runs attach the reports as an artifact.
+- **Fixes.** The studio read a refused request's body only after refusing, which reset the
+  connection; two backtests started in the same second shared a report directory.
 
 ## v1.5 (2026-10-13)
 
