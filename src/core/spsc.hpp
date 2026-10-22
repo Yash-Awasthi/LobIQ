@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <stdexcept>
 #include <string_view>
 
 #include "core/pool.hpp"
@@ -78,7 +79,9 @@ class SpscBytes {
 
     // The buffer is a Pool mapping: 2 MB pages and pre-faulted, so the first lap does not
     // page-fault on the producer (it did: p99.9 3-6 us, max 160 us per write at 8 MB).
-    explicit SpscBytes(std::size_t capacity_pow2) : cap_(capacity_pow2), mem_(capacity_pow2), buf_(mem_.data()) {}
+    // Offsets are masked with cap_ - 1, so any other capacity corrupts records silently.
+    explicit SpscBytes(std::size_t capacity_pow2)
+        : cap_(checked(capacity_pow2)), mem_(capacity_pow2), buf_(mem_.data()) {}
     SpscBytes(const SpscBytes&) = delete;
     SpscBytes& operator=(const SpscBytes&) = delete;
 
@@ -136,6 +139,10 @@ class SpscBytes {
     static constexpr std::size_t kHead = sizeof(Header);
     static constexpr std::uint32_t kWrap = ~0u;
     static std::size_t round8(std::size_t n) { return (n + 7) & ~std::size_t{7}; }
+    static std::size_t checked(std::size_t c) {
+        if (c < 64 || (c & (c - 1))) throw std::invalid_argument("SpscBytes: capacity must be a power of two >= 64");
+        return c;
+    }
 
     const std::size_t cap_;
     Pool<std::byte> mem_;

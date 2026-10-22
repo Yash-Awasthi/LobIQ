@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cstring>
 #include <random>
 #include <vector>
 
@@ -352,4 +353,13 @@ TYPED_TEST(IdMapProbe, SameImageAsFindInsertErase) {
         }
     }
     EXPECT_EQ(a.size(), live.size());
+}
+
+TEST(LinearMap, LoadRejectsSizeThatOverflowsWhenDoubled) {
+    std::vector<std::uint8_t> img(16 + 64 * 8, 0xff);
+    const std::uint64_t head[2] = {64, 1ull << 63};
+    std::memcpy(img.data(), head, sizeof head);
+    hft::book::LinearMap m;
+    const std::uint8_t* p = img.data();
+    EXPECT_FALSE(m.load(p, img.data() + img.size()));
 }

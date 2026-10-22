@@ -74,7 +74,7 @@ class Table {
         std::uint64_t head[2];
         if (end - p < static_cast<std::ptrdiff_t>(sizeof head)) return false;
         std::memcpy(head, p, sizeof head);
-        if (!std::has_single_bit(head[0]) || head[0] < 64 || head[1] * 2 > head[0]) return false;
+        if (!std::has_single_bit(head[0]) || head[0] < 64 || head[1] > head[0] / 2) return false;
         if (static_cast<std::uint64_t>(end - p) - sizeof head < head[0] * sizeof(Slot))
             return false;
         p += sizeof head;

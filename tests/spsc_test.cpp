@@ -72,6 +72,11 @@ TEST(SpscBytes, WrapsAndKeepsPayloadsContiguous) {
     EXPECT_FALSE(r.try_write(0, 0, 0, std::string(r.max_payload() + 1, 'x')));
 }
 
+TEST(SpscBytes, RejectsCapacityNotPowerOfTwo) {
+    EXPECT_THROW(SpscBytes(1000), std::invalid_argument);
+    EXPECT_THROW(SpscBytes(32), std::invalid_argument);
+}
+
 TEST(SpscBytes, TransfersInOrderAcrossThreads) {
     static SpscBytes r(1 << 16);
     constexpr std::uint64_t n = 300'000;
