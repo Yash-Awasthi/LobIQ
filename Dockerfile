@@ -1,4 +1,5 @@
 # podman build -t hft . (or docker); demos, reports in ./out: podman run --rm -v "$PWD/out:/hft/out" hft
+# Web UI: podman run --rm -p 8000:8000 hft hft studio --bind 0.0.0.0, then open http://localhost:8000/
 # Toolchain for writing strategies (also .devcontainer): podman build --target build -t hft-dev .
 
 FROM ubuntu:24.04 AS build
@@ -20,14 +21,16 @@ RUN cmake --preset release -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed \
     && ctest --test-dir build/release --output-on-failure -j"$(nproc)"
 
 FROM ubuntu:24.04
-RUN apt-get update && apt-get install -y --no-install-recommends libssl3t64 ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends libssl3t64 ca-certificates python3 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /hft
 COPY --from=build /src/build/release/apps/ build/release/apps/
 COPY --from=build /src/scripts/ scripts/
 COPY --from=build /src/config/ config/
+COPY --from=build /src/studio/ studio/
 COPY --from=build /src/data/sample/ data/sample/
 COPY --from=build /src/docs/STRATEGIES.md /src/README.md ./
 RUN find build/release/apps -mindepth 1 -maxdepth 1 ! -type f -exec rm -rf {} +
 ENV PATH=/hft/scripts:/hft/build/release/apps:$PATH HFT_BIN=/hft/build/release/apps
+EXPOSE 8000
 CMD ["scripts/demo/all.sh", "/hft/out"]

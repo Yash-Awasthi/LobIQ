@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- **hft studio.** `hft studio` serves a local web UI (Python standard library, no build step):
+  every `hft` command as a job with streamed output, a leaderboard of every backtest report on disk,
+  a per-run view with the equity curve and drawdown, an order-book ladder that steps through a day,
+  surveillance and execution-quality reports rendered as tables, and live paper runs with a kill
+  switch. Answers loopback Host names only and refuses cross-origin or non-JSON writes; job
+  arguments are checked against fixed patterns and passed as an argument list (docs/STUDIO.md).
+- **Risk-adjusted metrics.** Sharpe on minute PnL, maximum drawdown and time underwater, profit
+  factor, hit rate, maker share, captured spread, the probabilistic Sharpe ratio and, across the
+  runs of a sweep, the deflated Sharpe ratio (docs/METHODS.md).
+- **Tests.** `Studio.StubTools` (server, validation and security against stub tools) and
+  `Studio.EndToEnd` (a synthetic day through the web API with the real tools: backtest totals equal
+  the demos' pinned values, a 10-run sweep is deflated as one set of trials).
+
 ## v1.5 (2026-10-13)
 
 Applications on real data, a security and correctness pass over every input boundary, and a
