@@ -150,6 +150,16 @@ class Metrics(unittest.TestCase):
         self.assertGreater(best["psr"], 0.99)
         self.assertLess(best["dsr"], best["psr"])
 
+    def test_block_bootstrap(self):
+        lo, hi, p_loss = metrics.block_bootstrap([1.0] * 100)
+        self.assertEqual((lo, hi, p_loss), (100, 100, 0))
+        steps = [(-1) ** i * 5 + 0.5 for i in range(400)]
+        lo, hi, p_loss = metrics.block_bootstrap(steps)
+        self.assertLess(lo, sum(steps))
+        self.assertGreater(hi, sum(steps))
+        self.assertGreaterEqual(p_loss, 0)
+        self.assertEqual(metrics.block_bootstrap(steps), (lo, hi, p_loss))  # fixed seed
+
     def test_fills(self):
         f = metrics.fill_metrics([(1, 100, 100000, True), (2, -100, 100100, True), (3, 100, 100050, False), (4, -100, 100150, True)])
         self.assertAlmostEqual(f["buy_vwap"], 10.0025)
@@ -210,6 +220,7 @@ class Server(unittest.TestCase):
         self.assertIn("dsr", row)
         _, d = call("/api/report?path=" + v["report"])
         self.assertTrue(d["curve"])
+        self.assertLessEqual(d["pnl_ci_low"], d["pnl_ci_high"])
         if REAL_BIN:
             self.assertEqual(row["summary"]["total_usd"], "5610.80")
         else:

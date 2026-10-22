@@ -244,8 +244,8 @@ def find_reports(limit=500):
     return found[:limit]
 
 
-def report_entry(d):
-    m = metrics.report_metrics(d)
+def report_entry(d, bootstrap=False):
+    m = metrics.report_metrics(d, bootstrap)
     if m is None:
         return None
     parent = os.path.dirname(d)
@@ -264,8 +264,6 @@ def leaderboard():
     rows = []
     for runs in groups.values():
         rows += metrics.deflate(runs)
-    for r in rows:
-        r.pop("curve", None)
     return rows
 
 
@@ -367,7 +365,7 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/api/report":
                 tree, _, sub = q.get("path", "").removeprefix("/files/").partition("/")
                 d = resolve(tree, sub)
-                e = report_entry(d) if d and os.path.isdir(d) else None
+                e = report_entry(d, bootstrap=True) if d and os.path.isdir(d) else None
                 return self._json(200, e) if e else self._send(404, {"error": "no report there"})
             if p == "/api/book":
                 spec = dict(q, kind="book")

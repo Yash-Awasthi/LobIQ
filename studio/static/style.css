@@ -68,6 +68,7 @@ svg .ax { fill: var(--muted); font-size: 11px; }
 .lvl.bid .px { color: var(--bid); } .lvl.bid .bar i { background: var(--bid); opacity: .55; }
 .mid { border-top: 1px dashed var(--line); margin: 4px 0; }
 .md li { margin-left: 18px; }
+.legend li { display: flex; gap: 8px; align-items: center; } .legend i { width: 14px; height: 3px; flex: none; }
 iframe { width: 100%; height: 640px; border: 0; background: var(--bg); }
 .toast { position: fixed; right: 16px; bottom: 16px; background: var(--fg); color: var(--bg); padding: 10px 14px; border-radius: 8px; max-width: 420px; z-index: 5; }
 .toast.bad { background: var(--neg); color: #fff; }

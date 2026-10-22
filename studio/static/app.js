@@ -138,11 +138,12 @@ const COLS = [
   ['maker_share', 'Maker %', r => fmt(r.maker_share * 100, 0), r => r.maker_share],
   ['fees', 'Fees USD', r => fmt(+r.summary.fees_usd), r => +r.summary.fees_usd],
 ];
-let LB = [], SORT = ['dsr', -1];
-function table(rows) {
+let LB = [], SORT = ['dsr', -1], SHOWN = [];
+const SEL = new Set();
+function table(rows, pick) {
   if (!rows.length) return '<p class="muted">No reports yet. Run a backtest or the demos.</p>';
-  return `<table class="lb"><thead><tr>${COLS.map(([k, h]) => `<th data-k="${k}" class="${k === SORT[0] ? 'sorted' : ''}">${h}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map((r, i) => `<tr data-i="${i}" class="click">${COLS.map(([, , f]) => `<td>${f(r)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  return `<table class="lb"><thead><tr>${pick ? '<th></th>' : ''}${COLS.map(([k, h]) => `<th data-k="${k}" class="${k === SORT[0] ? 'sorted' : ''}">${h}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map((r, i) => `<tr data-i="${i}" class="click">${pick ? `<td><input type="checkbox" data-sel="${esc(r.path)}" ${SEL.has(r.path) ? 'checked' : ''} aria-label="select for comparison"></td>` : ''}${COLS.map(([, , f]) => `<td>${f(r)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
 function bindRows(el, rows) { $$('tr[data-i]', el).forEach(tr => tr.onclick = () => detail(rows[+tr.dataset.i])); }
 async function loadLeaderboard() {
@@ -160,11 +161,42 @@ function drawLeaderboard() {
   const key = col[3] || (r => r[SORT[0]]);
   rows = [...rows].sort((a, b) => ((key(b) ?? -Infinity) > (key(a) ?? -Infinity) ? 1 : -1) * -SORT[1]);
   const wrap = $('#lb-wrap');
-  wrap.innerHTML = table(rows);
+  SHOWN = rows;
+  wrap.innerHTML = table(rows, true);
+  $$('[data-sel]', wrap).forEach(c => { c.onclick = e => e.stopPropagation(); c.onchange = () => c.checked ? SEL.add(c.dataset.sel) : SEL.delete(c.dataset.sel); });
   $$('th[data-k]', wrap).forEach(th => th.onclick = () => { SORT = [th.dataset.k, SORT[0] === th.dataset.k ? -SORT[1] : -1]; drawLeaderboard(); });
   bindRows(wrap, rows);
 }
 $('#lb-best').onchange = drawLeaderboard;
+
+const PALETTE = ['#2563eb', '#dc2626', '#059669', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
+$('#lb-compare').onclick = () => {
+  const runs = LB.filter(r => SEL.has(r.path) && r.curve?.length).slice(0, PALETTE.length);
+  const el = $('#compare');
+  if (runs.length < 2) return toast('Tick at least two runs to compare');
+  const W = 760, H = 260, P = 40, all = runs.flatMap(r => r.curve).concat(0);
+  const lo = Math.min(...all), hi = Math.max(...all), span = hi - lo || 1, n = Math.max(...runs.map(r => r.curve.length));
+  const x = i => P + i * (W - 2 * P) / n, y = v => H - P - (v - lo) / span * (H - 2 * P);
+  const paths = runs.map((r, k) => `<path d="${[0, ...r.curve].map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('')}" fill="none" stroke="${PALETTE[k]}" stroke-width="1.6"/>`).join('');
+  el.hidden = false;
+  el.innerHTML = `<h2>Cumulative PnL by minute</h2><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="PnL curves compared">
+    <line x1="${P}" x2="${W - P}" y1="${y(0)}" y2="${y(0)}" class="zero"/>${paths}
+    <text x="${P}" y="14" class="ax">${fmt(hi)} USD</text><text x="${P}" y="${H - 8}" class="ax">${fmt(lo)} USD</text>
+    <text x="${W - P}" y="${H - 8}" class="ax" text-anchor="end">${n} min</text></svg>
+    <ul class="plain legend">${runs.map((r, k) => `<li><i style="background:${PALETTE[k]}"></i>${esc(r.strategy)} · ${esc(r.symbol)} · ${esc(r.label)}:
+    ${fmt(+r.summary.total_usd)} USD, Sharpe ${fmt(r.sharpe_annual)}, DSR ${fmt(r.dsr, 3)}</li>`).join('')}</ul>`;
+  el.scrollIntoView({behavior: 'smooth'});
+};
+$('#lb-csv').onclick = () => {
+  const keys = ['strategy', 'symbol', 'label', 'path', 'sharpe_annual', 'psr', 'dsr', 'trials', 'max_drawdown_usd', 'longest_underwater_min',
+    'profit_factor', 'hit_rate', 'skew', 'kurtosis', 'maker_share', 'captured_spread'];
+  const skeys = [...new Set(SHOWN.flatMap(r => Object.keys(r.summary)))];
+  const q = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const csv = [[...keys, ...skeys].join(','), ...SHOWN.map(r => [...keys.map(k => q(r[k])), ...skeys.map(k => q(r.summary[k]))].join(','))].join('\n');
+  const a = Object.assign(document.createElement('a'), {href: URL.createObjectURL(new Blob([csv], {type: 'text/csv'})), download: 'leaderboard.csv'});
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
 
 // Equity curve and drawdown, inline SVG.
 function curve(cum) {
@@ -200,7 +232,9 @@ async function detail(r) {
     ${card('Hit rate (minutes)', fmt(full.hit_rate * 100, 1) + '%')}${card('Skew / kurtosis', fmt(full.skew) + ' / ' + fmt(full.kurtosis))}
     ${card('Fills', (+s.fills).toLocaleString())}${card('Maker share', fmt(full.maker_share * 100, 0) + '%')}
     ${card('Captured spread / sh', fmt(full.captured_spread, 4))}${card('Max |inventory|', (+s.max_abs_inventory).toLocaleString())}
-    ${card('Diverted shares', (+s.diverted_shares).toLocaleString())}</div>${curve(full.curve)}`;
+    ${card('Diverted shares', (+s.diverted_shares).toLocaleString())}
+    ${card('PnL 95% interval', fmt(full.pnl_ci_low) + ' to ' + fmt(full.pnl_ci_high))}${card('P(losing day), bootstrap', fmt(full.p_loss * 100, 1) + '%')}</div>
+    ${curve(full.curve)}<p class="muted">Interval and loss probability: circular block bootstrap of the minute PnL (2,000 resamples, blocks of about T<sup>1/3</sup> minutes).</p>`;
   el.scrollIntoView({behavior: 'smooth'});
 }
 

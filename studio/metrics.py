@@ -7,6 +7,7 @@ Bailey and Lopez de Prado (2012, 2014); docs/METHODS.md gives the formulas.
 import csv
 import math
 import os
+import random
 import re
 from statistics import NormalDist
 
@@ -78,6 +79,27 @@ def expected_max_sharpe(trial_srs):
     return sd * ((1 - EULER_GAMMA) * _N.inv_cdf(1 - 1 / k) + EULER_GAMMA * _N.inv_cdf(1 - 1 / (k * math.e)))
 
 
+def block_bootstrap(steps, reps=2000, seed=1):
+    """95% interval of the summed PnL and the share of resampled days that lose, from a circular
+    block bootstrap with blocks of about T^(1/3) minutes (keeps short-range autocorrelation)."""
+    n = len(steps)
+    if n < 2:
+        return float("nan"), float("nan"), float("nan")
+    rng = random.Random(seed)
+    b = max(1, round(n ** (1 / 3)))
+    totals = []
+    for _ in range(reps):
+        t, k = 0.0, 0
+        while k < n:
+            s = rng.randrange(n)
+            for j in range(min(b, n - k)):
+                t += steps[(s + j) % n]
+            k += b
+        totals.append(t)
+    totals.sort()
+    return totals[int(0.025 * reps)], totals[int(0.975 * reps) - 1], sum(1 for t in totals if t < 0) / reps
+
+
 def series_metrics(cum):
     steps = [cum[0]] + [b - a for a, b in zip(cum, cum[1:])] if cum else []
     m, sd, skew, kurt = moments(steps)
@@ -120,7 +142,7 @@ def fill_metrics(fills):
 _TITLE = re.compile(r"<title>Backtest: (.+?) on (.+?)</title>")
 
 
-def report_metrics(d):
+def report_metrics(d, bootstrap=False):
     """Everything known about one backtest report directory, or None if it is not one."""
     if not os.path.isfile(os.path.join(d, "summary.csv")):
         return None
@@ -139,6 +161,9 @@ def report_metrics(d):
         cum = read_minutes(p)
     out["curve"] = cum
     out.update(series_metrics(cum))
+    if bootstrap and cum:
+        steps = [cum[0]] + [b - a for a, b in zip(cum, cum[1:])]
+        out["pnl_ci_low"], out["pnl_ci_high"], out["p_loss"] = block_bootstrap(steps)
     p = os.path.join(d, "fills.csv")
     if os.path.isfile(p):
         out.update(fill_metrics(read_fills(p)))
