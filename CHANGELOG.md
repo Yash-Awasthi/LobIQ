@@ -191,10 +191,10 @@ Usable by others: plug in strategies, run everything without setup, see results 
 - **Sweeps and several symbols.** `itch_backtest --sweep key=v1,v2,...` and comma-separated
   symbols run in parallel with a ranked report and per-parameter totals; `pm_exec --sweep` does
   the same for paper replays.
-- **No setup needed.** Container image `ghcr.io/yash-awasthi/hft` (Docker or Podman) runs the
+- **No setup needed.** Container image `ghcr.io/yash-awasthi/lobiq` (Docker or Podman) runs the
   demos; a dev container (Codespaces) builds everything; `gen_day` writes a synthetic Nasdaq
   session; a 20-minute real recording is bundled in `data/sample`.
-- **Published demo reports** on every commit to main: https://yash-awasthi.github.io/hft/
+- **Published demo reports** on every commit to main: https://yash-awasthi.github.io/lobiq/
 - **Fixes.** The arbitrage executor counted an attempt twice when a failed settlement reopened a
   completed set. The decoder read past an empty numeric field and overflowed on long integer
   prices (found by the property test under UBSan). Pool mapping counters raced when pools grew on

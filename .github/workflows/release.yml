@@ -22,7 +22,7 @@ jobs:
       - run: scripts/demo/all.sh out
       - name: package
         run: |
-          name="hft-$GITHUB_REF_NAME-linux-x86_64"
+          name="lobiq-$GITHUB_REF_NAME-linux-x86_64"
           mkdir -p "$name/bin"
           find build/release/apps -maxdepth 1 -type f -executable -exec cp {} "$name/bin/" \;
           cp -r scripts studio config data README.md CHANGELOG.md LICENSE "$name/"

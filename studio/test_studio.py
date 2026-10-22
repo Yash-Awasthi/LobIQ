@@ -206,7 +206,7 @@ class Server(unittest.TestCase):
     def test_ui_served(self):
         code, body = call("/", raw=True)
         self.assertEqual(code, 200)
-        self.assertIn(b"hft studio", body)
+        self.assertIn(b"LobIQ studio", body)
         self.assertEqual(call("/static/app.js", raw=True)[0], 200)
 
     def test_state_lists_days_and_runs(self):

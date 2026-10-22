@@ -8,7 +8,7 @@
 ## 2. Code and dependencies
 
     gh auth login
-    git clone https://github.com/Yash-Awasthi/hft ~/hft
+    git clone https://github.com/Yash-Awasthi/lobiq ~/lobiq
     git clone https://github.com/microsoft/vcpkg ~/vcpkg && ~/vcpkg/bootstrap-vcpkg.sh -disableMetrics
     echo 'export VCPKG_ROOT=~/vcpkg' >> ~/.bashrc && source ~/.bashrc
     cd ~/hft

@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>hft studio</title>
+<title>LobIQ studio</title>
 <link rel="stylesheet" href="static/style.css">
 </head>
 <body>
 <header>
-  <strong class="brand">hft studio</strong>
+  <strong class="brand">LobIQ <span class="muted">studio</span></strong>
   <nav id="tabs">
     <button data-tab="overview" class="on">Overview</button>
     <button data-tab="backtest">Backtest</button>
@@ -36,7 +36,7 @@
         <code>sudo apt install g++ cmake ninja-build git curl zip unzip pkg-config libssl-dev python3</code>, clone the repo,
         set <code>VCPKG_ROOT</code> to a vcpkg checkout, <code>cmake --preset release &amp;&amp; cmake --build build/release</code>,
         <code>export PATH="$PWD/scripts:$PATH"</code>, <code>hft studio</code>. Windows' browser reaches it at http://127.0.0.1:8000/.</li>
-      <li><b>Docker or Podman:</b> <code>docker run --rm -p 8000:8000 ghcr.io/yash-awasthi/hft hft studio --bind 0.0.0.0</code></li>
+      <li><b>Docker or Podman:</b> <code>docker run --rm -p 8000:8000 ghcr.io/yash-awasthi/lobiq hft studio --bind 0.0.0.0</code></li>
       <li><b>Linux:</b> the same cmake commands, or a release archive (<code>bin/hft studio</code>).</li>
     </ol>
   </div>
