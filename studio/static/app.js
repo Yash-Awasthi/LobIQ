@@ -147,7 +147,7 @@ const COLS = [
   ['max_drawdown_usd', 'Max DD USD', r => fmt(r.max_drawdown_usd)], ['hit_rate', 'Hit rate', r => fmt(r.hit_rate * 100, 1) + '%', r => r.hit_rate],
   ['fills', 'Fills', r => (+r.summary.fills).toLocaleString(), r => +r.summary.fills],
   ['maker_share', 'Maker %', r => fmt(r.maker_share * 100, 0), r => r.maker_share],
-  ['fees', 'Fees USD', r => fmt(+r.summary.fees_usd), r => +r.summary.fees_usd],
+  ['fees', 'Fees net USD', r => fmt(+r.summary.fees_usd), r => +r.summary.fees_usd],
 ];
 let LB = [], SORT = ['dsr', -1], SHOWN = [];
 const SEL = new Set();
@@ -236,7 +236,7 @@ async function detail(r) {
   el.innerHTML = `<div class="row between"><h2>${esc(full.strategy)} on ${esc(full.symbol)} · ${esc(full.label)}</h2>
     <a href="${full.path}/report.html" target="_blank">HTML report</a></div>
     <div class="cards">${card('PnL', fmt(+s.total_usd) + ' USD', sign(+s.total_usd))}${card('Spread captured', fmt(+s.spread_usd))}
-    ${card('Inventory PnL', fmt(+s.inventory_usd))}${card('Fees', fmt(+s.fees_usd))}${card('Adverse selection', fmt(+s.adverse_usd))}
+    ${card('Inventory PnL', fmt(+s.inventory_usd))}${card('Fees net of rebates', fmt(+s.fees_usd))}${card('Adverse selection', fmt(+s.adverse_usd))}
     ${card('Sharpe, annualised', fmt(full.sharpe_annual))}${card('PSR (SR&gt;0)', fmt(full.psr, 3))}
     ${card(`DSR, ${full.trials} trial${full.trials > 1 ? 's' : ''}`, fmt(full.dsr, 3))}${card('Max drawdown', fmt(full.max_drawdown_usd) + ' USD')}
     ${card('Longest underwater', full.longest_underwater_min + ' min')}${card('Profit factor', fmt(full.profit_factor))}

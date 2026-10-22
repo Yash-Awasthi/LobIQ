@@ -44,7 +44,7 @@ table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nu
 th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 th { color: var(--muted); font-weight: 500; font-size: 12px; }
 th[data-k] { cursor: pointer; } th.sorted { color: var(--fg); }
-.n, table.lb td:nth-child(n+4) { text-align: right; }
+.n, table.lb td:nth-child(n+5) { text-align: right; }
 tr.click { cursor: pointer; } tr.click:hover td { background: var(--bg); }
 .scroll { overflow-x: auto; }
 .cards { display: grid; align-items: start; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px; }
