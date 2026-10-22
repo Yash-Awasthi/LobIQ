@@ -1,5 +1,5 @@
 {
-  "name": "hft",
+  "name": "lobiq",
   "build": { "dockerfile": "../Dockerfile", "context": "..", "target": "build" },
   "postCreateCommand": "cmake --preset release -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed && cmake --build build/release && scripts/demo/all.sh",
   "customizations": {

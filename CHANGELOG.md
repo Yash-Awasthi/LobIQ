@@ -3,11 +3,16 @@
 ## Unreleased
 
 - **LobIQ.** The project is now LobIQ (limit order book intelligence): repository, published site,
-  container image and release archives are named `lobiq`; the command stays `hft`.
+  container image and release archives are named `lobiq`, and so is the command
+  (`scripts/lobiq`; `hft` still works).
 - **Markov chain of the book.** `itch_markov` / `hft markov`: the top of book as spread and bid-share
   states, the moves between them, and the morning's direction counts predicting the afternoon's mid
   moves, scored against always guessing one direction. The studio's Prediction tab draws the
   probabilities as a heat map and the chain as a state graph.
+- **Models.** The studio's Models tab draws four classic models in closed form, every input live:
+  Kyle's insider equilibrium, Glosten-Milgrom spreads with Bayesian price learning, Almgren-Chriss
+  optimal execution with its frontier, and Avellaneda-Stoikov quotes. `Studio.Models` checks them
+  against their known identities.
 - **Portfolio frontier.** The leaderboard combines selected runs on a Markowitz frontier: expected
   daily PnL against risk for every mix, with the least-risk and best-Sharpe weights.
 

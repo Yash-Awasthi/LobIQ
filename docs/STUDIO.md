@@ -1,11 +1,11 @@
-# hft studio
+# lobiq studio
 
-A local web UI over the `hft` command: one page that runs every tool, shows what they produced and
+A local web UI over the `lobiq` command: one page that runs every tool, shows what they produced and
 ranks the results. Python standard library and plain JavaScript, no build step and no packages.
 
 ```
-hft studio                       # http://127.0.0.1:8000/  (--port N, or HFT_STUDIO_PORT)
-hft studio --bind 0.0.0.0        # inside a container; publish the port with -p 8000:8000
+lobiq studio                       # http://127.0.0.1:8000/  (--port N, or HFT_STUDIO_PORT)
+lobiq studio --bind 0.0.0.0        # inside a container; publish the port with -p 8000:8000
 ```
 
 Strategies and quote models come from the built tools; before a build, `studio/catalog.json` lists
@@ -16,21 +16,22 @@ them: GitHub Codespaces, WSL on Windows, the container image or a Linux build.
 
 The header's theme button cycles auto (the system setting), light and dark.
 
-It reads the same places as `hft`: stores and live runs under `HFT_DATA` (default `~/data`),
+It reads the same places as `lobiq`: stores and live runs under `HFT_DATA` (default `~/data`),
 backtest reports under `HFT_REPORTS` (default `$HFT_DATA/reports`), demo output under `out/`.
 
 ## Pages
 
 | Page | What it does | Runs |
 |---|---|---|
-| Overview | Stores on disk, live runs, recent jobs; download a day; run the demos | `hft get`, `hft demo` |
-| Backtest | A past Nasdaq day: day, symbols, strategy with an input per parameter, a venue and latency preset, optional sweep axes and extra keys; output streams as it runs, then the run's metrics | `hft backtest` |
-| Paper replay | A recorded live prediction-market session (the bundled 20 minutes or any live run): quote model, maker parameters, arbitrage on or off; the run's PnL, orders and fills, and every past replay | `hft paper` |
+| Overview | Stores on disk, live runs, recent jobs; download a day; run the demos | `lobiq get`, `lobiq demo` |
+| Backtest | A past Nasdaq day: day, symbols, strategy with an input per parameter, a venue and latency preset, optional sweep axes and extra keys; output streams as it runs, then the run's metrics | `lobiq backtest` |
+| Paper replay | A recorded live prediction-market session (the bundled 20 minutes or any live run): quote model, maker parameters, arbitrage on or off; the run's PnL, orders and fills, and every past replay | `lobiq paper` |
 | Leaderboard | Every backtest report on disk with risk-adjusted metrics, sortable; a row opens the equity curve, drawdown and cost breakdown; selected runs can be compared or combined on a Markowitz frontier | reads `summary.csv`, `pnl_minutes.csv`, `fills.csv` |
-| Order book | Depth ladder of any symbol at any moment, stepping one second at a time; mid, spread, L1 micro-price and depth imbalance | `hft book` |
-| Prediction | Markov chain of the top of book: P(next move up) per state as a heat map, the state graph, and the afternoon's out-of-sample hit rate against always guessing one direction | `hft markov` |
-| Analysis | Surveillance, execution quality, full-day replay, lead-lag and the microstructure study, Markdown output rendered as tables | `hft surveil`, `bestex`, `replay`, `leadlag`, `study` |
-| Live paper | Start a paper run on the live feed with a chosen quote model, embed its dashboard, list past runs, review a run, trip a run's kill switch | `hft live`, `hft review` |
+| Order book | Depth ladder of any symbol at any moment, stepping one second at a time; mid, spread, L1 micro-price and depth imbalance | `lobiq book` |
+| Models | Kyle's insider equilibrium, Glosten-Milgrom spreads and price learning, Almgren-Chriss optimal execution and its frontier, Avellaneda-Stoikov quotes; every input live, no tools needed (works on the published site too) | `studio/static/models.js` |
+| Prediction | Markov chain of the top of book: P(next move up) per state as a heat map, the state graph, and the afternoon's out-of-sample hit rate against always guessing one direction | `lobiq markov` |
+| Analysis | Surveillance, execution quality, full-day replay, lead-lag and the microstructure study, Markdown output rendered as tables | `lobiq surveil`, `bestex`, `replay`, `leadlag`, `study` |
+| Live paper | Start a paper run on the live feed with a chosen quote model, embed its dashboard, list past runs, review a run, trip a run's kill switch | `lobiq live`, `lobiq review` |
 | Jobs | Every job with its command, exit code, time, log and report link; stop a running one | |
 
 ## Metrics
@@ -72,7 +73,7 @@ The studio starts processes, so it guards what can reach it:
 - Every state-changing request must be a JSON POST, and a request carrying a foreign `Origin` is
   refused, so another site cannot drive it from a visitor's browser.
 - Job arguments are matched against fixed patterns (dates, symbols, strategy names, numeric
-  `key=value`) and passed to `scripts/hft` as an argument list, never through a shell; no value
+  `key=value`) and passed to `scripts/lobiq` as an argument list, never through a shell; no value
   can start with `-` and become an option.
 - Files are served only from the stores' report, live and demo directories, with paths resolved
   and checked to stay inside them.

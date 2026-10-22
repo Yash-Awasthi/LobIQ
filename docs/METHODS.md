@@ -121,6 +121,32 @@ otherwise read as excitation.
 Code: `hawkes_loglik`, `fit_hawkes`. Tests: `Hawkes.MaximumLikelihoodRecoversASimulatedProcess`,
 `Hawkes.APoissonProcessHasNoExcitation`.
 
+## Models
+
+Closed-form models drawn in the studio's Models tab (`studio/static/models.js`); each is checked
+against the identities below by `studio/test_models.mjs` (`Studio.Models`).
+
+- **Kyle (1985).** Value $v \sim N(p_0, \sigma_v^2)$, noise order flow $u \sim N(0, \sigma_u^2)$. The
+  insider trades $x = \beta(v - p_0)$ and the market maker sets $p = p_0 + \lambda(x + u)$; in the
+  Nash equilibrium $\beta = \sigma_u/\sigma_v$ and $\lambda = \sigma_v/(2\sigma_u)$, so $\lambda\beta = 1/2$:
+  the price moves half the way to the value, the insider earns $\sigma_v\sigma_u/2$ in expectation,
+  paid by the noise traders, and more noise means less price impact.
+- **Glosten and Milgrom (1985).** $V \in \{V_L, V_H\}$ with $P(V_H) = \delta$; a share $\mu$ of traders
+  know $V$, the rest buy or sell with probability 1/2. Competitive quotes break even:
+  $a = E[V \mid \text{buy}]$, $b = E[V \mid \text{sell}]$, from $P(\text{buy} \mid V_H) = \mu + (1-\mu)/2$ and
+  $P(\text{buy} \mid V_L) = (1-\mu)/2$. The spread is zero with no informed traders, $V_H - V_L$ when
+  all are informed, and grows with $\mu$; after each trade $\delta$ is updated by Bayes' rule, so the
+  quotes converge to the value and the spread narrows.
+- **Almgren and Chriss (2000).** Selling $X$ shares over $N$ intervals of $\tau = T/N$ with volatility
+  $\sigma$, temporary impact $\eta$, permanent impact $\gamma$ and risk aversion $\lambda$: with
+  $\tilde\eta = \eta - \gamma\tau/2$ and $\cosh(\kappa\tau) = 1 + \lambda\sigma^2\tau^2/(2\tilde\eta)$, holdings are
+  $x_j = X \sinh(\kappa(T - t_j))/\sinh(\kappa T)$; expected cost
+  $\tfrac12\gamma X^2 + (\tilde\eta/\tau)\sum n_j^2$ and variance $\sigma^2\tau\sum x_j^2$, with $n_j$ the
+  shares sold in interval $j$. $\lambda = 0$ gives the straight line; raising $\lambda$ sells earlier,
+  costs more and risks less, which traces the efficient frontier.
+- **Avellaneda and Stoikov (2008)**, as above: reservation price $r = s - q\gamma\sigma^2(T - t)$ and
+  total spread $\gamma\sigma^2(T - t) + \tfrac2\gamma\ln(1 + \gamma/k)$ around it.
+
 ## Markov chain of the book
 
 The state of the top of the book is $(s, k)$: the spread in ticks, capped at 3, and the bucket of the
@@ -132,7 +158,7 @@ $\hat p_{\uparrow}(x) = N_\uparrow(x) / (N_\uparrow(x) + N_\downarrow(x))$. Fitt
 chain then predicts each mid move of the afternoon as up when $\hat p_\uparrow > 1/2$ (a tie is a miss).
 The hit rate is set against always guessing the afternoon's more frequent direction, a baseline that
 knows the answer's proportion in advance. Code: `src/strategy/markov.hpp`, `apps/itch_markov.cpp`
-(`hft markov`, the studio's Prediction tab). Tests: `Markov.*`.
+(`lobiq markov`, the studio's Prediction tab). Tests: `Markov.*`.
 
 ## Portfolio frontier (Markowitz 1952)
 
@@ -244,6 +270,9 @@ Code: `src/surveil/surveil.hpp`. Tests: `Surveil.*`.
 - Filimonov, V. and Sornette, D. (2012). Quantifying reflexivity in financial markets. *Physical Review E* 85.
 - Gueant, O., Lehalle, C.-A. and Fernandez-Tapia, J. (2013). Dealing with the inventory risk. *Mathematics and Financial Economics* 7(4).
 - Markowitz, H. (1952). Portfolio selection. *Journal of Finance* 7(1).
+- Almgren, R. and Chriss, N. (2000). Optimal execution of portfolio transactions. *Journal of Risk* 3(2).
+- Glosten, L. and Milgrom, P. (1985). Bid, ask and transaction prices in a specialist market with heterogeneously informed traders. *Journal of Financial Economics* 14(1).
+- Kyle, A. (1985). Continuous auctions and insider trading. *Econometrica* 53(6).
 - Hasbrouck, J. and Saar, G. (2009). Technology and liquidity provision. *Journal of Financial Markets* 12(2).
 - Moallemi, C. and Yuan, K. (2017). A model for queue position valuation in a limit order book. Working paper, Columbia University.
 - Ozaki, T. (1979). Maximum likelihood estimation of Hawkes' self-exciting point processes. *Annals of the Institute of Statistical Mathematics* 31.

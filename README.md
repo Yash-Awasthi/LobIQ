@@ -5,7 +5,7 @@
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Yash-Awasthi/lobiq)
 
 **LobIQ** (limit order book intelligence) is a low-latency market-data, surveillance and trading
-system in C++23, with no framework underneath, driven by one command, `hft`, in six parts:
+system in C++23, with no framework underneath, driven by one command, `lobiq` (`hft` still works), in six parts:
 
 - **Nasdaq TotalView-ITCH**, replayed from disk through an order-by-order book, a
   deterministic matching engine and an event-driven backtest.
@@ -21,7 +21,7 @@ system in C++23, with no framework underneath, driven by one command, `hft`, in 
   quote-stuffing candidates with their evidence ([surveillance](#market-surveillance)), a
   Rule 605-style best-execution report ([execution quality](#execution-quality)), and the book of
   any symbol at any moment of a day.
-- **A research studio** (`hft studio`): a local web UI that runs all of the above, ranks every
+- **A research studio** (`lobiq studio`): a local web UI that runs all of the above, ranks every
   backtest by risk-adjusted return with a deflated Sharpe ratio that discounts a sweep's winner
   for the number of settings tried, and steps through any order book second by second
   ([docs/STUDIO.md](docs/STUDIO.md)).
@@ -49,19 +49,19 @@ Contents: [Use it](#use-it) · [Plug in a strategy](#plug-in-a-strategy) · [Eva
 
 ## Use it
 
-Two products behind one command, `hft` (`scripts/hft`; `bin/hft` in a release):
+Two products behind one command, `lobiq` (`scripts/lobiq`; `bin/lobiq` in a release):
 
 **1. Backtest on real Nasdaq order flow.** Fetch any day Nasdaq publishes, rebuild every order
 book, and test a strategy against the real queues, with latency, fees and an HTML report:
 
 ```
-hft get 2025-12-10                          # download (16 connections), verify, build the store
-hft replay 2025-12-10                       # every book of the day, invariants checked: 847M messages
-hft strategies                              # built in and your own (strategies/*.cpp)
-hft backtest 2025-12-10 INTC,AAPL avellaneda_stoikov gamma=0.05     # -> report.html
-hft study 2025-12-08,2025-12-09 2025-12-10  # imbalance, micro-price, queue value, Hawkes, VPIN...
-hft leadlag 2025-12-10 QQQ:TQQQ,QQQ:SQQQ:-1  # who follows whom, against a placebo
-hft markov 2025-12-10 AAPL                  # Markov chain of the book: predict the afternoon's moves
+lobiq get 2025-12-10                          # download (16 connections), verify, build the store
+lobiq replay 2025-12-10                       # every book of the day, invariants checked: 847M messages
+lobiq strategies                              # built in and your own (strategies/*.cpp)
+lobiq backtest 2025-12-10 INTC,AAPL avellaneda_stoikov gamma=0.05     # -> report.html
+lobiq study 2025-12-08,2025-12-09 2025-12-10  # imbalance, micro-price, queue value, Hawkes, VPIN...
+lobiq leadlag 2025-12-10 QQQ:TQQQ,QQQ:SQQQ:-1  # who follows whom, against a placebo
+lobiq markov 2025-12-10 AAPL                  # Markov chain of the book: predict the afternoon's moves
 ```
 
 **2. Paper-trade the live prediction market.** Market makers and an arbitrage executor run on
@@ -69,24 +69,24 @@ Polymarket's live order books through risk checks, an order manager and a simula
 order is ever sent. A dashboard on localhost shows latency, positions and PnL, with a kill switch:
 
 ```
-hft live 30                                 # 30 minutes; open the dashboard URL it prints
-hft runs                                    # past runs, PnL, killed or not
-hft review 20261012T172311                  # replay a run bit for bit, write its report
-hft paper sample --quoter skew --set arb=1  # test a quote model on a recorded live session
+lobiq live 30                                 # 30 minutes; open the dashboard URL it prints
+lobiq runs                                    # past runs, PnL, killed or not
+lobiq review 20261012T172311                  # replay a run bit for bit, write its report
+lobiq paper sample --quoter skew --set arb=1  # test a quote model on a recorded live session
 ```
 
-**3. Drive it all from a browser.** `hft studio` serves a local web UI on http://127.0.0.1:8000/:
+**3. Drive it all from a browser.** `lobiq studio` serves a local web UI on http://127.0.0.1:8000/:
 run backtests, sweeps, replays, surveillance and execution-quality reports as streamed jobs; rank every
 report on disk in a leaderboard with Sharpe, drawdown and the deflated Sharpe ratio (which discounts
 a sweep's winner for the number of runs tried); scrub through any symbol's order book second by
 second; start a live paper run and trip its kill switch ([docs/STUDIO.md](docs/STUDIO.md)).
 
 ```
-hft studio                                  # then open http://127.0.0.1:8000/
-docker run --rm -p 8000:8000 ghcr.io/yash-awasthi/lobiq hft studio --bind 0.0.0.0
+lobiq studio                                  # then open http://127.0.0.1:8000/
+docker run --rm -p 8000:8000 ghcr.io/yash-awasthi/lobiq lobiq studio --bind 0.0.0.0
 ```
 
-`hft doctor` checks the tools, the data and the machine tuning; `hft demo` runs every demo on
+`lobiq doctor` checks the tools, the data and the machine tuning; `lobiq demo` runs every demo on
 bundled data. Without building anything, with Docker or Podman:
 
 ```
@@ -101,7 +101,7 @@ From source (Linux, a C++23 compiler, CMake, Ninja, OpenSSL, vcpkg):
 
 ```
 cmake --preset native && cmake --build build/native && ctest --test-dir build/native
-export PATH="$PWD/scripts:$PATH"            # puts hft on the PATH
+export PATH="$PWD/scripts:$PATH"            # puts lobiq on the PATH
 ```
 
 ## Plug in a strategy
@@ -147,6 +147,7 @@ selection):
 | PSR | probability that the true Sharpe is above zero, allowing for skew and fat tails (Bailey and López de Prado 2012) |
 | DSR | the same, but against the best Sharpe that luck alone would give across the sweep's runs of that symbol (Bailey and López de Prado 2014) |
 | Bootstrap interval | 95% range of the day's PnL and the chance of a losing day, from a circular block bootstrap (studio) |
+| Models | Kyle (1985) insider equilibrium, Glosten-Milgrom (1985) spreads, Almgren-Chriss (2000) optimal execution, Avellaneda-Stoikov (2008) quotes, interactive (studio Models tab, also on the published site) |
 | Portfolio frontier | Markowitz: every mix of selected runs as risk against expected PnL, with the least-risk and best-Sharpe mixes and their weights (studio) |
 
 ```
@@ -330,7 +331,7 @@ replay is unchanged within noise. A lookahead prefetch on the per-symbol path wa
 
 ## Tests
 
-`ctest` runs 348 tests: GoogleTest, RapidCheck and end-to-end runs of `hft`, `itch_study`, `itch_leadlag` and the studio (344 under the sanitizers, which leave out
+`ctest` runs 348 tests: GoogleTest, RapidCheck and end-to-end runs of `lobiq`, `itch_study`, `itch_leadlag` and the studio (344 under the sanitizers, which leave out
 `alloc_test`); one (`PerfCounters.CountsInstructionsWhenAvailable`) skips where the machine
 exposes no hardware performance counters.
 
@@ -651,7 +652,7 @@ answer (`tests/microstructure_test.cpp`).
 
 ## Market surveillance
 
-`itch_surveil` (or `hft surveil DAY`) scans every symbol of a stored day for the patterns exchange and
+`itch_surveil` (or `lobiq surveil DAY`) scans every symbol of a stored day for the patterns exchange and
 broker surveillance desks review, and lists each candidate with its evidence:
 
 - **Spoofing:** an order at the best price, at least 10x the usual depth and 5,000 shares, cancelled
@@ -665,12 +666,12 @@ On the eight stored days it flags 6-68 spoofing, 14-128 layering and 3-409 stuff
 out of 8,900-12,800 symbols ([docs/results/surveillance.md](docs/results/surveillance.md), with the
 full report for 2025-12-10). The public feed is anonymous apart from MPIDs, so these are leads for a
 reviewer, not findings; the detectors are unit-tested on injected patterns and near misses
-(`tests/surveil_test.cpp`). `hft book DAY SYMBOL HH:MM:SS` shows the book at any moment of a flagged
+(`tests/surveil_test.cpp`). `lobiq book DAY SYMBOL HH:MM:SS` shows the book at any moment of a flagged
 incident, from the nearest stored checkpoint.
 
 ## Execution quality
 
-`itch_bestex` (or `hft bestex DAY`) is a best-execution report in the spirit of SEC Rule 605, the
+`itch_bestex` (or `lobiq bestex DAY`) is a best-execution report in the spirit of SEC Rule 605, the
 statistics brokers publish about how their customers' orders were filled: per symbol and per
 execution size, the effective half-spread split into realized spread and 5 s price impact, and the
 share of volume executed inside the quote against hidden orders with its price improvement. For the

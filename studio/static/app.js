@@ -7,7 +7,7 @@ const bytes = n => n > 1e9 ? fmt(n / 1e9, 1) + ' GB' : n > 1e6 ? fmt(n / 1e6, 1)
 const lines = s => s.split('\n').map(x => x.trim()).filter(Boolean);
 const sign = x => x == null ? '' : x > 0 ? 'pos' : x < 0 ? 'neg' : '';
 
-// A snapshot (hft studio --snapshot) is static files: reads come from snapshot.json, writes are refused.
+// A snapshot (lobiq studio --snapshot) is static files: reads come from snapshot.json, writes are refused.
 const SNAP = !!document.querySelector('meta[name=hft-snapshot]');
 let SNAPDATA = null;
 async function api(path, body) {
@@ -17,7 +17,7 @@ async function api(path, body) {
       '/api/paper': SNAPDATA.paper}[path]
       ?? (path.startsWith('/api/report?path=') && SNAPDATA.leaderboard.find(r => r.path === decodeURIComponent(path.slice(17)))));
     if (found) return found;
-    throw new Error('Read-only snapshot: run hft studio locally for this');
+    throw new Error('Read-only snapshot: run lobiq studio locally for this');
   }
   const r = await fetch(path, body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {});
   const j = await r.json().catch(() => ({error: r.statusText}));
@@ -61,7 +61,7 @@ window.addEventListener('hashchange', () => show(location.hash.slice(1) || 'over
 // A job: start it, stream its output into a <pre>, resolve with its final view.
 function runJob(spec, logEl, statusEl) {
   return api('/api/jobs', spec).then(job => new Promise(resolve => {
-    if (logEl) logEl.textContent = '$ hft ' + job.args.join(' ') + '\n';
+    if (logEl) logEl.textContent = '$ lobiq ' + job.args.join(' ') + '\n';
     if (statusEl) statusEl.textContent = 'Running job #' + job.id + '…';
     const es = new EventSource('/api/jobs/' + job.id + '/stream');
     es.addEventListener('line', e => {
@@ -87,7 +87,7 @@ async function refresh() {
   const s = STATE;
   const warn = $('#warn');
   warn.hidden = !SNAP;
-  warn.innerHTML = 'Read-only snapshot of the demo reports, built by CI. Run <code>hft studio</code> locally to run backtests, replays and live paper trading.';
+  warn.innerHTML = 'Read-only snapshot of the demo reports, built by CI. Run <code>lobiq studio</code> locally to run backtests, replays and live paper trading.';
   $('#setup').hidden = SNAP || !!s.bin;
   const running = s.jobs.filter(j => j.running).length;
   $('#running').hidden = !running;
@@ -112,13 +112,13 @@ async function refresh() {
   $$('[data-review]').forEach(b => b.onclick = () => runJob({kind: 'review', run: b.dataset.review}, $('#job-log')).then(() => show('jobs')));
   $$('[data-kill]').forEach(b => b.onclick = () => confirm('Trip the kill switch for run ' + b.dataset.kill + '? Every paper order is cancelled.') &&
     api('/api/kill', {run: b.dataset.kill}).then(() => toast('Kill switch set'), e => toast(e.message, true)));
-  const row = j => `<tr><td>${j.id}</td><td><code>hft ${esc(j.args.join(' '))}</code></td>
+  const row = j => `<tr><td>${j.id}</td><td><code>lobiq ${esc(j.args.join(' '))}</code></td>
     <td class="${j.running ? '' : j.rc === 0 ? 'pos' : 'neg'}">${j.running ? 'running' : j.rc === 0 ? 'ok' : 'exit ' + j.rc}</td>
     <td class="n">${fmt(((j.ended || Date.now() / 1000) - j.started), 1)} s</td>
     <td>${j.report ? `<a href="${j.report}" target="_blank">report</a> ` : ''}<button class="link" data-log="${j.id}">log</button>
     ${j.running ? `<button class="link danger" data-cancel="${j.id}">stop</button>` : ''}</td></tr>`;
   $('#jobtable tbody').innerHTML = s.jobs.map(row).join('') || '<tr><td colspan="5" class="muted">No jobs yet.</td></tr>';
-  $('#recent').innerHTML = s.jobs.slice(0, 6).map(j => `<li><code>hft ${esc(j.args.join(' '))}</code> <span class="muted">${j.running ? 'running' : j.rc === 0 ? 'ok' : 'failed'}</span></li>`).join('') || '<li class="muted">None.</li>';
+  $('#recent').innerHTML = s.jobs.slice(0, 6).map(j => `<li><code>lobiq ${esc(j.args.join(' '))}</code> <span class="muted">${j.running ? 'running' : j.rc === 0 ? 'ok' : 'failed'}</span></li>`).join('') || '<li class="muted">None.</li>';
   $$('[data-log]').forEach(b => b.onclick = async () => { show('jobs'); $('#job-log').textContent = (await api('/api/jobs/' + b.dataset.log)).lines.join('\n'); });
   $$('[data-cancel]').forEach(b => b.onclick = () => api(`/api/jobs/${b.dataset.cancel}/cancel`, {}).then(refresh));
 }
@@ -498,6 +498,78 @@ $('#lb-frontier').onclick = () => {
       warning as any sweep applies.</p>`;
   el.scrollIntoView({behavior: 'smooth'});
 };
+
+// Models tab: closed-form models from models.js, redrawn on every input.
+function plot({series = [], dots = [], xlab = '', ylab = '', W = 520, H = 230}) {
+  const all = series.flatMap(s => s.pts).concat(dots.map(d => [d.x, d.y]));
+  const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const P = 46, X = v => P + (v - x0) / ((x1 - x0) || 1) * (W - P - 12), Y = v => H - 34 - (v - y0) / ((y1 - y0) || 1) * (H - 50);
+  const path = s => `<path class="${s.cls}" d="${s.pts.map((p, i) => `${i ? 'L' : 'M'}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join('')}"/>`;
+  const legend = series.filter(s => s.label).map((s, i) => `<text x="${W - 12}" y="${14 + 14 * i}" class="ax ${s.cls}-t" text-anchor="end">${esc(s.label)}</text>`).join('');
+  const short = v => Math.abs(v) >= 1e4 ? v.toExponential(1) : fmt(v, Math.abs(v) < 10 ? 2 : 0);
+  return `<svg viewBox="0 0 ${W} ${H}" role="img">${dots.map(d => `<circle cx="${X(d.x).toFixed(1)}" cy="${Y(d.y).toFixed(1)}" r="${d.r || 2}" class="${d.cls || 'dot'}"/>`).join('')}
+    ${series.map(path).join('')}${legend}
+    <text x="${P}" y="${H - 18}" class="ax">${short(x0)}</text><text x="${W - 12}" y="${H - 18}" class="ax" text-anchor="end">${short(x1)}</text>
+    <text x="${P - 4}" y="${Y(y1) + 4}" class="ax" text-anchor="end">${short(y1)}</text><text x="${P - 4}" y="${Y(y0) + 4}" class="ax" text-anchor="end">${short(y0)}</text>
+    <text x="${(P + W) / 2}" y="${H - 4}" class="ax" text-anchor="middle">${esc(xlab)}</text>
+    <text x="10" y="${H / 2}" class="ax" text-anchor="middle" transform="rotate(-90 10 ${H / 2})">${esc(ylab)}</text></svg>`;
+}
+const cards = (el, kv) => $('.out', el).innerHTML = kv.map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+const num = (f, n) => parseFloat(f.elements[n].value);
+
+const MODELS = {
+  'm-kyle': f => {
+    const sv = num(f, 'sv'), su = num(f, 'su'), k = LobiqModels.kyle(sv, su), p0 = 100;
+    let s = 3;
+    const g = () => { s = s * 16807 % 2147483647; const a = s / 2147483647; s = s * 16807 % 2147483647; return Math.sqrt(-2 * Math.log(a)) * Math.cos(2 * Math.PI * s / 2147483647); };
+    const dots = Array.from({length: 300}, () => { const v = p0 + sv * g(), u = su * g(); return {x: v, y: p0 + k.lambda * (k.beta * (v - p0) + u)}; });
+    const lo = p0 - 3 * sv, hi = p0 + 3 * sv;
+    cards(f, [['Insider intensity &beta;', fmt(k.beta, 2) + ' sh per $'], ['Price impact &lambda;', fmt(k.lambda, 4) + ' $ per sh'],
+      ['Insider profit', '$' + fmt(k.insiderProfit, 2)], ['Value revealed by price', '50%']]);
+    $('.chart', f).innerHTML = plot({dots, series: [{pts: [[lo, lo], [hi, hi]], cls: 'l3', label: 'price = value'},
+      {pts: [[lo, (lo + p0) / 2], [hi, (hi + p0) / 2]], cls: 'l1', label: 'E[price | value]: half the way'}], xlab: 'true value v', ylab: 'price p'});
+  },
+  'm-gm': f => {
+    const vl = num(f, 'vl'), vh = num(f, 'vh'), d = num(f, 'delta'), mu = num(f, 'mu');
+    const q = LobiqModels.gmQuotes(vl, vh, d, mu), path = LobiqModels.gmPath(vl, vh, d, mu, 120);
+    const half = path.findIndex(p => p.spread < q.spread / 2);
+    cards(f, [['Ask', fmt(q.ask)], ['Bid', fmt(q.bid)], ['Spread', fmt(q.spread)], ['Spread halves after', half < 0 ? '> 120 trades' : half + ' trades']]);
+    $('.chart', f).innerHTML = plot({series: [{pts: path.map((p, i) => [i, p.ask]), cls: 'l2', label: 'ask'},
+      {pts: path.map((p, i) => [i, p.bid]), cls: 'l1', label: 'bid'}, {pts: [[0, vh], [path.length - 1, vh]], cls: 'l3', label: 'true value'}],
+      xlab: 'trade number', ylab: 'quote'});
+  },
+  'm-ac': f => {
+    const a = ['X', 'T', 'N', 'sigma', 'eta', 'gamma', 'lambda'].map(n => num(f, n));
+    const [X, T, N] = a, M = LobiqModels;
+    const r = M.almgrenChriss(...a), twap = M.almgrenChriss(...a.slice(0, 6), 0);
+    const lambdas = Array.from({length: 40}, (_, i) => 10 ** (-9 + i * 5 / 39));
+    const fr = M.acFrontier(...a.slice(0, 6), lambdas);
+    cards(f, [['Expected cost', '$' + fmt(r.cost, 0)], ['Risk (sd)', '$' + fmt(r.sd, 0)], ['Sold in first interval', fmt((X - r.holdings[1]) / X * 100, 1) + '%'],
+      ['vs straight line', `$${fmt(twap.cost, 0)} cost, $${fmt(twap.sd, 0)} risk`]]);
+    const t = j => j * T / N;
+    $('.chart', f).innerHTML = plot({series: [{pts: r.holdings.map((x, j) => [t(j), x]), cls: 'l1', label: 'optimal'},
+      {pts: twap.holdings.map((x, j) => [t(j), x]), cls: 'l3', label: 'straight line'}], xlab: 'days', ylab: 'shares held'});
+    $('.chart2', f).innerHTML = plot({series: [{pts: fr.map(p => [p.sd, p.cost]), cls: 'l1', label: 'efficient frontier'}],
+      dots: [{x: r.sd, y: r.cost, r: 5, cls: 'hit'}], xlab: 'risk: sd of proceeds ($)', ylab: 'expected cost ($)'});
+  },
+  'm-as': f => {
+    const [s, g, sg, k, tl] = ['s', 'gamma', 'sigma', 'k', 'tl'].map(n => num(f, n));
+    const at = q => LobiqModels.avellanedaStoikov(s, q, g, sg, k, tl, 0);
+    const qs = Array.from({length: 21}, (_, i) => i - 10), z = at(0), l5 = at(5);
+    cards(f, [['Spread', fmt(z.spread, 3)], ['Quotes, flat', `${fmt(z.bid, 3)} / ${fmt(z.ask, 3)}`],
+      ['Quotes, long 5', `${fmt(l5.bid, 3)} / ${fmt(l5.ask, 3)}`], ['Shift per share held', fmt(g * sg * sg * tl, 3)]]);
+    $('.chart', f).innerHTML = plot({series: [{pts: qs.map(q => [q, at(q).ask]), cls: 'l2', label: 'ask'},
+      {pts: qs.map(q => [q, at(q).reservation]), cls: 'l3', label: 'reservation price'}, {pts: qs.map(q => [q, at(q).bid]), cls: 'l1', label: 'bid'}],
+      xlab: 'inventory q (shares, lots)', ylab: 'price'});
+  },
+};
+for (const [id, draw] of Object.entries(MODELS)) {
+  const f = document.getElementById(id);
+  f.onsubmit = e => e.preventDefault();
+  f.oninput = () => { try { draw(f); } catch (err) { console.error(err); } };
+  draw(f);
+}
 
 syncAnalysis();
 refresh().then(loadCatalog).then(loadPaper);

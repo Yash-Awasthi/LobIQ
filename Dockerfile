@@ -1,5 +1,5 @@
-# podman build -t hft . (or docker); demos, reports in ./out: podman run --rm -v "$PWD/out:/hft/out" hft
-# Web UI: podman run --rm -p 8000:8000 hft hft studio --bind 0.0.0.0, then open http://localhost:8000/
+# podman build -t lobiq . (or docker); demos, reports in ./out: podman run --rm -v "$PWD/out:/hft/out" lobiq
+# Web UI: podman run --rm -p 8000:8000 lobiq lobiq studio --bind 0.0.0.0, then open http://localhost:8000/
 # Toolchain for writing strategies (also .devcontainer): podman build --target build -t hft-dev .
 
 FROM ubuntu:24.04 AS build
