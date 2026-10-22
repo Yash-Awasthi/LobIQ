@@ -144,9 +144,12 @@ _TITLE = re.compile(r"<title>Backtest: (.+?) on (.+?)</title>")
 
 def report_metrics(d, bootstrap=False):
     """Everything known about one backtest report directory, or None if it is not one."""
-    if not os.path.isfile(os.path.join(d, "summary.csv")):
+    # Paper-execution reports also write summary.csv; only backtests write pnl_minutes.csv.
+    if not all(os.path.isfile(os.path.join(d, f)) for f in ("summary.csv", "pnl_minutes.csv")):
         return None
     summary = read_kv(os.path.join(d, "summary.csv"))
+    if "total_usd" not in summary:
+        return None
     out = {"summary": summary, "strategy": None, "symbol": None}
     try:
         with open(os.path.join(d, "report.html"), encoding="utf-8", errors="replace") as f:
@@ -155,10 +158,7 @@ def report_metrics(d, bootstrap=False):
             out["strategy"], out["symbol"] = (s.replace("&amp;", "&").replace("&lt;", "<") for s in t.groups())
     except OSError:
         pass
-    cum = []
-    p = os.path.join(d, "pnl_minutes.csv")
-    if os.path.isfile(p):
-        cum = read_minutes(p)
+    cum = read_minutes(os.path.join(d, "pnl_minutes.csv"))
     out["curve"] = cum
     out.update(series_metrics(cum))
     if bootstrap and cum:

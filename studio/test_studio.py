@@ -248,6 +248,31 @@ class Server(unittest.TestCase):
         self.assertEqual(call("/api/kill", {"run": "../x"})[0], 400)
 
 
+class Snapshot(unittest.TestCase):
+    def test_static_copy(self):
+        out = TMP + "/snap"
+        run = out + "/backtest/naive"
+        os.makedirs(run)
+        with open(run + "/summary.csv", "w") as f:
+            f.write("key,value\ntotal_usd,12.50\nfills,3\n")
+        with open(run + "/pnl_minutes.csv", "w") as f:
+            f.write("minute,total_usd\n0,5\n1,2\n2,12.5\n")
+        with open(run + "/report.html", "w") as f:
+            f.write("<title>Backtest: naive on QRSIM</title>")
+        os.makedirs(out + "/paper")
+        with open(out + "/paper/summary.csv", "w") as f:  # a paper-execution report: not a backtest
+            f.write('key,value\nledger_pnl_usd,"1.0"\n')
+        subprocess.run([sys.executable, os.path.join(HERE, "server.py"), "--snapshot", out], check=True, capture_output=True)
+        with open(out + "/studio/index.html") as f:
+            self.assertIn('name="hft-snapshot"', f.read())
+        self.assertTrue(os.path.isfile(out + "/studio/static/app.js"))
+        with open(out + "/studio/snapshot.json") as f:
+            snap = json.load(f)
+        [row] = snap["leaderboard"]
+        self.assertEqual((row["path"], row["strategy"], row["max_drawdown_usd"]), ("../backtest/naive", "naive", 3))
+        self.assertIn("pnl_ci_low", row)
+
+
 @unittest.skipUnless(REAL_BIN, "needs built tools")
 class EndToEnd(unittest.TestCase):
     def test_sweep_is_deflated(self):

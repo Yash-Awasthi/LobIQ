@@ -34,6 +34,13 @@ the best Sharpe expected from luck across that many trials. A sweep of ten setti
 have a winner with a high PSR; the DSR says whether it beats what ten tries at random would give.
 Formulas and sources: [METHODS.md](METHODS.md#evaluation). Code: `studio/metrics.py`.
 
+## Snapshot
+
+`python3 studio/server.py --snapshot OUT` writes a read-only copy of the UI over the backtest
+reports in OUT to `OUT/studio/`: the same page and metrics, from a `snapshot.json`, with no server.
+`scripts/demo/all.sh` writes one after the demos, so the published demo reports include the
+leaderboard (`studio/index.html` next to `index.html`).
+
 ## Safety
 
 The studio starts processes, so it guards what can reach it:
@@ -56,6 +63,8 @@ The studio starts processes, so it guards what can reach it:
 - `Studio.StubTools`: the metrics on series with known answers; the server against stub tools
   (jobs, streaming, leaderboard, book parsing, kill switch) and its refusals (foreign Host,
   cross-origin and non-JSON posts, malformed arguments, path traversal).
+- `Snapshot`: the static copy keeps backtest reports only, with relative links, and carries the
+  bootstrap interval for the detail view.
 - `Studio.EndToEnd`: the same with the built tools on a synthetic day (`gen_day 7 390`): a backtest
   through the web API gives the total the demos pin (5,610.80 USD), a 10-run sweep gives the pinned
   best (8,551.50 USD) and is deflated as one set of 10 trials, and a full replay reports 0 check

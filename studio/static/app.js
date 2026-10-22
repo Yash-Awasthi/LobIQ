@@ -7,7 +7,17 @@ const bytes = n => n > 1e9 ? fmt(n / 1e9, 1) + ' GB' : n > 1e6 ? fmt(n / 1e6, 1)
 const lines = s => s.split('\n').map(x => x.trim()).filter(Boolean);
 const sign = x => x == null ? '' : x > 0 ? 'pos' : x < 0 ? 'neg' : '';
 
+// A snapshot (hft studio --snapshot) is static files: reads come from snapshot.json, writes are refused.
+const SNAP = !!document.querySelector('meta[name=hft-snapshot]');
+let SNAPDATA = null;
 async function api(path, body) {
+  if (SNAP) {
+    SNAPDATA ??= await (await fetch('snapshot.json')).json();
+    const found = !body && ({'/api/state': SNAPDATA.state, '/api/leaderboard': SNAPDATA.leaderboard, '/api/strategies': SNAPDATA.strategies}[path]
+      ?? (path.startsWith('/api/report?path=') && SNAPDATA.leaderboard.find(r => r.path === decodeURIComponent(path.slice(17)))));
+    if (found) return found;
+    throw new Error('Read-only snapshot: run hft studio locally for this');
+  }
   const r = await fetch(path, body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {});
   const j = await r.json().catch(() => ({error: r.statusText}));
   if (!r.ok) throw new Error(j.error || r.statusText);
@@ -60,8 +70,9 @@ async function refresh() {
   STATE = await api('/api/state');
   const s = STATE;
   const warn = $('#warn');
-  warn.hidden = !!s.bin;
-  warn.innerHTML = 'Tools not built: run <code>cmake --preset release &amp;&amp; cmake --build build/release</code> or set <code>HFT_BIN</code>. Browsing existing reports still works.';
+  warn.hidden = !!s.bin && !SNAP;
+  warn.innerHTML = SNAP ? 'Read-only snapshot of the demo reports, built by CI. Run <code>hft studio</code> locally to run backtests, scrub order books and trade on paper.'
+    : 'Tools not built: run <code>cmake --preset release &amp;&amp; cmake --build build/release</code> or set <code>HFT_BIN</code>. Browsing existing reports still works.';
   const running = s.jobs.filter(j => j.running).length;
   $('#running').hidden = !running;
   $('#running').textContent = running;
@@ -223,7 +234,7 @@ async function detail(r) {
   const el = $('#detail');
   el.hidden = false;
   el.innerHTML = `<div class="row between"><h2>${esc(full.strategy)} on ${esc(full.symbol)} · ${esc(full.label)}</h2>
-    <a href="${full.path}" target="_blank">HTML report</a></div>
+    <a href="${full.path}/report.html" target="_blank">HTML report</a></div>
     <div class="cards">${card('PnL', fmt(+s.total_usd) + ' USD', sign(+s.total_usd))}${card('Spread captured', fmt(+s.spread_usd))}
     ${card('Inventory PnL', fmt(+s.inventory_usd))}${card('Fees', fmt(+s.fees_usd))}${card('Adverse selection', fmt(+s.adverse_usd))}
     ${card('Sharpe, annualised', fmt(full.sharpe_annual))}${card('PSR (SR&gt;0)', fmt(full.psr, 3))}
@@ -311,4 +322,4 @@ $('#live-form').onsubmit = e => { e.preventDefault(); runJob({kind: 'live', minu
 syncAnalysis();
 refresh().then(loadStrategies);
 setInterval(() => { if (STATE?.jobs.some(j => j.running)) refresh(); }, 3000);
-show(location.hash.slice(1) || 'overview');
+show(location.hash.slice(1) || (SNAP ? 'leaderboard' : 'overview'));

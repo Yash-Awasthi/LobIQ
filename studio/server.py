@@ -473,11 +473,46 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(400, {"error": str(e)})
 
 
+def snapshot(out):
+    """Read-only copy of the UI over the reports in OUT, at OUT/studio/: static files, no server."""
+    out = os.path.abspath(out)
+    for k in TREES:
+        TREES[k] = out if k == "out" else os.path.join(out, ".none")
+    dest = os.path.join(out, "studio")
+    os.makedirs(os.path.join(dest, "static"), exist_ok=True)
+    for f in os.listdir(STATIC):
+        shutil.copy(os.path.join(STATIC, f), os.path.join(dest, "static", f))
+    with open(os.path.join(STATIC, "index.html"), encoding="utf-8") as f:
+        page = f.read().replace("<head>", '<head>\n<meta name="hft-snapshot" content="1">', 1)
+    with open(os.path.join(dest, "index.html"), "w", encoding="utf-8") as f:
+        f.write(page)
+    rows = []
+    for d in find_reports():
+        e = report_entry(d, bootstrap=True)
+        if e:
+            rows.append(e)
+    groups = {}
+    for r in rows:
+        groups.setdefault(r["group"], []).append(r)
+    for runs in groups.values():
+        metrics.deflate(runs)
+    # /files/out/X is ../X from OUT/studio/.
+    data = {"state": {"data": "snapshot", "reports": "", "bin": "snapshot", "days": [], "runs": [], "jobs": []},
+            "leaderboard": rows, "strategies": []}
+    text = json.dumps(json.loads(json.dumps(data, default=str), parse_constant=lambda c: None), allow_nan=False)
+    with open(os.path.join(dest, "snapshot.json"), "w", encoding="utf-8") as f:
+        f.write(text.replace('"/files/out/', '"../'))
+    print(f"studio snapshot: {dest}/index.html ({len(rows)} reports)")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="hft studio", description="Local web UI for the hft toolkit.")
     ap.add_argument("--port", type=int, default=int(os.environ.get("HFT_STUDIO_PORT", 8000)))
     ap.add_argument("--bind", default="127.0.0.1", help="address to listen on (0.0.0.0 inside a container)")
+    ap.add_argument("--snapshot", metavar="OUT", help="write a read-only copy of the UI over the reports in OUT and exit")
     a = ap.parse_args(argv)
+    if a.snapshot:
+        return snapshot(a.snapshot)
     srv = ThreadingHTTPServer((a.bind, a.port), Handler)
     srv.daemon_threads = True
     print(f"hft studio on http://127.0.0.1:{srv.server_address[1]}/  (data {DATA}, Ctrl-C stops)", flush=True)
