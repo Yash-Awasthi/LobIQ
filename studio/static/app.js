@@ -180,7 +180,7 @@ function drawLeaderboard() {
 }
 $('#lb-best').onchange = drawLeaderboard;
 
-const PALETTE = ['#2563eb', '#dc2626', '#059669', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
+const PALETTE = [1, 2, 3, 4, 5, 6, 7, 8].map(k => getComputedStyle(document.documentElement).getPropertyValue('--c' + k).trim());
 $('#lb-compare').onclick = () => {
   const runs = LB.filter(r => SEL.has(r.path) && r.curve?.length).slice(0, PALETTE.length);
   const el = $('#compare');
