@@ -47,6 +47,7 @@ PATTERNS = {
     "levels": re.compile(r"^[1-9]\d?$"),
     "recording": re.compile(r"^(?:sample|\d{8}T\d{6})$"),
     "quoter": re.compile(r"^[a-z_][a-z0-9_]*$"),
+    "buckets": re.compile(r"^(?:[2-9]|1[0-9]|20)$"),
 }
 SAMPLE = os.path.join(ROOT, "data", "sample", "pm-20261009T1600-20min")
 
@@ -97,6 +98,10 @@ def hft_args(spec):
     if kind == "book":
         return opt("book", field(spec, "day", "day"), field(spec, "symbol", "symbol"), field(spec, "time", "time"),
                    field(spec, "levels", "levels", False))
+    if kind == "markov":
+        args = ["markov", field(spec, "day", "day"), field(spec, "symbol", "symbol"), "--json"]
+        b = field(spec, "buckets", "buckets", False)
+        return args + ["--buckets", b] if b else args
     if kind == "get":
         return ["get", *field(spec, "days", "days").split(",")]
     if kind in ("live", "paper"):
@@ -432,6 +437,11 @@ class Handler(BaseHTTPRequestHandler):
                 d = resolve(tree, sub)
                 e = report_entry(d, bootstrap=True) if d and os.path.isdir(d) else None
                 return self._json(200, e) if e else self._send(404, {"error": "no report there"})
+            if p == "/api/markov":
+                r = run_hft(hft_args(dict(q, kind="markov")), timeout=600)
+                if r.returncode != 0:
+                    return self._json(400, {"error": (r.stderr or r.stdout).strip()[-500:]})
+                return self._json(200, json.loads(r.stdout))
             if p == "/api/book":
                 spec = dict(q, kind="book")
                 r = run_hft(hft_args(spec), timeout=120)

@@ -3,7 +3,7 @@
 v1.5 (2026-10-13), on bare-metal Arch Linux. Nothing is open ([docs/ROADMAP.md](docs/ROADMAP.md));
 what is deliberately left out is listed there under "Not planned". Changes per version: [CHANGELOG.md](CHANGELOG.md).
 The research-phase log is in
-[STATUS-research.md](https://github.com/Yash-Awasthi/hft/blob/research-archive/archive/docs/STATUS-research.md) at the research-archive tag.
+[STATUS-research.md](https://github.com/Yash-Awasthi/lobiq/blob/research-archive/archive/docs/STATUS-research.md) at the research-archive tag.
 
 ## What runs
 
@@ -15,7 +15,7 @@ Ctrl-C or SIGTERM):
     scripts/pm_live_supervise.sh ~/data/pm-live --record-cap-gb 20 --port 8088 --seconds 21600
 
 On GitHub, CI builds and tests every pull request; on main it also publishes the container image
-(`ghcr.io/yash-awasthi/hft`) and the demo reports (https://yash-awasthi.github.io/hft/); a `v*`
+(`ghcr.io/yash-awasthi/lobiq`) and the demo reports (https://yash-awasthi.github.io/lobiq/); a `v*`
 tag publishes a release with Linux binaries.
 
 ## Verification (2026-10-22, CI, main after hft studio and the risk statistics)

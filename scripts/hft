@@ -39,6 +39,8 @@ Nasdaq ITCH days (DAY is S121025, 2025-12-10 or a store path):
   hft replay DAY                   rebuild every book of the day, check invariants, time it
   hft book DAY SYMBOL HH:MM:SS[.f] [LEVELS]
                                    the order book at that moment (from the nearest checkpoint)
+  hft markov DAY SYMBOL [--json]   Markov chain of the top of book: states, moves between them, and how well
+                                   the morning's counts predict the afternoon's mid moves
   hft surveil DAY [SYMBOL,..]      spoofing, layering and quote-stuffing candidates, with evidence
   hft bestex DAY [SYMBOL,..]       execution quality, Rule 605 style (default: 25 most active)
   hft strategies                   strategies available to backtest
@@ -142,6 +144,14 @@ book)
     [ $# -ge 3 ] && [ $# -le 4 ] || die "usage: hft book DAY SYMBOL HH:MM:SS[.fraction] [LEVELS]"
     need
     exec "$bin/itch_book" "$(store "$1")" "$2" "$3" ${4:+"$4"}
+    ;;
+
+markov)
+    [ $# -ge 2 ] || die "usage: hft markov DAY SYMBOL [--buckets N] [--split HH:MM] [--json]"
+    need
+    s=$(store "$1")
+    shift
+    exec "$bin/itch_markov" "$s" "$@"
     ;;
 
 leadlag)

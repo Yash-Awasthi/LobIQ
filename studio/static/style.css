@@ -98,3 +98,12 @@ details { margin: 4px 0 12px; } summary { cursor: pointer; color: var(--link); m
 ol.steps { padding-left: 20px; } ol.steps li { margin: 6px 0; } ol.steps code { overflow-wrap: anywhere; }
 ul.guide li { padding: 4px 0; }
 form > label.inline { display: flex; margin: 0 0 12px; }
+table.heatmap td.heat { text-align: center; font-variant-numeric: tabular-nums; min-width: 84px; }
+table.heatmap td.heat small { display: block; color: var(--muted); font-size: 11px; }
+svg .node { stroke: var(--line); stroke-width: 1; }
+svg .arc { fill: none; stroke: var(--muted); opacity: .55; }
+svg .arrowhead { fill: var(--muted); }
+svg .cloud { fill: var(--muted); opacity: .3; }
+svg .single { fill: var(--link); }
+svg .mark { fill: var(--neg-fill); stroke: var(--fg); stroke-width: 1; }
+#frontier td:last-child { white-space: normal; }

@@ -8,10 +8,10 @@
 ## 2. Code and dependencies
 
     gh auth login
-    git clone https://github.com/Yash-Awasthi/hft ~/hft
+    git clone https://github.com/Yash-Awasthi/lobiq ~/lobiq
     git clone https://github.com/microsoft/vcpkg ~/vcpkg && ~/vcpkg/bootstrap-vcpkg.sh -disableMetrics
     echo 'export VCPKG_ROOT=~/vcpkg' >> ~/.bashrc && source ~/.bashrc
-    cd ~/hft
+    cd ~/lobiq
     cmake --preset native && cmake --build build/native && ctest --test-dir build/native
     cmake -S fpga -B build/fpga && cmake --build build/fpga && build/fpga/itch_rtl_test
 
@@ -84,3 +84,46 @@ for the new machine (H1-H16).
 
     perf stat -e cpu_core/cycles/,cpu_core/instructions/,cpu_core/cache-misses/,cpu_core/dTLB-load-misses/ taskset -c 4 \
         build/native/bench/book_study ~/data/store-S120825-v50 book:tick 5 3 1
+
+## 7. Last session before removing the install
+
+Everything that needs this machine, in one sitting. Nothing here changes the published latency
+figures unless `--bench` is given: the changes since v1.5 add reporting, a strategy, a tool and the
+studio, and CI's perf gate checks every change for regressions on the hot paths.
+
+1. Update the clone (an existing `~/hft` clone works; the repository moved to `lobiq`):
+
+       cd ~/hft
+       git remote set-url origin https://github.com/Yash-Awasthi/lobiq.git
+       git checkout main && git pull
+
+2. Run the session (about 20 minutes without `--bench`, plus about an hour with it):
+
+       scripts/arch_session.sh            # or: scripts/arch_session.sh --bench
+
+   It builds the native preset, runs the tests, the CLI and security gates, the demos, maker parity
+   on every live recording, `checkpoint --verify` on every store, then on real days: `naive`,
+   `imbalance` and `microprice` per symbol, a walk-forward of the micro-price maker (parameters
+   chosen on `TRAIN`, scored on `TEST`), and the Markov chain's out-of-sample hit rate per symbol.
+   Results go to `docs/results/session-<date>.md`; the logs' directory is printed at the end.
+   `SYMBOLS`, `TRAIN` and `TEST` override the defaults (`SPY,...,TSLA`, `S120825`, `S121025`).
+
+3. Optional, with the studio on real data: `hft studio`, then in the browser the Prediction tab on a
+   few symbols, the leaderboard's portfolio frontier on the session's runs, and a short live run
+   from the Live paper tab (`hft live 15` does the same from the shell). Screenshots of these can
+   replace the ones in `docs/img/`.
+
+4. Commit the results:
+
+       git checkout -b bare-metal-session
+       git add docs/results && git commit -m "Record the bare-metal session results"
+       git push -u origin bare-metal-session && gh pr create --fill
+
+5. Back up what cannot be fetched again. The end of the results page lists the sizes. Live
+   recordings (`~/data/pm-live`, `~/data/live`, `~/data/pm`) are unique; Nasdaq days can be fetched
+   again with `hft get` for as long as Nasdaq publishes them. To an external disk, for example:
+
+       rsync -a --info=progress2 ~/data/pm-live ~/data/live ~/data/pm /run/media/$USER/<disk>/lobiq-data/
+
+   After the install is gone, the container image runs every demo and the studio on any machine
+   with Docker or Podman, and GitHub Codespaces builds everything in the browser.

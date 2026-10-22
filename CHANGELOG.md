@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **LobIQ.** The project is now LobIQ (limit order book intelligence): repository, published site,
+  container image and release archives are named `lobiq`; the command stays `hft`.
+- **Markov chain of the book.** `itch_markov` / `hft markov`: the top of book as spread and bid-share
+  states, the moves between them, and the morning's direction counts predicting the afternoon's mid
+  moves, scored against always guessing one direction. The studio's Prediction tab draws the
+  probabilities as a heat map and the chain as a state graph.
+- **Portfolio frontier.** The leaderboard combines selected runs on a Markowitz frontier: expected
+  daily PnL against risk for every mix, with the least-risk and best-Sharpe weights.
+
 - **hft studio.** `hft studio` serves a local web UI (Python standard library, no build step):
   every `hft` command as a job with streamed output, a leaderboard of every backtest report on disk,
   a per-run view with the equity curve and drawdown, an order-book ladder that steps through a day,
@@ -191,10 +200,10 @@ Usable by others: plug in strategies, run everything without setup, see results 
 - **Sweeps and several symbols.** `itch_backtest --sweep key=v1,v2,...` and comma-separated
   symbols run in parallel with a ranked report and per-parameter totals; `pm_exec --sweep` does
   the same for paper replays.
-- **No setup needed.** Container image `ghcr.io/yash-awasthi/hft` (Docker or Podman) runs the
+- **No setup needed.** Container image `ghcr.io/yash-awasthi/lobiq` (Docker or Podman) runs the
   demos; a dev container (Codespaces) builds everything; `gen_day` writes a synthetic Nasdaq
   session; a 20-minute real recording is bundled in `data/sample`.
-- **Published demo reports** on every commit to main: https://yash-awasthi.github.io/hft/
+- **Published demo reports** on every commit to main: https://yash-awasthi.github.io/lobiq/
 - **Fixes.** The arbitrage executor counted an attempt twice when a failed settlement reopened a
   completed set. The decoder read past an empty numeric field and overflowed on long integer
   prices (found by the property test under UBSan). Pool mapping counters raced when pools grew on

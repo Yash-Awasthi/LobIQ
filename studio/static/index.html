@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>hft studio</title>
+<title>LobIQ studio</title>
 <link rel="stylesheet" href="static/style.css">
 </head>
 <body>
 <header>
-  <strong class="brand">hft studio</strong>
+  <strong class="brand">LobIQ <span class="muted">studio</span></strong>
   <nav id="tabs">
     <button data-tab="overview" class="on">Overview</button>
     <button data-tab="backtest">Backtest</button>
@@ -16,6 +16,7 @@
     <button data-tab="live">Live paper</button>
     <button data-tab="leaderboard">Leaderboard</button>
     <button data-tab="book">Order book</button>
+    <button data-tab="predict">Prediction</button>
     <button data-tab="analysis">Analysis</button>
     <button data-tab="jobs">Jobs <span id="running" class="pill" hidden></span></button>
   </nav>
@@ -36,7 +37,7 @@
         <code>sudo apt install g++ cmake ninja-build git curl zip unzip pkg-config libssl-dev python3</code>, clone the repo,
         set <code>VCPKG_ROOT</code> to a vcpkg checkout, <code>cmake --preset release &amp;&amp; cmake --build build/release</code>,
         <code>export PATH="$PWD/scripts:$PATH"</code>, <code>hft studio</code>. Windows' browser reaches it at http://127.0.0.1:8000/.</li>
-      <li><b>Docker or Podman:</b> <code>docker run --rm -p 8000:8000 ghcr.io/yash-awasthi/hft hft studio --bind 0.0.0.0</code></li>
+      <li><b>Docker or Podman:</b> <code>docker run --rm -p 8000:8000 ghcr.io/yash-awasthi/lobiq hft studio --bind 0.0.0.0</code></li>
       <li><b>Linux:</b> the same cmake commands, or a release archive (<code>bin/hft studio</code>).</li>
     </ol>
   </div>
@@ -162,6 +163,7 @@
       <div class="row">
         <label class="inline"><input type="checkbox" id="lb-best"> best of each sweep only</label>
         <button type="button" id="lb-compare">Compare selected</button>
+        <button type="button" id="lb-frontier">Portfolio frontier</button>
         <button type="button" id="lb-csv">Export CSV</button>
       </div>
     </div>
@@ -171,6 +173,7 @@
     <div class="scroll" id="lb-wrap"></div>
   </div>
   <div id="compare" class="panel" hidden></div>
+  <div id="frontier" class="panel" hidden></div>
   <div id="detail" class="panel" hidden></div>
 </section>
 
@@ -196,6 +199,35 @@
       <div id="ladder"></div>
       <div id="book-stats" class="cards small"></div>
     </div>
+  </div>
+</section>
+
+<section id="predict" class="tab">
+  <div class="grid2">
+    <form id="mk-form" class="panel">
+      <h2>Markov chain of the order book</h2>
+      <p class="muted">The top of the book is in one of a few states: the spread (1, 2, or 3+ ticks) and the bid's
+        share of the best-level size. The chain counts how the book moves between states and, from each state,
+        whether the next price move went up or down. Counted from 09:35 to 12:45, it then predicts every move of
+        the afternoon; the hit rate is scored against always guessing the more frequent direction.</p>
+      <div class="row wrap">
+        <label class="grow">Day <select name="day" required></select></label>
+        <label class="grow">Symbol <input name="symbol" placeholder="AAPL" required pattern="[A-Za-z0-9.]+"></label>
+        <label>Buckets <input name="buckets" type="number" min="2" max="20" value="5"></label>
+      </div>
+      <button>Fit and test</button>
+      <div id="mk-cards" class="cards small"></div>
+    </form>
+    <div class="panel">
+      <h2>P(next move up) by state</h2>
+      <div id="mk-heat"></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>State graph</h2>
+    <p class="muted">Circles: states, sized by time spent in them, coloured by the chance the next move is up.
+      Arrows: each state's most likely next states, thicker for more likely.</p>
+    <div id="mk-graph"></div>
   </div>
 </section>
 

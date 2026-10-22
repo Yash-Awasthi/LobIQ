@@ -1,7 +1,7 @@
 name: image
 
 # Builds the container (tests run inside the build) and runs its demos on every pull request; on
-# main it also publishes ghcr.io/<owner>/hft and the demo reports to GitHub Pages; on v* tags, the image.
+# main it also publishes ghcr.io/<owner>/lobiq and the demo reports to GitHub Pages; on v* tags, the image.
 on:
   push:
     branches: [main]
@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: build
         run: |
-          IMG=ghcr.io/$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')/hft
+          IMG=ghcr.io/$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')/lobiq
           echo "IMG=$IMG" >> "$GITHUB_ENV"
           docker build -t "$IMG:${GITHUB_SHA::12}" .
       - name: demos in the image
