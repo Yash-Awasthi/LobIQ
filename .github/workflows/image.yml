@@ -4,7 +4,7 @@ name: image
 # main it also publishes ghcr.io/<owner>/lobiq and the demo reports to GitHub Pages; on v* tags, the image.
 on:
   push:
-    branches: [main]
+    branches: [master]
     tags: ["v*"]
   pull_request:
 
@@ -46,13 +46,13 @@ jobs:
           name: demo-reports
           path: out
           retention-days: 7
-      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: actions/upload-pages-artifact@v3
         with:
           path: out
 
   pages:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: image
     runs-on: ubuntu-24.04
     permissions:
