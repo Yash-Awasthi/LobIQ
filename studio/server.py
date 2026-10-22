@@ -45,7 +45,10 @@ PATTERNS = {
     "time": re.compile(r"^\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?$"),
     "minutes": re.compile(r"^[1-9]\d{0,3}$"),
     "levels": re.compile(r"^[1-9]\d?$"),
+    "recording": re.compile(r"^(?:sample|\d{8}T\d{6})$"),
+    "quoter": re.compile(r"^[a-z_][a-z0-9_]*$"),
 }
+SAMPLE = os.path.join(ROOT, "data", "sample", "pm-20261009T1600-20min")
 
 
 class BadRequest(Exception):
@@ -96,8 +99,16 @@ def hft_args(spec):
                    field(spec, "levels", "levels", False))
     if kind == "get":
         return ["get", *field(spec, "days", "days").split(",")]
-    if kind == "live":
-        return ["live", field(spec, "minutes", "minutes")]
+    if kind in ("live", "paper"):
+        args = ["live", field(spec, "minutes", "minutes")] if kind == "live" else ["paper", field(spec, "recording", "recording")]
+        q = field(spec, "quoter", "quoter", False)
+        if q:
+            args += ["--quoter", q]
+        if spec.get("arb") is True:
+            args += ["--set", "arb=1"]
+        for kv in strings(spec, "params", "param"):
+            args += ["--set", kv]
+        return args
     if kind == "review":
         return ["review", field(spec, "run", "run")]
     if kind == "demo":
@@ -277,17 +288,59 @@ def leaderboard():
     return rows
 
 
-_STRATEGIES = []
+_TOOL_LISTS = {}
 
 
-def strategies():
-    if not _STRATEGIES:
-        r = run_hft(["strategies"], timeout=30)
-        for line in r.stdout.splitlines():
-            m = re.match(r"^  (\S+)\s+(.*)$", line)
-            if m:
-                _STRATEGIES.append({"name": m[1], "help": m[2]})
-    return _STRATEGIES
+def tool_list(cmd):
+    """Names and help printed by `hft strategies` / `hft quoters`, cached; empty without built tools."""
+    if cmd not in _TOOL_LISTS:
+        out = []
+        if bin_dir():
+            r = run_hft([cmd], timeout=30)
+            for line in r.stdout.splitlines():
+                m = re.match(r"^\s*(\S+)\s+(.*)$", line)
+                if m:
+                    out.append({"name": m[1].replace(":<arg>", ":"), "help": m[2]})
+        if not out:
+            return []  # not cached: tools built later are picked up
+        _TOOL_LISTS[cmd] = out
+    return _TOOL_LISTS[cmd]
+
+
+def catalog():
+    """Strategies and quoters with their keys. The built tools decide what exists; catalog.json adds
+    keys and defaults, and stands in (marked unavailable) before anything is built."""
+    with open(os.path.join(HERE, "catalog.json"), encoding="utf-8") as f:
+        cat = json.load(f)
+    out = {"venues": cat["venues"], "maker_keys": cat["maker_keys"], "recordings": recordings()}
+    for kind, cmd in (("strategies", "strategies"), ("quoters", "quoters")):
+        known = {e["name"]: e for e in cat[kind]}
+        live = tool_list(cmd)
+        if live:
+            out[kind] = [dict(known.get(e["name"], {"keys": {}}), name=e["name"], help=e["help"], available=True) for e in live]
+        else:
+            out[kind] = [dict(e, available=False) for e in cat[kind]]
+    return out
+
+
+def recordings():
+    """Live sessions a paper replay can run on: the bundled 20 minutes, then recorded live runs."""
+    out = [{"id": "sample", "label": "Bundled: Polymarket, 2026-10-09 16:00, 20 minutes"}] if os.path.isdir(SAMPLE) else []
+    out += [{"id": r["run"], "label": f"Live run {r['run']} ({r['status']})"} for r in list_runs()]
+    return out
+
+
+def paper_reports():
+    """Paper replay reports (hft paper), newest first, with their summary."""
+    out = []
+    if not os.path.isdir(REPORTS):
+        return out
+    for name in sorted(os.listdir(REPORTS), reverse=True):
+        d = os.path.join(REPORTS, name)
+        if name.startswith("paper-") and os.path.isfile(os.path.join(d, "summary.csv")):
+            out.append({"name": name, "summary": metrics.read_kv(os.path.join(d, "summary.csv")),
+                        "report": rel(os.path.join(d, "report.html"))})
+    return out
 
 
 def parse_book(text):
@@ -368,8 +421,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._file(os.path.join(STATIC, p[8:]))
             if p == "/api/state":
                 return self._json(200, state())
-            if p == "/api/strategies":
-                return self._json(200, strategies())
+            if p == "/api/catalog":
+                return self._json(200, catalog())
+            if p == "/api/paper":
+                return self._json(200, paper_reports())
             if p == "/api/leaderboard":
                 return self._json(200, leaderboard())
             if p == "/api/report":
@@ -498,7 +553,7 @@ def snapshot(out):
         metrics.deflate(runs)
     # /files/out/X is ../X from OUT/studio/.
     data = {"state": {"data": "snapshot", "reports": "", "bin": "snapshot", "days": [], "runs": [], "jobs": []},
-            "leaderboard": rows, "strategies": []}
+            "leaderboard": rows, "catalog": catalog(), "paper": []}
     text = json.dumps(json.loads(json.dumps(data, default=str), parse_constant=lambda c: None), allow_nan=False)
     with open(os.path.join(dest, "snapshot.json"), "w", encoding="utf-8") as f:
         f.write(text.replace('"/files/out/', '"../'))

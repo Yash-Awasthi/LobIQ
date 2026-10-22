@@ -12,55 +12,88 @@
   <nav id="tabs">
     <button data-tab="overview" class="on">Overview</button>
     <button data-tab="backtest">Backtest</button>
+    <button data-tab="paper">Paper replay</button>
+    <button data-tab="live">Live paper</button>
     <button data-tab="leaderboard">Leaderboard</button>
     <button data-tab="book">Order book</button>
     <button data-tab="analysis">Analysis</button>
-    <button data-tab="live">Live paper</button>
     <button data-tab="jobs">Jobs <span id="running" class="pill" hidden></span></button>
   </nav>
+  <button type="button" id="theme" class="theme" title="Switch theme">Theme: auto</button>
 </header>
 <main>
 
 <section id="overview" class="tab on">
   <div id="warn" class="banner" hidden></div>
+  <div id="setup" class="panel" hidden>
+    <h2>Build the tools first</h2>
+    <p>The studio drives the C++ tools; until they are built it can only browse reports already on disk.
+      The tools need Linux (or a Linux container). Pick one:</p>
+    <ol class="steps">
+      <li><b>No install:</b> open the repository in GitHub Codespaces (the badge in the README). The container builds
+        everything; then run <code>hft demo &amp;&amp; hft studio</code> and open the forwarded port 8000.</li>
+      <li><b>Windows:</b> <code>wsl --install -d Ubuntu</code>, restart, then inside Ubuntu:
+        <code>sudo apt install g++ cmake ninja-build git curl zip unzip pkg-config libssl-dev python3</code>, clone the repo,
+        set <code>VCPKG_ROOT</code> to a vcpkg checkout, <code>cmake --preset release &amp;&amp; cmake --build build/release</code>,
+        <code>export PATH="$PWD/scripts:$PATH"</code>, <code>hft studio</code>. Windows' browser reaches it at http://127.0.0.1:8000/.</li>
+      <li><b>Docker or Podman:</b> <code>docker run --rm -p 8000:8000 ghcr.io/yash-awasthi/hft hft studio --bind 0.0.0.0</code></li>
+      <li><b>Linux:</b> the same cmake commands, or a release archive (<code>bin/hft studio</code>).</li>
+    </ol>
+  </div>
   <div class="cards" id="cards"></div>
   <div class="grid2">
     <div class="panel">
-      <h2>Nasdaq days</h2>
-      <table id="days"><thead><tr><th>Day</th><th>Date</th><th class="n">Symbols</th><th class="n">Size</th><th></th></tr></thead><tbody></tbody></table>
-      <form id="get-form" class="row">
-        <input name="days" placeholder="2025-12-10" pattern="[0-9S,\-]+" required aria-label="Days to download">
-        <button>Download day</button>
-      </form>
-      <p class="muted">Downloads from Nasdaq, verifies, builds the store and checkpoints (several GB per day).</p>
+      <h2>What you can do here</h2>
+      <ul class="plain guide">
+        <li><b>Backtest</b>: a strategy on a past Nasdaq day, order by order, with your orders waiting in the real queues.</li>
+        <li><b>Paper replay</b>: a quote model on a recorded live prediction-market session, through risk checks,
+          an order manager and a simulated venue with latency and fees.</li>
+        <li><b>Live paper</b>: the same on the live feed, now; no order is ever sent.</li>
+        <li><b>Leaderboard</b>: every backtest ranked by risk-adjusted return, with the deflated Sharpe ratio.</li>
+        <li><b>Order book</b> and <b>Analysis</b>: any book at any second; surveillance, execution quality, studies.</li>
+      </ul>
     </div>
     <div class="panel">
       <h2>Quick start</h2>
-      <p>No data yet? Run every demo on bundled data: a synthetic Nasdaq session through two strategies and a
-        10-run sweep, and paper execution on a 20-minute live recording. Results land in the leaderboard.</p>
+      <p>No data yet? The demos need none: a synthetic Nasdaq session through two strategies and a 10-run sweep,
+        and paper execution on the bundled 20-minute live recording. Results land in the leaderboard.</p>
       <button id="demo">Run demos</button>
       <h2>Recent jobs</h2>
       <ul id="recent" class="plain"></ul>
     </div>
+  </div>
+  <div class="panel">
+    <h2>Nasdaq days</h2>
+    <table id="days"><thead><tr><th>Day</th><th>Date</th><th class="n">Symbols</th><th class="n">Size</th><th></th></tr></thead><tbody></tbody></table>
+    <form id="get-form" class="row">
+      <input name="days" placeholder="2025-12-10" pattern="[0-9S,\-]+" required aria-label="Days to download">
+      <button>Download day</button>
+    </form>
+    <p class="muted">Downloads a full TotalView-ITCH day from Nasdaq, verifies it and builds the store and checkpoints (several GB).</p>
   </div>
 </section>
 
 <section id="backtest" class="tab">
   <div class="grid2">
     <form id="bt-form" class="panel">
-      <h2>Queue-position backtest</h2>
-      <label>Day <select name="day" required></select></label>
-      <label>Symbols <input name="symbols" placeholder="INTC,AAPL" required pattern="[A-Z0-9.,]+"></label>
+      <h2>Backtest on a past Nasdaq day</h2>
+      <div class="row wrap">
+        <label class="grow">Day <select name="day" required></select></label>
+        <label class="grow">Symbols <input name="symbols" placeholder="INTC or INTC,AAPL" required pattern="[A-Za-z0-9.,]+"></label>
+      </div>
       <label>Strategy <select name="strategy" required></select></label>
       <p id="strat-help" class="muted"></p>
-      <label>Parameters <span class="muted">key=value, one per line</span>
-        <textarea name="params" rows="4" placeholder="maker_rebate=2000&#10;taker_fee=3000&#10;market_data_ns=50000&#10;order_entry_ns=20000"></textarea></label>
-      <label>Sweep <span class="muted">key=v1,v2,... per line; every combination runs</span>
-        <textarea name="sweeps" rows="2" placeholder="threshold=0.2,0.4,0.6"></textarea></label>
+      <label id="arg-label" hidden>Argument <input name="arg" placeholder="policy.bin"></label>
+      <fieldset><legend>Strategy parameters</legend><div id="bt-params" class="params"></div></fieldset>
+      <label>Venue and latency <select name="venue"></select></label>
+      <details>
+        <summary>Sweep and extra keys</summary>
+        <label>Sweep <span class="muted">key=v1,v2,... one per line; every combination runs in parallel</span>
+          <textarea name="sweeps" rows="2" placeholder="threshold=0.2,0.4,0.6&#10;size=100,200"></textarea></label>
+        <label>Extra keys <span class="muted">key=value, one per line; override anything above</span>
+          <textarea name="extra" rows="3" placeholder="max_position=1000&#10;hysteresis_ticks=1"></textarea></label>
+      </details>
       <button>Run backtest</button>
-      <p class="muted">Orders join the real queues after the order-entry latency; the strategy sees the market a
-        market-data latency late. Venue keys: tick, maker_rebate, taker_fee, fill_rule, market_data_ns,
-        order_entry_ns, max_position, max_order, hysteresis_ticks...</p>
     </form>
     <div class="panel">
       <h2>Output</h2>
@@ -69,6 +102,57 @@
       <div id="bt-result"></div>
     </div>
   </div>
+</section>
+
+<section id="paper" class="tab">
+  <div class="grid2">
+    <form id="paper-form" class="panel">
+      <h2>Paper replay of a recorded live session</h2>
+      <p class="muted">Replays real order-book messages recorded from Polymarket's live feed. The market makers quote on
+        every token with the chosen quote model; orders go through pre-trade risk, the order manager and a simulated venue
+        (91 ms latency with jitter, queues, fees, settlement). Same decisions as live, bit for bit.</p>
+      <label>Recording <select name="recording" required></select></label>
+      <label>Quote model <select name="quoter"></select></label>
+      <p id="quoter-help" class="muted"></p>
+      <fieldset><legend>Maker parameters</legend><div id="paper-params" class="params"></div></fieldset>
+      <label class="inline"><input type="checkbox" name="arb"> also run the arbitrage executor</label>
+      <button>Run paper replay</button>
+    </form>
+    <div class="panel">
+      <h2>Output</h2>
+      <div id="paper-status" class="muted">Nothing running.</div>
+      <pre id="paper-log" class="log"></pre>
+      <div id="paper-result"></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Past paper replays</h2>
+    <div class="scroll" id="paper-list"></div>
+  </div>
+</section>
+
+<section id="live" class="tab">
+  <div class="grid2">
+    <form id="live-form" class="panel">
+      <h2>Paper trading on the live feed</h2>
+      <p>Connects to Polymarket's live order books, rebuilds them in microseconds and runs the makers through risk, the
+        order manager and the simulated venue. <b>No order is ever sent.</b> The run is recorded, so it can be replayed
+        bit for bit afterwards.</p>
+      <div class="row wrap">
+        <label>Minutes <input name="minutes" type="number" min="1" max="1440" value="30"></label>
+        <label class="grow">Quote model <select name="quoter"></select></label>
+      </div>
+      <label class="inline"><input type="checkbox" name="arb"> also run the arbitrage executor</label>
+      <button>Start live run</button>
+      <p class="muted">Needs internet access. After a kill switch trips, the next run needs <code>--reset-kill</code> on the command line.</p>
+      <p><a href="http://127.0.0.1:8088/" target="_blank" rel="noopener">Open the live dashboard in a new tab</a></p>
+    </form>
+    <div class="panel">
+      <h2>Live runs</h2>
+      <table id="runs"><thead><tr><th>Run</th><th>Status</th><th class="n">PnL USD</th><th class="n">Orders</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+  <div class="panel"><iframe id="dash" title="live dashboard" src="about:blank"></iframe></div>
 </section>
 
 <section id="leaderboard" class="tab">
@@ -95,7 +179,7 @@
     <form id="book-form" class="panel">
       <h2>Order book at any moment</h2>
       <label>Day <select name="day" required></select></label>
-      <label>Symbol <input name="symbol" placeholder="AAPL" required pattern="[A-Z0-9.]+"></label>
+      <label>Symbol <input name="symbol" placeholder="AAPL" required pattern="[A-Za-z0-9.]+"></label>
       <label>Time (ET) <input name="time" value="10:00:00" required pattern="\d{2}:\d{2}:\d{2}(\.\d{1,9})?"></label>
       <label>Levels <input name="levels" type="number" min="1" max="99" value="10"></label>
       <div class="row">
@@ -138,26 +222,6 @@
     <div id="an-status" class="muted">Pick a tool.</div>
     <div id="an-out" class="md"></div>
   </div>
-</section>
-
-<section id="live" class="tab">
-  <div class="grid2">
-    <div class="panel">
-      <h2>Paper market making on the live feed</h2>
-      <p>Market makers and an arbitrage executor on Polymarket's live books, through pre-trade risk, an order manager
-        and a simulated venue. <b>No order is ever sent.</b></p>
-      <form id="live-form" class="row">
-        <label class="inline">Minutes <input name="minutes" type="number" min="1" max="1440" value="30"></label>
-        <button>Start live run</button>
-      </form>
-      <p><a href="http://127.0.0.1:8088/" target="_blank" rel="noopener">Open the live dashboard (latency, positions, PnL)</a></p>
-    </div>
-    <div class="panel">
-      <h2>Past runs</h2>
-      <table id="runs"><thead><tr><th>Run</th><th>Status</th><th class="n">PnL USD</th><th class="n">Orders</th><th></th></tr></thead><tbody></tbody></table>
-    </div>
-  </div>
-  <div class="panel"><iframe id="dash" title="live dashboard" src="about:blank"></iframe></div>
 </section>
 
 <section id="jobs" class="tab">

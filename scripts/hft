@@ -55,6 +55,10 @@ Prediction market, paper only (no order is ever sent):
                                    after a kill, the next run needs --reset-kill
   hft runs                         past live runs
   hft review RUN                   replay a recorded run and write its HTML report
+  hft paper [RUN|sample] [pm_exec options]
+                                   replay a recorded live session (yours, or the bundled 20 minutes)
+                                   through the makers, risk and simulated venue; e.g. --quoter skew --set arb=1
+  hft quoters                      quote models available to live and paper runs
 
 Other:
   hft studio [--port N]            web UI on localhost: run all of the above, leaderboard, book viewer
@@ -177,6 +181,23 @@ review)
     [ -d "$r" ] || die "no run $1 (hft runs lists them)"
     "$bin/pm_exec" --replay "$r" --config "$root/config/exec.cfg" --report "$r/report"
     echo "report: $r/report/report.html"
+    ;;
+
+paper)
+    need
+    rec=sample
+    if [ $# -gt 0 ] && [[ $1 != -* ]]; then rec=$1; shift; fi
+    if [ "$rec" = sample ]; then r="$root/data/sample/pm-20261009T1600-20min"; else r=$rec; [ -d "$r" ] || r="$data/live/$rec"; fi
+    [ -d "$r" ] || die "no recording $rec ('hft runs' lists live runs; 'sample' is the bundled 20 minutes)"
+    dir="$reports/paper-$(stamp)"
+    [ -e "$dir" ] && dir="$dir-$$"
+    "$bin/pm_exec" --replay "$r" --config "$root/config/exec.cfg" --report "$dir" "$@"
+    echo "report: $dir/report.html"
+    ;;
+
+quoters)
+    need
+    { "$bin/pm_exec" --quoter '?' 2>&1 || true; } | sed -n 's/^  //p'  # an unknown name lists them
     ;;
 
 demo)

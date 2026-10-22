@@ -24,6 +24,14 @@
   every text colour at 4.5:1 contrast or more.
 - **Published leaderboard.** The demos write a read-only studio snapshot next to the reports, so the
   CI-published site carries the leaderboard; pull-request runs attach the reports as an artifact.
+- **Paper replays.** `hft paper [RUN|sample] [pm_exec options]` replays a recorded live session
+  (the bundled 20 minutes or any live run) with any quote model, report in `$HFT_REPORTS/paper-*`;
+  `hft quoters` lists the models. The studio has a Paper replay tab for it, and live runs take a quote
+  model and the arbitrage switch too.
+- **A usable studio before and after a build.** Strategy and quoter lists fall back to
+  `studio/catalog.json` (checked against the tools in CI); each strategy gets an input per parameter
+  and a venue preset; the Overview explains how to build or run the tools on Windows, in Codespaces
+  or in a container; a theme button cycles auto, light and dark; tabs follow back and forward.
 - **Fixes.** The studio read a refused request's body only after refusing, which reset the
   connection; two backtests started in the same second shared a report directory.
 
