@@ -48,6 +48,18 @@ echo "  ask   100.0300         500"
 echo "  bid   100.0100         200"
 echo "  bid   100.0000         900"
 """,
+    # Lists quoters on an unknown name; a replay writes the paper report pm_exec writes.
+    "pm_exec": r"""#!/usr/bin/env bash
+for ((i=1; i<=$#; i++)); do
+  j=$((i+1))
+  [ "${!i}" = --quoter ] && [ "${!j}" = "?" ] && { printf 'unknown quoter ?; registered:\n  logit_as     AS in logit units\n  skew         example\n' >&2; exit 2; }
+  [ "${!i}" = --report ] && dir=${!j}
+done
+mkdir -p "$dir"
+printf 'key,value\nledger_pnl_usd,"-12.50"\norders,"40"\nmaker_fills,"7"\ndecision_hash_v2,"0123456789abcdef"\n' > "$dir/summary.csv"
+echo "<title>Paper execution replay</title>args: $*" > "$dir/report.html"
+echo "exec orders 40 ledger_pnl_usd -12.50" >&2
+""",
     "itch_surveil": "#!/usr/bin/env bash\nprintf '# Surveillance report\\n\\n## Summary\\n\\n| | Candidates |\\n|---|---|\\n| Spoofing | 0 |\\n'\n",
 }
 
@@ -203,9 +215,47 @@ class Server(unittest.TestCase):
         self.assertEqual(s["days"][0]["date"], "2025-01-01")
         self.assertEqual(s["runs"][0]["run"], "20261012T172311")
 
-    def test_strategies(self):
-        names = [s["name"] for s in call("/api/strategies")[1]]
-        self.assertIn("naive", names)
+    def test_catalog_from_the_tools(self):
+        _, c = call("/api/catalog")
+        names = {e["name"]: e for e in c["strategies"]}
+        if not REAL_BIN:
+            self.assertEqual(set(names), {"naive", "dp:"})  # what the stub tool lists, nothing more
+        self.assertTrue(names["naive"]["available"])
+        self.assertEqual(names["naive"]["keys"], {"size": 100, "max_inventory": 500})
+        self.assertEqual({q["name"] for q in c["quoters"]}, {"logit_as", "skew"})
+        self.assertTrue(c["venues"])
+        self.assertEqual(c["recordings"][0]["id"], "sample")
+
+    def test_catalog_before_a_build(self):
+        bin_dir, cache = server.bin_dir, dict(server._TOOL_LISTS)
+        server.bin_dir, server._TOOL_LISTS = (lambda: None), {}
+        try:
+            c = server.catalog()
+        finally:
+            server.bin_dir, server._TOOL_LISTS = bin_dir, cache
+        self.assertIn("microprice", [e["name"] for e in c["strategies"]])
+        self.assertFalse(any(e["available"] for e in c["strategies"] + c["quoters"]))
+
+    def test_paper_replay_job(self):
+        v = run_job({"kind": "paper", "recording": "sample", "quoter": "skew", "arb": True, "params": ["gamma=0.2"]})
+        self.assertEqual(v["rc"], 0, v["lines"])
+        self.assertEqual(v["args"][:2], ["paper", "sample"])
+        self.assertTrue(v["report"].startswith("/files/reports/paper-"), v)
+        rows = call("/api/paper")[1]
+        mine = next(r for r in rows if v["report"].endswith(r["name"]))
+        self.assertIn("ledger_pnl_usd", mine["summary"])
+        if not REAL_BIN:
+            _, html = call(v["report"] + "/report.html", raw=True)
+            self.assertIn(b"--quoter skew --set arb=1 --set gamma=0.2", html)
+
+    def test_live_and_paper_arguments(self):
+        self.assertEqual(server.hft_args({"kind": "live", "minutes": "5", "quoter": "skew", "arb": True}),
+                         ["live", "5", "--quoter", "skew", "--set", "arb=1"])
+        self.assertEqual(server.hft_args({"kind": "paper", "recording": "20261012T172311"}), ["paper", "20261012T172311"])
+        for bad in ({"kind": "paper", "recording": "../x"}, {"kind": "paper", "recording": "sample", "quoter": "skew;id"},
+                    {"kind": "live", "minutes": "5", "params": ["--run=/tmp"]}):
+            with self.assertRaises(server.BadRequest):
+                server.hft_args(bad)
 
     def test_backtest_job_to_leaderboard(self):
         v = run_job({"kind": "backtest", "day": "2025-01-01", "symbols": "QRSIM", "strategy": "naive",
@@ -294,6 +344,20 @@ class EndToEnd(unittest.TestCase):
             self.assertAlmostEqual(float(s["psr"]), r["psr"], places=5)
             self.assertAlmostEqual(float(s["dsr"]), r["dsr"], places=5)
             self.assertAlmostEqual(float(s["max_drawdown_usd"]), r["max_drawdown_usd"], places=2)
+
+    def test_catalog_matches_the_tools(self):
+        with open(os.path.join(HERE, "catalog.json")) as f:
+            cat = json.load(f)
+        for kind in ("strategies", "quoters"):
+            built = {e["name"] for e in server.tool_list(kind)}
+            self.assertEqual({e["name"] for e in cat[kind]}, built, kind)
+
+    def test_paper_replay_is_the_demo(self):
+        v = run_job({"kind": "paper", "recording": "sample", "arb": True})
+        self.assertEqual(v["rc"], 0, v["lines"][-5:])
+        rows = call("/api/paper")[1]
+        mine = next(r for r in rows if v["report"].endswith(r["name"]))
+        self.assertEqual(mine["summary"]["decision_hash_v2"], "510bf844d3995b0b")  # scripts/demo/paper.sh
 
     def test_replay_job(self):
         v = run_job({"kind": "replay", "day": "S010125"})

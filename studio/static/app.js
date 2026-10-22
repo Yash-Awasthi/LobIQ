@@ -13,7 +13,8 @@ let SNAPDATA = null;
 async function api(path, body) {
   if (SNAP) {
     SNAPDATA ??= await (await fetch('snapshot.json')).json();
-    const found = !body && ({'/api/state': SNAPDATA.state, '/api/leaderboard': SNAPDATA.leaderboard, '/api/strategies': SNAPDATA.strategies}[path]
+    const found = !body && ({'/api/state': SNAPDATA.state, '/api/leaderboard': SNAPDATA.leaderboard, '/api/catalog': SNAPDATA.catalog,
+      '/api/paper': SNAPDATA.paper}[path]
       ?? (path.startsWith('/api/report?path=') && SNAPDATA.leaderboard.find(r => r.path === decodeURIComponent(path.slice(17)))));
     if (found) return found;
     throw new Error('Read-only snapshot: run hft studio locally for this');
@@ -23,6 +24,19 @@ async function api(path, body) {
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
 }
+
+// Theme: auto follows the system; the choice is a per-browser convenience.
+const THEMES = ['auto', 'light', 'dark'];
+function setTheme(t) {
+  if (t === 'auto') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = t;
+  $('#theme').textContent = 'Theme: ' + t;
+  try { localStorage.setItem('hft-theme', t); } catch {}
+}
+let savedTheme = 'auto';
+try { savedTheme = localStorage.getItem('hft-theme') || 'auto'; } catch {}
+setTheme(THEMES.includes(savedTheme) ? savedTheme : 'auto');
+$('#theme').onclick = () => setTheme(THEMES[(THEMES.indexOf($('#theme').textContent.slice(7)) + 1) % 3]);
 
 function toast(msg, bad) {
   const t = document.createElement('div');
@@ -37,10 +51,12 @@ function show(tab) {
   $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   $$('.tab').forEach(s => s.classList.toggle('on', s.id === tab));
   if (tab === 'leaderboard') loadLeaderboard();
+  if (tab === 'paper') loadPaper();
   if (tab === 'live' && STATE?.jobs.some(j => j.running && j.spec.kind === 'live')) $('#dash').src = 'http://127.0.0.1:8088/';
   history.replaceState(null, '', '#' + tab);
 }
 $$('#tabs button').forEach(b => b.onclick = () => show(b.dataset.tab));
+window.addEventListener('hashchange', () => show(location.hash.slice(1) || 'overview'));
 
 // A job: start it, stream its output into a <pre>, resolve with its final view.
 function runJob(spec, logEl, statusEl) {
@@ -70,9 +86,9 @@ async function refresh() {
   STATE = await api('/api/state');
   const s = STATE;
   const warn = $('#warn');
-  warn.hidden = !!s.bin && !SNAP;
-  warn.innerHTML = SNAP ? 'Read-only snapshot of the demo reports, built by CI. Run <code>hft studio</code> locally to run backtests, scrub order books and trade on paper.'
-    : 'Tools not built: run <code>cmake --preset release &amp;&amp; cmake --build build/release</code> or set <code>HFT_BIN</code>. Browsing existing reports still works.';
+  warn.hidden = !SNAP;
+  warn.innerHTML = 'Read-only snapshot of the demo reports, built by CI. Run <code>hft studio</code> locally to run backtests, replays and live paper trading.';
+  $('#setup').hidden = SNAP || !!s.bin;
   const running = s.jobs.filter(j => j.running).length;
   $('#running').hidden = !running;
   $('#running').textContent = running;
@@ -110,23 +126,47 @@ async function refresh() {
 $('#get-form').onsubmit = e => { e.preventDefault(); runJob({kind: 'get', days: e.target.days.value.trim()}, $('#job-log')); show('jobs'); };
 $('#demo').onclick = () => { runJob({kind: 'demo'}, $('#job-log')).then(() => toast('Demos finished: see the leaderboard')); show('jobs'); };
 
-// Backtest.
-async function loadStrategies() {
-  const list = await api('/api/strategies').catch(() => []);
-  const sel = $('#bt-form [name=strategy]');
-  sel.innerHTML = list.map(s => `<option value="${esc(s.name.replace(':<arg>', ':'))}" data-help="${esc(s.help)}">${esc(s.name)}</option>`).join('');
-  sel.onchange = () => $('#strat-help').textContent = sel.selectedOptions[0]?.dataset.help || '';
-  sel.value = list.some(s => s.name === 'avellaneda_stoikov') ? 'avellaneda_stoikov' : sel.value;
-  sel.onchange();
+// Strategies, quote models, venues and recordings, from the tools or (before a build) the catalog.
+let CAT = null;
+const paramInputs = (el, keys) => el.innerHTML = Object.entries(keys).map(([k, v]) =>
+  `<label>${esc(k)} <input name="${esc(k)}" value="${esc(v)}" data-default="${esc(v)}" inputmode="decimal"></label>`).join('')
+  || '<p class="muted">No parameters.</p>';
+// Only keys changed from their default go on the command line, so the tool's own defaults stay authoritative.
+const changed = el => $$('input', el).filter(i => i.value.trim() !== i.dataset.default && i.value.trim() !== '')
+  .map(i => `${i.name}=${i.value.trim()}`);
+async function loadCatalog() {
+  CAT = await api('/api/catalog').catch(() => null);
+  if (!CAT) return;
+  const opt = e => `<option value="${esc(e.name)}"${e.available ? '' : ' data-off="1"'}>${esc(e.name)}${e.available ? '' : ' (not built)'}</option>`;
+  const bs = $('#bt-form [name=strategy]');
+  bs.innerHTML = CAT.strategies.map(opt).join('');
+  bs.onchange = () => {
+    const e = CAT.strategies.find(x => x.name === bs.value) || {keys: {}, help: ''};
+    $('#strat-help').textContent = e.help;
+    $('#arg-label').hidden = !bs.value.endsWith(':');
+    paramInputs($('#bt-params'), e.keys);
+  };
+  bs.value = CAT.strategies.some(x => x.name === 'microprice') ? 'microprice' : bs.value;
+  bs.onchange();
+  $('#bt-form [name=venue]').innerHTML = CAT.venues.map((v, i) => `<option value="${i}">${esc(v.name)}</option>`).join('');
+  for (const sel of $$('select[name=quoter]')) {
+    sel.innerHTML = CAT.quoters.map(opt).join('');
+    sel.onchange = () => { const q = CAT.quoters.find(x => x.name === sel.value); if (sel.form.id === 'paper-form') $('#quoter-help').textContent = q?.help || ''; };
+    sel.onchange();
+  }
+  paramInputs($('#paper-params'), CAT.maker_keys);
+  $('#paper-form [name=recording]').innerHTML = CAT.recordings.map(r => `<option value="${esc(r.id)}">${esc(r.label)}</option>`).join('')
+    || '<option value="">No recordings: the bundled sample is missing</option>';
 }
 
 $('#bt-form').onsubmit = async e => {
   e.preventDefault();
   const f = e.target;
   let strategy = f.strategy.value;
-  if (strategy.endsWith(':')) strategy += prompt('Argument for ' + strategy) ?? '';
+  if (strategy.endsWith(':')) strategy += f.arg.value.trim();
+  const venue = Object.entries(CAT?.venues[+f.venue.value]?.params || {}).map(([k, v]) => `${k}=${v}`);
   const spec = {kind: 'backtest', day: f.day.value, symbols: f.symbols.value.trim().toUpperCase(), strategy,
-    params: lines(f.params.value), sweeps: lines(f.sweeps.value)};
+    params: [...venue, ...changed($('#bt-params')), ...lines(f.extra.value)], sweeps: lines(f.sweeps.value)};
   $('#bt-result').innerHTML = '';
   const job = await runJob(spec, $('#bt-log'), $('#bt-status'));
   if (!job?.report) return;
@@ -317,9 +357,40 @@ $('#an-form').onsubmit = async e => {
   if (job) $('#an-out').innerHTML = job.lines.some(l => /^[#|]/.test(l)) ? markdown(job.lines.join('\n')) : `<pre class="log">${esc(job.lines.join('\n'))}</pre>`;
 };
 
-$('#live-form').onsubmit = e => { e.preventDefault(); runJob({kind: 'live', minutes: e.target.minutes.value}, $('#job-log')); toast('Live run started; the dashboard opens below'); setTimeout(() => $('#dash').src = 'http://127.0.0.1:8088/', 3000); };
+$('#live-form').onsubmit = e => {
+  e.preventDefault();
+  const f = e.target;
+  runJob({kind: 'live', minutes: f.minutes.value, quoter: f.quoter.value, arb: f.arb.checked}, $('#job-log'));
+  toast('Live run started; the dashboard opens below');
+  setTimeout(() => $('#dash').src = 'http://127.0.0.1:8088/', 3000);
+};
+
+// Paper replay of a recorded live session.
+const PAPER_KEYS = [['ledger_pnl_usd', 'PnL USD'], ['orders', 'Orders'], ['maker_fills', 'Maker fills'], ['taker_fills', 'Taker fills'],
+  ['arb_windows', 'Arb windows'], ['arb_attempts', 'Arb attempts'], ['kill', 'Kill switch']];
+const paperCards = s => `<div class="cards">${PAPER_KEYS.filter(([k]) => k in s).map(([k, h]) =>
+  `<div class="card"><div class="k">${h}</div><div class="v ${k === 'ledger_pnl_usd' ? sign(parseFloat(s[k])) : ''}">${esc(s[k])}</div></div>`).join('')}</div>`;
+async function loadPaper() {
+  const list = await api('/api/paper').catch(() => []);
+  $('#paper-list').innerHTML = list.length ? `<table><thead><tr><th>Replay</th>${PAPER_KEYS.map(([, h]) => `<th>${h}</th>`).join('')}<th></th></tr></thead><tbody>
+    ${list.map(r => `<tr><td>${esc(r.name)}</td>${PAPER_KEYS.map(([k]) => `<td class="${k === 'ledger_pnl_usd' ? sign(parseFloat(r.summary[k])) : ''}">${esc(r.summary[k] ?? '–')}</td>`).join('')}
+    <td>${r.report ? `<a href="${r.report}" target="_blank">report</a>` : ''}</td></tr>`).join('')}</tbody></table>`
+    : '<p class="muted">No paper replays yet.</p>';
+}
+$('#paper-form').onsubmit = async e => {
+  e.preventDefault();
+  const f = e.target;
+  $('#paper-result').innerHTML = '';
+  const job = await runJob({kind: 'paper', recording: f.recording.value, quoter: f.quoter.value, arb: f.arb.checked,
+    params: changed($('#paper-params'))}, $('#paper-log'), $('#paper-status'));
+  if (!job) return;
+  await loadPaper();
+  const name = job.report?.split('/').filter(Boolean).at(-1);
+  const mine = (await api('/api/paper').catch(() => [])).find(r => r.name === name);
+  if (mine) $('#paper-result').innerHTML = paperCards(mine.summary) + `<p><a href="${mine.report}" target="_blank">Open the HTML report</a>: PnL over time, latency per stage, every arbitrage window.</p>`;
+};
 
 syncAnalysis();
-refresh().then(loadStrategies);
+refresh().then(loadCatalog).then(loadPaper);
 setInterval(() => { if (STATE?.jobs.some(j => j.running)) refresh(); }, 3000);
 show(location.hash.slice(1) || (SNAP ? 'leaderboard' : 'overview'));

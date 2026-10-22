@@ -8,6 +8,14 @@ hft studio                       # http://127.0.0.1:8000/  (--port N, or HFT_STU
 hft studio --bind 0.0.0.0        # inside a container; publish the port with -p 8000:8000
 ```
 
+Strategies and quote models come from the built tools; before a build, `studio/catalog.json` lists
+the built-in ones with their keys and defaults (marked "not built"), and `Studio.EndToEnd` checks
+that it names exactly what the tools register. A parameter left at its default is not passed, so the
+tool's own default stays the one that counts. Without built tools the Overview shows how to get
+them: GitHub Codespaces, WSL on Windows, the container image or a Linux build.
+
+The header's theme button cycles auto (the system setting), light and dark.
+
 It reads the same places as `hft`: stores and live runs under `HFT_DATA` (default `~/data`),
 backtest reports under `HFT_REPORTS` (default `$HFT_DATA/reports`), demo output under `out/`.
 
@@ -16,11 +24,12 @@ backtest reports under `HFT_REPORTS` (default `$HFT_DATA/reports`), demo output 
 | Page | What it does | Runs |
 |---|---|---|
 | Overview | Stores on disk, live runs, recent jobs; download a day; run the demos | `hft get`, `hft demo` |
-| Backtest | Day, symbols, strategy, venue parameters and sweep axes; output streams as it runs, then the run's metrics | `hft backtest` |
+| Backtest | A past Nasdaq day: day, symbols, strategy with an input per parameter, a venue and latency preset, optional sweep axes and extra keys; output streams as it runs, then the run's metrics | `hft backtest` |
+| Paper replay | A recorded live prediction-market session (the bundled 20 minutes or any live run): quote model, maker parameters, arbitrage on or off; the run's PnL, orders and fills, and every past replay | `hft paper` |
 | Leaderboard | Every backtest report on disk with risk-adjusted metrics, sortable; a row opens the equity curve, drawdown and cost breakdown | reads `summary.csv`, `pnl_minutes.csv`, `fills.csv` |
 | Order book | Depth ladder of any symbol at any moment, stepping one second at a time; mid, spread, L1 micro-price and depth imbalance | `hft book` |
 | Analysis | Surveillance, execution quality, full-day replay, lead-lag and the microstructure study, Markdown output rendered as tables | `hft surveil`, `bestex`, `replay`, `leadlag`, `study` |
-| Live paper | Start a paper run on the live feed, embed its dashboard, list past runs, review a run, trip a run's kill switch | `hft live`, `hft review` |
+| Live paper | Start a paper run on the live feed with a chosen quote model, embed its dashboard, list past runs, review a run, trip a run's kill switch | `hft live`, `hft review` |
 | Jobs | Every job with its command, exit code, time, log and report link; stop a running one | |
 
 ## Metrics

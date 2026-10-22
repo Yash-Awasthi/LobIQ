@@ -1,0 +1,27 @@
+{
+  "_note": "Names, help and keys of the built-in strategies and quoters, shown before the tools are built. Studio.EndToEnd checks the names against itch_backtest and pm_exec.",
+  "strategies": [
+    {"name": "naive", "help": "joins the best bid and ask", "keys": {"size": 100, "max_inventory": 500}},
+    {"name": "imbalance", "help": "joins the best, steps back on top-of-book imbalance", "keys": {"size": 100, "max_inventory": 500, "threshold": 0.6}},
+    {"name": "microprice", "help": "quotes around the micro-price, skewed against inventory, never inside the best", "keys": {"size": 100, "max_inventory": 500, "edge_ticks": 0.5, "skew_ticks": 0.5}},
+    {"name": "avellaneda_stoikov", "help": "Avellaneda-Stoikov / GLFT market maker with an intensity fit", "keys": {"gamma": 0.1, "A": 1.0, "k": 1.5, "glft": 1, "online": 0, "max_dist_ticks": 0, "online_tau_s": 600, "online_prior_s": 60, "size": 100, "max_inventory": 500}},
+    {"name": "leader", "help": "imbalance join that also steps back on a leading product's move (needs --index, CLI only)", "keys": {"size": 100, "max_inventory": 500, "threshold": 0, "lead_bp": 0.5, "sign": 1}},
+    {"name": "zero", "help": "never trades (PnL must be exactly zero)", "keys": {}},
+    {"name": "random_taker", "help": "takes on a random side (loses about half the spread plus fees)", "keys": {"rate": 0.001, "size": 100}},
+    {"name": "random_passive", "help": "quotes at random distances", "keys": {"size": 100}},
+    {"name": "perfect_foresight", "help": "sees the future mid (an upper bound, not a strategy)", "keys": {"horizon_ns": 1000000000, "cost_ticks": 0.3, "size": 100}},
+    {"name": "dp:", "help": "offline-solved policy table: dp:<policy.bin>", "keys": {}},
+    {"name": "ext:", "help": "policy table with guards: ext:<policy.bin>", "keys": {"toxicity": 1, "taking": 1, "vol_limit": 1.0, "take_margin": 0.1}}
+  ],
+  "quoters": [
+    {"name": "logit_as", "help": "Avellaneda-Stoikov in logit units (the default)"},
+    {"name": "skew", "help": "mid +/- 2 ticks, shifted one tick per quote size of inventory"}
+  ],
+  "maker_keys": {"gamma": 0.1, "k": 30, "size": 100},
+  "venues": [
+    {"name": "Nasdaq-like: 0.2c rebate, 0.3c fee, 50/20 us latency", "params": {"maker_rebate": 2000, "taker_fee": 3000, "market_data_ns": 50000, "order_entry_ns": 20000}},
+    {"name": "Colocated: rebate and fee, 5/2 us latency", "params": {"maker_rebate": 2000, "taker_fee": 3000, "market_data_ns": 5000, "order_entry_ns": 2000}},
+    {"name": "Remote: rebate and fee, 1 ms latency", "params": {"maker_rebate": 2000, "taker_fee": 3000, "market_data_ns": 1000000, "order_entry_ns": 1000000}},
+    {"name": "Frictionless: no fees, no latency (upper bound)", "params": {}}
+  ]
+}

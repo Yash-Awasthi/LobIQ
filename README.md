@@ -71,6 +71,7 @@ order is ever sent. A dashboard on localhost shows latency, positions and PnL, w
 hft live 30                                 # 30 minutes; open the dashboard URL it prints
 hft runs                                    # past runs, PnL, killed or not
 hft review 20261012T172311                  # replay a run bit for bit, write its report
+hft paper sample --quoter skew --set arb=1  # test a quote model on a recorded live session
 ```
 
 **3. Drive it all from a browser.** `hft studio` serves a local web UI on http://127.0.0.1:8000/:
