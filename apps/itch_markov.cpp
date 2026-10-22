@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
         return u + d > 0 ? u / (u + d) : -1.0;  // -1: no move seen from this state
     };
     const double hit = mk.test_moves() ? static_cast<double>(mk.test_hits()) / static_cast<double>(mk.test_moves()) : 0;
-    char split_s[8];
+    char split_s[32];
     std::snprintf(split_s, sizeof split_s, "%02" PRIu64 ":%02" PRIu64, split / kNsPerMin / 60, split / kNsPerMin % 60);
 
     if (json) {
