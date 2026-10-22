@@ -27,6 +27,17 @@ builds, runs the demos with their pinned totals and writes the studio snapshot. 
 metal: the latency figures below are unchanged by these changes, which touch reporting and add a
 strategy and a UI.
 
+## Verification (2026-10-22, bare metal, main after LobIQ)
+
+Release and native 366 tests, ASan, UBSan and TSan 362 each, `check_parity.sh` SAME on all 14
+runs, both fault campaigns with zero illegal reports and zero residual sets, demos with their pinned
+hashes (paper `510bf844d3995b0b`), CLI and security gates. The new research tools ran on the stored
+days: `itch_mlofi`, `itch_markov` and `itch_realism` on five days (docs/results/book-models.md,
+identical on a second run); `itch_lobster` on AAPL, MSFT and NVDA of 2025-12-10 from 00:00, every
+orderbook line matched by `tests/lobster_check.py`; the RL environment through a full INTC day
+(20,225 steps, 0.9 s). The realism scorecard's total variation was wrong on real days and is fixed
+(CHANGELOG).
+
 ## Verification (2026-10-13, bare metal, v1.5)
 
 Release 340 tests (sanitizer presets 336, ASan, UBSan and TSan run locally as well as in CI),

@@ -656,6 +656,27 @@ Full tables: [docs/results/microstructure.md](docs/results/microstructure.md),
 `src/strategy/microstructure.hpp`, unit-tested against the papers' cases and a chain with a known
 answer (`tests/microstructure_test.cpp`).
 
+### Order book models
+
+Fitted on 09:35 to 12:45 ET and scored on 12:45 to 15:55, on five days from 2019-10-18 to
+2025-12-12 (`scripts/book_models.sh`, about 25 s; tables in
+[docs/results/book-models.md](docs/results/book-models.md)):
+
+- **Multi-level OFI** (Cont, Cucuringu and Zhang 2023): order flow at the top 10 levels, combined
+  by its first principal component, explains a median 83-98% of the 10 s mid change out of sample
+  on AAPL, MSFT, NVDA, AMZN and GOOGL, against 49-72% for the best level alone. As a forecast of
+  the next interval it is worthless (R² -0.015 to 0.000), with or without the other symbols' flow.
+- **Markov chain of the top of book**: (spread, bid share) states counted in the morning predict
+  the direction of the afternoon's next mid move 59-88% of the time (49% once, AMZN in 2019),
+  against 50-51% for always guessing the more frequent direction.
+- **Realism scorecard** (LOB-Bench statistics, mean total variation, 0 identical, 1 disjoint):
+  AAPL on two consecutive days 0.10, AAPL against MSFT 0.25, AAPL 2025 against 2019 0.30, and the
+  queue-reactive simulator against real days 0.51-0.68: the simulator's message rate, sizes and
+  spreads are far from a real stock's.
+- **LOBSTER export**: `tests/lobster_check.py` rebuilds the book from the message file alone and
+  matches every orderbook line of AAPL, MSFT and NVDA on 2025-12-10 (17.5M events, exported from
+  00:00 so the book starts empty).
+
 ## Market surveillance
 
 `itch_surveil` (or `lobiq surveil DAY`) scans every symbol of a stored day for the patterns exchange and

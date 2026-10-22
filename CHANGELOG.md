@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Realism scorecard on real days.** Total variation now bins each statistic into equal shares of
+  the pooled sample: with equal-width bins over the pooled range, the few limit orders thousands of
+  ticks from the mid put the whole bulk in one bin, so depth and volume scored about 0 between
+  clearly different days (`Realism.OutliersDoNotHideAShiftFromTotalVariation`).
+- **Order book models results page.** `scripts/book_models.sh` (also run by `scripts/results.sh`)
+  writes docs/results/book-models.md: multi-level OFI, the Markov chain and the realism scorecard on
+  five stored days. `tests/lobster_check.py` keeps the occupied prices sorted instead of sorting
+  the book on every line, so it checks a full real day in about a minute instead of hours.
+
 - **Multi-level OFI and cross-impact** (Cont, Cucuringu and Zhang 2023). `itch_mlofi` / `lobiq mlofi`:
   order flow at the top 10 levels, an integrated OFI from their first principal component, its price
   impact against the best level's out of sample, and whether other symbols' lagged OFI forecasts the
