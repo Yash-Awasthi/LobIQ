@@ -58,6 +58,15 @@ target_link_libraries(itch_book PRIVATE hft_core hft_data)
 add_executable(itch_markov itch_markov.cpp)
 target_link_libraries(itch_markov PRIVATE hft_core hft_data)
 
+add_executable(itch_mlofi itch_mlofi.cpp)
+target_link_libraries(itch_mlofi PRIVATE hft_core hft_data)
+
+add_executable(itch_lobster itch_lobster.cpp)
+target_link_libraries(itch_lobster PRIVATE hft_core hft_data)
+
+add_executable(itch_realism itch_realism.cpp)
+target_link_libraries(itch_realism PRIVATE hft_core hft_data)
+
 add_executable(itch_surveil itch_surveil.cpp)
 target_link_libraries(itch_surveil PRIVATE hft_core hft_data)
 

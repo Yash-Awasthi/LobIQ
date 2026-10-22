@@ -147,6 +147,50 @@ against the identities below by `studio/test_models.mjs` (`Studio.Models`).
 - **Avellaneda and Stoikov (2008)**, as above: reservation price $r = s - q\gamma\sigma^2(T - t)$ and
   total spread $\gamma\sigma^2(T - t) + \tfrac2\gamma\ln(1 + \gamma/k)$ around it.
 
+## Multi-level OFI and cross-impact (Cont, Cucuringu and Zhang 2023)
+
+The best-level order flow $e_n$ above, applied to the $m$-th best prices of each side: for
+$m = 1..10$, $e^m_n = q^b_m(n)\,1\{P^b_m(n) \ge P^b_m(n-1)\} - q^b_m(n-1)\,1\{P^b_m(n) \le P^b_m(n-1)\}
+- q^a_m(n)\,1\{P^a_m(n) \le P^a_m(n-1)\} + q^a_m(n-1)\,1\{P^a_m(n) \ge P^a_m(n-1)\}$, a missing ask
+level counting as an infinitely high price and a missing bid level as zero. Summed over an interval
+(10 s by default) and divided by the interval's mean depth per level, this gives a 10-vector of
+order flow per interval. The integrated OFI is its projection on the first principal component,
+fitted on the morning (09:35 to 12:45) and scaled to unit $L_1$ norm with positive sum. Price impact:
+the interval's mid change regressed on the best-level OFI and on the integrated OFI in the morning,
+$R^2$ measured on the afternoon. Cross-impact: the next interval's mid change regressed (ridge,
+$\lambda = 1$, intercept unpenalised) on this interval's integrated OFI of the symbol alone or of
+every symbol, again fitted on the morning and scored on the afternoon. Code: `src/strategy/mlofi.hpp`,
+`apps/itch_mlofi.cpp` (`lobiq mlofi`). Tests: `MultiLevelOfi.*`; level 1 reproduces the best-level OFI
+case by case.
+
+## Market realism (LOB-Bench statistics)
+
+For a reference symbol-day A and another B, from 09:35 to 15:55: spread in ticks, the bid's share of
+best-level size, log time between messages, log time from submission to deletion, log best bid and
+ask sizes, depth of new and of deleted limit orders in ticks from the mid, traded volume per minute
+in one-second buckets, and best-level OFI per second, the statistics LOB-Bench compares (Nagy et al.
+2025). Each pair of samples (at most 200,000 values each, a reservoir sample with a fixed seed) is
+compared by total variation between 50-bin histograms over the pooled range (LOB-Bench's $L_1$,
+halved to lie in $[0, 1]$) and by the Wasserstein-1 distance between quantile functions at 1,000
+points, divided by A's standard deviation. Stylised facts beside them: messages per minute,
+cancellations and executions per new order, the kurtosis and lag-1 autocorrelation of one-minute
+returns, and the mean autocorrelation of absolute one-minute returns at lags 1 to 5 (volatility
+clustering). Code: `src/strategy/realism.hpp`, `apps/itch_realism.cpp` (`lobiq realism`). Tests:
+`Realism.*`.
+
+## LOBSTER export
+
+Each ITCH message becomes the events of LOBSTER's message file (lobsterdata.com): add and add with
+attribution are submissions (type 1), a partial cancel a cancellation (2), a delete a deletion (3) of
+the remaining shares, an execution with or without price a visible execution (4) at the order's
+price, a replace a deletion followed by a submission with the new id, a non-displayed trade a hidden
+execution (5), a cross trade type 6 and a trading action a halt indicator (7: price -1 halted or
+paused, 0 quoting, 1 trading). After each event, the orderbook file has the top $N$ levels as ask
+price, ask size, bid price, bid size, empty levels as 9999999999 or -9999999999 with size 0.
+Code: `src/data/lobster.hpp`, `apps/itch_lobster.cpp` (`lobiq lobster`). Tests: `Lobster.*`, and
+`tests/lobster_check.py`, which rebuilds the book from the message file alone and must match every
+orderbook line.
+
 ## Markov chain of the book
 
 The state of the top of the book is $(s, k)$: the spread in ticks, capped at 3, and the bucket of the
@@ -273,6 +317,8 @@ Code: `src/surveil/surveil.hpp`. Tests: `Surveil.*`.
 - Almgren, R. and Chriss, N. (2000). Optimal execution of portfolio transactions. *Journal of Risk* 3(2).
 - Glosten, L. and Milgrom, P. (1985). Bid, ask and transaction prices in a specialist market with heterogeneously informed traders. *Journal of Financial Economics* 14(1).
 - Kyle, A. (1985). Continuous auctions and insider trading. *Econometrica* 53(6).
+- Cont, R., Cucuringu, M. and Zhang, C. (2023). Cross-impact of order flow imbalance in equity markets. *Quantitative Finance* 23(10).
+- Nagy, P. et al. (2025). LOB-Bench: benchmarking generative AI for finance, an application to limit order book data. arXiv:2502.09172.
 - Hasbrouck, J. and Saar, G. (2009). Technology and liquidity provision. *Journal of Financial Markets* 12(2).
 - Moallemi, C. and Yuan, K. (2017). A model for queue position valuation in a limit order book. Working paper, Columbia University.
 - Ozaki, T. (1979). Maximum likelihood estimation of Hawkes' self-exciting point processes. *Annals of the Institute of Statistical Mathematics* 31.

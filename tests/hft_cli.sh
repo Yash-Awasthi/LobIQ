@@ -21,4 +21,9 @@ ls "$HFT_DATA"/reports/backtest-*/report.html >/dev/null
 "$hft" leadlag 2025-01-01 QRSIM:QRSIM | grep '^| QRSIM -> QRSIM | 1 |' >/dev/null
 "$hft" markov 2025-01-01 QRSIM | grep '^## Prediction, out of sample' >/dev/null
 "$hft" markov 2025-01-01 QRSIM --json | grep '"test":{"moves":' >/dev/null
+"$hft" mlofi 2025-01-01 QRSIM --interval 60 --split 10:30 | grep '^## Price impact, out of sample' >/dev/null
+"$hft" lobster 2025-01-01 QRSIM "$HFT_DATA/lob" --levels 3 | grep '^QRSIM' >/dev/null
+ls "$HFT_DATA"/lob/QRSIM_2025-01-01_34200000_57600000_orderbook_3.csv >/dev/null
+"$hft" realism 2025-01-01 QRSIM 2025-01-01 QRSIM | grep '^| \*\*mean\*\* | | | \*\*0.000\*\*' >/dev/null
+"$hft" realism 2025-01-01 QRSIM | grep '^## Stylised facts' >/dev/null
 echo "hft cli ok"

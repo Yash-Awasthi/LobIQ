@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **Multi-level OFI and cross-impact** (Cont, Cucuringu and Zhang 2023). `itch_mlofi` / `lobiq mlofi`:
+  order flow at the top 10 levels, an integrated OFI from their first principal component, its price
+  impact against the best level's out of sample, and whether other symbols' lagged OFI forecasts the
+  next interval. Tests: `MultiLevelOfi.*`.
+- **LOBSTER export.** `itch_lobster` / `lobiq lobster` write stored ITCH days as LOBSTER message and
+  orderbook files, so the deep-learning order book benchmarks (LOBCAST, LOBFrame, DeepMarket) can
+  train on free Nasdaq data. `tests/lobster_check.py` rebuilds the book from the messages alone and
+  matches every orderbook line.
+- **Market realism scorecard.** `itch_realism` / `lobiq realism`: LOB-Bench's statistics for two
+  symbol-days, or a real day against the queue-reactive simulator, by total variation and normalised
+  Wasserstein distance, with stylised facts. Tests: `Realism.*`.
+- **Reinforcement learning environment.** The `agent` strategy and `rl/lobiq_env.py` give a
+  Gymnasium-style `reset` / `step` over the backtester; an agent that always joins ends the day with
+  `naive`'s total to the cent (`RL.AgentThatJoinsIsNaive`). Strategies now see the run's PnL
+  (`View::pnl`) as a reward signal.
+- **How firms work.** docs/FIRMS.md maps what HRT, Jane Street and Optiver publish (huge pages,
+  FPGAs, message buses, feature engineering, synthetic market data) to LobIQ's components.
+
 - **LobIQ.** The project is now LobIQ (limit order book intelligence): repository, published site,
   container image and release archives are named `lobiq`, and so is the command
   (`scripts/lobiq`; `hft` still works).

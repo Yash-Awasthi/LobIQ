@@ -42,6 +42,13 @@ Nasdaq ITCH days (DAY is S121025, 2025-12-10 or a store path):
   lobiq markov DAY SYMBOL [--json]
                                    Markov chain of the top of book: states, the moves between them, and how well
                                    the morning's counts predict the afternoon's mid moves
+  lobiq mlofi DAY SYMBOL,..        multi-level order flow imbalance: price impact, and cross-impact forecasting
+  lobiq lobster DAY SYMBOL,.. [DIR] [--levels N]
+                                   the day in LOBSTER's message and orderbook CSV format, for LOBCAST, LOBFrame
+                                   and other order book models (default DIR: the reports directory, lobster-DAY)
+  lobiq realism DAY SYMBOL [DAY2 SYMBOL2]
+                                   market realism scorecard (LOB-Bench statistics): the second symbol-day, or a
+                                   synthetic queue-reactive day if none is given, against the first
   lobiq surveil DAY [SYMBOL,..]    spoofing, layering and quote-stuffing candidates, with evidence
   lobiq bestex DAY [SYMBOL,..]     execution quality, Rule 605 style (default: 25 most active)
   lobiq strategies                 strategies available to backtest
@@ -145,6 +152,39 @@ book)
     [ $# -ge 3 ] && [ $# -le 4 ] || die "usage: lobiq book DAY SYMBOL HH:MM:SS[.fraction] [LEVELS]"
     need
     exec "$bin/itch_book" "$(store "$1")" "$2" "$3" ${4:+"$4"}
+    ;;
+
+mlofi)
+    [ $# -ge 2 ] || die "usage: lobiq mlofi DAY SYMBOL,.. [--interval SECONDS] [--split HH:MM]"
+    need
+    s=$(store "$1")
+    shift
+    exec "$bin/itch_mlofi" "$s" "$@"
+    ;;
+
+lobster)
+    [ $# -ge 2 ] || die "usage: lobiq lobster DAY SYMBOL,.. [DIR] [--levels N] [--from HH:MM]"
+    need
+    s=$(store "$1")
+    syms=$2
+    shift 2
+    dir="$reports/lobster-$(date_of "$s")"
+    if [ $# -gt 0 ] && [[ $1 != -* ]]; then dir=$1; shift; fi
+    "$bin/itch_lobster" "$s" "$syms" "$dir" "$@"
+    echo "report: $dir"
+    ;;
+
+realism)
+    [ $# -eq 2 ] || [ $# -eq 4 ] || die "usage: lobiq realism DAY SYMBOL [DAY2 SYMBOL2]"
+    need
+    a=$(store "$1")
+    if [ $# -eq 4 ]; then
+        exec "$bin/itch_realism" "$a" "$2" "$(store "$3")" "$4"
+    fi
+    tmp=$(mktemp -d)
+    trap 'rm -rf "$tmp"' EXIT
+    "$bin/gen_day" 7 390 2>/dev/null | "$bin/ingest" "$tmp/store-synthetic" >/dev/null 2>&1
+    "$bin/itch_realism" "$a" "$2" "$tmp/store-synthetic" QRSIM
     ;;
 
 markov)

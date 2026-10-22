@@ -29,6 +29,7 @@ backtest reports under `HFT_REPORTS` (default `$HFT_DATA/reports`), demo output 
 | Leaderboard | Every backtest report on disk with risk-adjusted metrics, sortable; a row opens the equity curve, drawdown and cost breakdown; selected runs can be compared or combined on a Markowitz frontier | reads `summary.csv`, `pnl_minutes.csv`, `fills.csv` |
 | Order book | Depth ladder of any symbol at any moment, stepping one second at a time; mid, spread, L1 micro-price and depth imbalance | `lobiq book` |
 | Models | Kyle's insider equilibrium, Glosten-Milgrom spreads and price learning, Almgren-Chriss optimal execution and its frontier, Avellaneda-Stoikov quotes; every input live, no tools needed (works on the published site too) | `studio/static/models.js` |
+| Analysis (2023-2025 research) | Multi-level OFI and cross-impact, LOBSTER export, and a market realism scorecard of a real day against the simulator | `lobiq mlofi`, `lobiq lobster`, `lobiq realism` |
 | Prediction | Markov chain of the top of book: P(next move up) per state as a heat map, the state graph, and the afternoon's out-of-sample hit rate against always guessing one direction | `lobiq markov` |
 | Analysis | Surveillance, execution quality, full-day replay, lead-lag and the microstructure study, Markdown output rendered as tables | `lobiq surveil`, `bestex`, `replay`, `leadlag`, `study` |
 | Live paper | Start a paper run on the live feed with a chosen quote model, embed its dashboard, list past runs, review a run, trip a run's kill switch | `lobiq live`, `lobiq review` |

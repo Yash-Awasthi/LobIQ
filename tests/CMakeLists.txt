@@ -10,7 +10,7 @@ add_executable(hft_tests endian_test.cpp itch_test.cpp store_test.cpp gzip_test.
                          tape_test.cpp spsc_test.cpp histogram_test.cpp
                          arb_test.cpp engine_test.cpp session_test.cpp pm_decoder_test.cpp
                          exec_test.cpp ledger_test.cpp risk_test.cpp oms_test.cpp config_test.cpp arb_exec_test.cpp
-                         sim_venue_test.cpp report_test.cpp quoter_test.cpp pool_test.cpp microstructure_test.cpp parallel_test.cpp surveil_test.cpp bestex_test.cpp markov_test.cpp ${HFT_STRATEGY_SOURCES} ${HFT_QUOTER_SOURCES})
+                         sim_venue_test.cpp report_test.cpp quoter_test.cpp pool_test.cpp microstructure_test.cpp parallel_test.cpp surveil_test.cpp bestex_test.cpp markov_test.cpp mlofi_test.cpp lobster_test.cpp realism_test.cpp ${HFT_STRATEGY_SOURCES} ${HFT_QUOTER_SOURCES})
 target_link_libraries(hft_tests PRIVATE hft_core hft_data GTest::gtest_main rapidcheck
                                         zstd::libzstd OpenSSL::SSL OpenSSL::Crypto)
 target_compile_definitions(hft_tests PRIVATE HFT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
@@ -32,6 +32,8 @@ if(Python3_FOUND)
   add_test(NAME Studio.StubTools COMMAND Python3::Interpreter ${PROJECT_SOURCE_DIR}/studio/test_studio.py)
   add_test(NAME Studio.EndToEnd COMMAND Python3::Interpreter ${PROJECT_SOURCE_DIR}/studio/test_studio.py $<TARGET_FILE_DIR:itch_backtest>)
   set_tests_properties(Studio.EndToEnd PROPERTIES TIMEOUT 900)
+  add_test(NAME RL.AgentThatJoinsIsNaive COMMAND Python3::Interpreter ${PROJECT_SOURCE_DIR}/rl/test_env.py $<TARGET_FILE_DIR:itch_backtest>)
+  add_test(NAME Lobster.ExportRebuildsTheBook COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/lobster_export.sh $<TARGET_FILE_DIR:itch_lobster>)
 endif()
 find_program(NODE_EXECUTABLE node)
 if(NODE_EXECUTABLE)

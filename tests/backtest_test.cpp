@@ -97,9 +97,9 @@ TEST(Strategies, AvellanedaStoikovSkewsAgainstInventory) {
     as.last_mid = 1002.5;
     as.last_ts = 1;
     Desired flat, longer;
-    as.decide(View{2, b, nullptr, 0, 1002.5, 0, w, true}, flat);
+    as.decide(View{2, b, nullptr, 0, 1002.5, 0, w, true, 0}, flat);
     as.last_ts = 1;
-    as.decide(View{2, b, nullptr, 0, 1002.5, 300, w, true}, longer);
+    as.decide(View{2, b, nullptr, 0, 1002.5, 300, w, true, 0}, longer);
     EXPECT_LT(longer.bid_px, flat.bid_px);
     EXPECT_LE(longer.ask_px, flat.ask_px);
     EXPECT_LT(flat.bid_px, flat.ask_px);
@@ -117,7 +117,7 @@ TEST(Strategies, AvellanedaStoikovVarianceIgnoresTheCallRate) {
         for (std::uint64_t t = 1'000'000'000; t <= 600'000'000'000; t += step) {
             const double mid = 1000 + static_cast<double>(t / 1'000'000'000 % 2);
             Desired d;
-            as.decide(View{t, b, nullptr, 0, mid, 0, w, true}, d);
+            as.decide(View{t, b, nullptr, 0, mid, 0, w, true, 0}, d);
         }
         EXPECT_NEAR(as.var, 1.0, 0.1) << step;
     }
@@ -137,7 +137,7 @@ TEST(Strategies, AvellanedaStoikovDistanceCap) {
         as.var = 4.0;
         as.last_mid = 1002.5;
         as.last_ts = 1;
-        as.decide(View{2, b, nullptr, 0, 1002.5, 0, w, true}, cap ? near : far);
+        as.decide(View{2, b, nullptr, 0, 1002.5, 0, w, true, 0}, cap ? near : far);
     }
     EXPECT_LT(far.bid_px, 10'0000u - 2000u);
     EXPECT_GE(near.bid_px, 10'0000u - 500u);
@@ -154,9 +154,9 @@ TEST(Strategies, AvellanedaStoikovRecalibratesOnItsFills) {
         AvellanedaStoikov as;
         as.A = 0.01, as.k = 1.5, as.online = online, as.online_prior_s = 1;
         Desired d1, d2;
-        as.decide(View{1'000'000'000, b, nullptr, 0, 1002.5, 0, w, true}, d1);
+        as.decide(View{1'000'000'000, b, nullptr, 0, 1002.5, 0, w, true, 0}, d1);
         ASSERT_GT(d1.bid_qty, 0u);
-        as.decide(View{11'000'000'000, b, nullptr, 0, 1002.5, 100, w, true}, d2);
+        as.decide(View{11'000'000'000, b, nullptr, 0, 1002.5, 100, w, true, 0}, d2);
         if (online) {
             EXPECT_GT(as.A * std::exp(-as.k * 2.5), 0.01 * std::exp(-1.5 * 2.5));
         } else {
@@ -248,14 +248,14 @@ TEST(Strategies, DpPolicyLooksUpTheExportedLayout) {
     std::vector<Working> w;
     double f[2] = {1.0, 0.0};  // spread ticks, imbalance
     Desired d0, d1, d2;
-    p.decide(View{1, b, f, 2, 1000.5, 0, w, true}, d0);
+    p.decide(View{1, b, f, 2, 1000.5, 0, w, true, 0}, d0);
     EXPECT_EQ(d0.bid_px, 10'0000u);
     EXPECT_EQ(d0.ask_px, 10'0100u);
-    p.decide(View{1, b, f, 2, 1000.5, 100, w, true}, d1);
+    p.decide(View{1, b, f, 2, 1000.5, 100, w, true, 0}, d1);
     EXPECT_EQ(d1.bid_qty, 0u);
     EXPECT_EQ(d1.ask_px, 10'0100u);
     f[1] = 0.9;
-    p.decide(View{1, b, f, 2, 1000.5, 0, w, true}, d2);
+    p.decide(View{1, b, f, 2, 1000.5, 0, w, true, 0}, d2);
     EXPECT_EQ(d2.take_side, 1);
     EXPECT_EQ(d2.take_limit, 10'0100u);
 }
@@ -272,19 +272,19 @@ TEST(Strategies, ExtendedGuardsAndTakes) {
     double f[20] = {};
     f[0] = 1;
     Desired calm, toxic, strong;
-    e.decide(View{1, b, f, 20, 1000.5, 0, w, true}, calm);
+    e.decide(View{1, b, f, 20, 1000.5, 0, w, true, 0}, calm);
     EXPECT_EQ(calm.bid_qty, 100u);  // balanced book: both quotes, no take
     EXPECT_EQ(calm.take_side, 0);
     f[19] = 2.0;  // volatility above the limit
-    e.decide(View{1, b, f, 20, 1000.5, 0, w, true}, toxic);
+    e.decide(View{1, b, f, 20, 1000.5, 0, w, true, 0}, toxic);
     EXPECT_EQ(toxic.bid_qty + toxic.ask_qty, 0u);
     f[19] = 0;
     f[1] = 0.1;  // signal 1 tick > half spread 0.5 + fee 0.3 + margin 0.1
-    e.decide(View{1, b, f, 20, 1000.5, 0, w, true}, strong);
+    e.decide(View{1, b, f, 20, 1000.5, 0, w, true, 0}, strong);
     EXPECT_EQ(strong.take_side, 1);
     e.taking = false;
     Desired off;
-    e.decide(View{1, b, f, 20, 1000.5, 0, w, true}, off);
+    e.decide(View{1, b, f, 20, 1000.5, 0, w, true, 0}, off);
     EXPECT_EQ(off.take_side, 0);
 }
 

@@ -152,6 +152,24 @@ which pins the new code to a known strategy before its own parameters change any
 itch_backtest /tmp/qrsim QRSIM microprice --sweep edge_ticks=0,0.5,1 --sweep skew_ticks=0,0.5,1 --report out/mp
 ```
 
+### Reinforcement learning
+
+`rl/lobiq_env.py` wraps the backtester as a Gymnasium-style environment (`reset()`, `step(action)`),
+standard library only. The `agent` strategy reports the book, inventory, PnL and features every
+`step_ms` of market time and quotes what the agent sends back, so an RL loop in Python trades the real
+queues with the same latency, fees, risk limits and accounting as any strategy here:
+
+```
+from lobiq_env import LobiqEnv
+env = LobiqEnv("~/data/store-S121025-v50", "INTC", step_ms=1000, params=["maker_rebate=2000", "taker_fee=3000"])
+obs, info = env.reset()
+obs, reward, terminated, truncated, info = env.step((0, 0, 100))   # join both best quotes, 100 shares
+```
+
+The action is `(bid_offset, ask_offset, size)` in ticks behind the best (`-1` leaves a side empty) or
+`None`; the reward is the change in total PnL. `RL.AgentThatJoinsIsNaive` checks that an agent that
+always joins ends a day with exactly `naive`'s total.
+
 ### What the simulation does and does not model
 
 - **Queue position:** your order joins the queue behind every real order already resting at its
