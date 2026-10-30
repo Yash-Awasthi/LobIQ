@@ -1,6 +1,6 @@
 # Status
 
-v1.6 (2026-10-22), on bare-metal Arch Linux. Nothing is open ([docs/ROADMAP.md](docs/ROADMAP.md));
+v1.6 (2026-10-22) plus the unreleased changes in CHANGELOG.md, on bare-metal Arch Linux. Nothing is open ([docs/ROADMAP.md](docs/ROADMAP.md));
 what is deliberately left out is listed there under "Not planned". Changes per version: [CHANGELOG.md](CHANGELOG.md).
 The research-phase log is in
 [STATUS-research.md](https://github.com/Yash-Awasthi/lobiq/blob/research-archive/archive/docs/STATUS-research.md) at the research-archive tag.
@@ -17,6 +17,15 @@ Ctrl-C or SIGTERM):
 On GitHub, CI builds and tests every pull request; on master it also publishes the container image
 (`ghcr.io/yash-awasthi/lobiq`) and the demo reports (https://yash-awasthi.github.io/LobIQ/); a `v*`
 tag publishes a release with Linux binaries.
+
+## Verification (2026-10-31, CI, master after the forecasting models and the rename)
+
+GitHub Actions on master (491e541): 410 tests under GCC and Clang in the debug and release presets,
+406 under ASan, UBSan and TSan (the allocation test is left out under sanitizers), including
+`Research.SyntheticDays` (every forecasting tool on full and thirty-minute synthetic days),
+`Options.SyntheticChain`, `LobiqCli.SyntheticDay` and `Studio.EndToEnd`; perf gate (instruction counts
+on the hot paths within limits), security gates, FPGA simulation, fuzzers 60 s each, and the image
+with its pinned demo totals. Hot paths are unchanged, so the bare-metal figures below still stand.
 
 ## Verification (2026-10-22, CI, main after lobiq studio and the risk statistics)
 
