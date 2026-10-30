@@ -5,7 +5,7 @@
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Yash-Awasthi/LobIQ)
 
 **LobIQ** (limit order book intelligence) is a low-latency market-data, surveillance and trading
-system in C++23, with no framework underneath, driven by one command, `lobiq` (`hft` still works), in six parts:
+system in C++23, with no framework underneath, driven by one command, `lobiq`, in six parts:
 
 - **Nasdaq TotalView-ITCH**, replayed from disk through an order-by-order book, a
   deterministic matching engine and an event-driven backtest.
@@ -105,7 +105,7 @@ docker run --rm -p 8000:8000 ghcr.io/yash-awasthi/lobiq lobiq studio --bind 0.0.
 bundled data. Without building anything, with Docker or Podman:
 
 ```
-docker run --rm -v "$PWD/out:/hft/out" ghcr.io/yash-awasthi/lobiq
+docker run --rm -v "$PWD/out:/lobiq/out" ghcr.io/yash-awasthi/lobiq
 ```
 
 That writes HTML reports to `./out` (open `out/index.html`): strategies backtested on a synthetic

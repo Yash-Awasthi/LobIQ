@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-# Former name of scripts/lobiq, kept so existing scripts and habits keep working.
-exec "$(dirname "$(readlink -f "$0")")/lobiq" "$@"

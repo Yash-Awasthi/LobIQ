@@ -27,7 +27,6 @@ jobs:
           find build/release/apps -maxdepth 1 -type f -executable -exec cp {} "$name/bin/" \;
           cp -r scripts studio config data README.md CHANGELOG.md LICENSE "$name/"
           ln -s ../scripts/lobiq "$name/bin/lobiq"
-          ln -s ../scripts/lobiq "$name/bin/hft"
           cp docs/STRATEGIES.md "$name/"
           {
             echo "Linux x86-64, Ubuntu 24.04 or newer (glibc 2.39, OpenSSL 3)."

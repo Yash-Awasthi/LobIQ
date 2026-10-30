@@ -1,6 +1,6 @@
-# podman build -t lobiq . (or docker); demos, reports in ./out: podman run --rm -v "$PWD/out:/hft/out" lobiq
+# podman build -t lobiq . (or docker); demos, reports in ./out: podman run --rm -v "$PWD/out:/lobiq/out" lobiq
 # Web UI: podman run --rm -p 8000:8000 lobiq lobiq studio --bind 0.0.0.0, then open http://localhost:8000/
-# Toolchain for writing strategies (also .devcontainer): podman build --target build -t hft-dev .
+# Toolchain for writing strategies (also .devcontainer): podman build --target build -t lobiq-dev .
 
 FROM ubuntu:24.04 AS build
 ARG VCPKG_COMMIT=001713e802f5cf619a64461b918161be6a0634f0
@@ -23,7 +23,7 @@ RUN cmake --preset release -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed \
 FROM ubuntu:24.04
 RUN apt-get update && apt-get install -y --no-install-recommends libssl3t64 ca-certificates python3 \
     && rm -rf /var/lib/apt/lists/*
-WORKDIR /hft
+WORKDIR /lobiq
 COPY --from=build /src/build/release/apps/ build/release/apps/
 COPY --from=build /src/scripts/ scripts/
 COPY --from=build /src/config/ config/
@@ -31,6 +31,6 @@ COPY --from=build /src/studio/ studio/
 COPY --from=build /src/data/sample/ data/sample/
 COPY --from=build /src/docs/STRATEGIES.md /src/README.md ./
 RUN find build/release/apps -mindepth 1 -maxdepth 1 ! -type f -exec rm -rf {} +
-ENV PATH=/hft/scripts:/hft/build/release/apps:$PATH HFT_BIN=/hft/build/release/apps
+ENV PATH=/lobiq/scripts:/lobiq/build/release/apps:$PATH HFT_BIN=/lobiq/build/release/apps
 EXPOSE 8000
-CMD ["scripts/demo/all.sh", "/hft/out"]
+CMD ["scripts/demo/all.sh", "/lobiq/out"]

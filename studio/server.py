@@ -392,7 +392,7 @@ MIME = {".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "hft-studio"
+    server_version = "lobiq-studio"
 
     def log_message(self, fmt, *a):
         if os.environ.get("HFT_STUDIO_LOG"):
@@ -562,7 +562,7 @@ def snapshot(out):
     for f in os.listdir(STATIC):
         shutil.copy(os.path.join(STATIC, f), os.path.join(dest, "static", f))
     with open(os.path.join(STATIC, "index.html"), encoding="utf-8") as f:
-        page = f.read().replace("<head>", '<head>\n<meta name="hft-snapshot" content="1">', 1)
+        page = f.read().replace("<head>", '<head>\n<meta name="lobiq-snapshot" content="1">', 1)
     with open(os.path.join(dest, "index.html"), "w", encoding="utf-8") as f:
         f.write(page)
     rows = []

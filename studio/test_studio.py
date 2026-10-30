@@ -348,7 +348,7 @@ class Snapshot(unittest.TestCase):
             f.write('key,value\nledger_pnl_usd,"1.0"\n')
         subprocess.run([sys.executable, os.path.join(HERE, "server.py"), "--snapshot", out], check=True, capture_output=True)
         with open(out + "/studio/index.html") as f:
-            self.assertIn('name="hft-snapshot"', f.read())
+            self.assertIn('name="lobiq-snapshot"', f.read())
         self.assertTrue(os.path.isfile(out + "/studio/static/app.js"))
         with open(out + "/studio/snapshot.json") as f:
             snap = json.load(f)

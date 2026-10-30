@@ -75,8 +75,8 @@ Research
 Studio and backtests
 - **LobIQ.** The project is now LobIQ (limit order book intelligence): repository, published site,
   container image and release archives are named `lobiq`, and so is the command
-  (`scripts/lobiq`; `hft` still works).
-- **Markov chain of the book.** `itch_markov` / `hft markov`: the top of book as spread and bid-share
+  (`scripts/lobiq`).
+- **Markov chain of the book.** `itch_markov` / `lobiq markov`: the top of book as spread and bid-share
   states, the moves between them, and the morning's direction counts predicting the afternoon's mid
   moves, scored against always guessing one direction. The studio's Prediction tab draws the
   probabilities as a heat map and the chain as a state graph.
@@ -86,8 +86,8 @@ Studio and backtests
   against their known identities.
 - **Portfolio frontier.** The leaderboard combines selected runs on a Markowitz frontier: expected
   daily PnL against risk for every mix, with the least-risk and best-Sharpe weights.
-- **hft studio.** `hft studio` serves a local web UI (Python standard library, no build step):
-  every `hft` command as a job with streamed output, a leaderboard of every backtest report on disk,
+- **lobiq studio.** `lobiq studio` serves a local web UI (Python standard library, no build step):
+  every `lobiq` command as a job with streamed output, a leaderboard of every backtest report on disk,
   a per-run view with the equity curve and drawdown, an order-book ladder that steps through a day,
   surveillance and execution-quality reports rendered as tables, and live paper runs with a kill
   switch. Answers loopback Host names only and refuses cross-origin or non-JSON writes; job
@@ -108,9 +108,9 @@ Studio and backtests
   every text colour at 4.5:1 contrast or more.
 - **Published leaderboard.** The demos write a read-only studio snapshot next to the reports, so the
   CI-published site carries the leaderboard; pull-request runs attach the reports as an artifact.
-- **Paper replays.** `hft paper [RUN|sample] [pm_exec options]` replays a recorded live session
+- **Paper replays.** `lobiq paper [RUN|sample] [pm_exec options]` replays a recorded live session
   (the bundled 20 minutes or any live run) with any quote model, report in `$HFT_REPORTS/paper-*`;
-  `hft quoters` lists the models. The studio has a Paper replay tab for it, and live runs take a quote
+  `lobiq quoters` lists the models. The studio has a Paper replay tab for it, and live runs take a quote
   model and the arbitrage switch too.
 - **A usable studio before and after a build.** Strategy and quoter lists fall back to
   `studio/catalog.json` (checked against the tools in CI); each strategy gets an input per parameter
@@ -127,11 +127,11 @@ checkpoints, session files and exchange metadata rejected instead of trusted; pa
 halved at the median and cut by 62% at p99, with identical decisions.
 
 Applications
-- **Market surveillance.** `itch_surveil` / `hft surveil`: spoofing, layering and quote-stuffing
+- **Market surveillance.** `itch_surveil` / `lobiq surveil`: spoofing, layering and quote-stuffing
   candidates over every symbol of a day, ranked with their evidence (docs/results/surveillance.md).
-- **Execution quality.** `itch_bestex` / `hft bestex`: a Rule 605-style report of effective, realized
+- **Execution quality.** `itch_bestex` / `lobiq bestex`: a Rule 605-style report of effective, realized
   and impact spreads by size and price improvement (docs/results/execution-quality.md).
-- **Point-in-time books.** `itch_book` / `hft book`: any symbol's book at any moment of a day, from the
+- **Point-in-time books.** `itch_book` / `lobiq book`: any symbol's book at any moment of a day, from the
   nearest checkpoint; `ingest` takes `CHUNK_MSGS`.
 - **Applications and methods.** docs/APPLICATIONS.md maps each part to the industry systems it
   mirrors; docs/METHODS.md gives every model and estimator as implemented, with sources, code and
@@ -184,7 +184,7 @@ latency outliers traced to the hardware, and an hour of live paper trading.
   code (`docs/exec/HW.md` H21).
 - **One hour live.** 710,680 events, trading thread ring to decision p99.9 26.9 us; the network
   side's tail is Wi-Fi delivery bursts (`docs/exec/PERF.md` R19).
-- **Tools.** `hft leadlag`; `scripts/results.sh` regenerates every results page reproducibly; one
+- **Tools.** `lobiq leadlag`; `scripts/results.sh` regenerates every results page reproducibly; one
   `parallel_for` and one `symbols.tsv` reader replace seven copied thread pools and three readers;
   the `leader` strategy is tested against the imbalance maker it extends.
 
@@ -231,9 +231,9 @@ Bare metal, a faster book and replay, and a microstructure study tested out of s
 - **Auction uncrossing.** `book_replay` no longer flags the crossed book while an auction's
   executions are reported (SPCX's IPO on 2026-06-12, 680 ms); all eight stored days pass.
 
-- **One command, two products.** `hft` fetches, replays, backtests and studies Nasdaq days, and
+- **One command, two products.** `lobiq` fetches, replays, backtests and studies Nasdaq days, and
   runs, lists and reviews live paper-trading sessions; the dashboard gained a kill switch
-  (POST with a custom header, so other sites cannot trigger it). Shipped as `bin/hft` in releases.
+  (POST with a custom header, so other sites cannot trigger it). Shipped as `bin/lobiq` in releases.
 
 - **FPGA ITCH parser.** `fpga/itch_parser.sv` parses a BinaryFILE stream at 8 bytes per clock
   and emits one decoded message per clock, one clock after its last byte. A Verilator testbench

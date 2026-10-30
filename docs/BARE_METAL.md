@@ -91,11 +91,10 @@ Everything that needs this machine, in one sitting. Nothing here changes the pub
 figures unless `--bench` is given: the changes since v1.5 add reporting, a strategy, a tool and the
 studio, and CI's perf gate checks every change for regressions on the hot paths.
 
-1. Update the clone (an existing `~/hft` clone works; the repository moved to `lobiq`):
+1. Update the clone:
 
-       cd ~/hft
-       git remote set-url origin https://github.com/Yash-Awasthi/lobiq.git
-       git checkout main && git pull
+       cd ~/lobiq
+       git checkout master && git pull
 
 2. Run the session (about 20 minutes without `--bench`, plus about an hour with it):
 

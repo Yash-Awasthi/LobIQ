@@ -8,7 +8,7 @@ const lines = s => s.split('\n').map(x => x.trim()).filter(Boolean);
 const sign = x => x == null ? '' : x > 0 ? 'pos' : x < 0 ? 'neg' : '';
 
 // A snapshot (lobiq studio --snapshot) is static files: reads come from snapshot.json, writes are refused.
-const SNAP = !!document.querySelector('meta[name=hft-snapshot]');
+const SNAP = !!document.querySelector('meta[name=lobiq-snapshot]');
 let SNAPDATA = null;
 async function api(path, body) {
   if (SNAP) {
@@ -31,10 +31,10 @@ function setTheme(t) {
   if (t === 'auto') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = t;
   $('#theme').textContent = 'Theme: ' + t;
-  try { localStorage.setItem('hft-theme', t); } catch {}
+  try { localStorage.setItem('lobiq-theme', t); } catch {}
 }
 let savedTheme = 'auto';
-try { savedTheme = localStorage.getItem('hft-theme') || 'auto'; } catch {}
+try { savedTheme = localStorage.getItem('lobiq-theme') || 'auto'; } catch {}
 setTheme(THEMES.includes(savedTheme) ? savedTheme : 'auto');
 $('#theme').onclick = () => setTheme(THEMES[(THEMES.indexOf($('#theme').textContent.slice(7)) + 1) % 3]);
 
