@@ -67,9 +67,10 @@ Walk-forward models (TRAIN and TEST: DAY[,..]; SYMBOLS: a count of the most acti
                                    order flow as a six-type Hawkes process: who triggers whom, out of sample
   lobiq regime TRAIN TEST [SYMBOLS] [--states K] [--out CSV] [--pnl SYMBOL:pnl_minutes.csv]
                                    market regimes by a hidden Markov model, labelled causally on the test days
-  lobiq alpha TRAIN TEST [SYMBOLS] [--horizon S] [--step S] [--model DIR]
+  lobiq alpha TRAIN TEST [SYMBOLS] [--horizon S] [--step S] [--model DIR] [--symbolic GENERATIONS]
                                    ridge alpha on the streaming features, purged cross-validation, conformal
-                                   intervals; --model writes files for the alpha:<FILE> strategy
+                                   intervals; --model writes files for the alpha:<FILE> strategy; --symbolic
+                                   adds a symbolic regression search for a closed-form formula
   lobiq options price call|put S K T r q sigma
   lobiq options surface QUOTES.csv [--rate r] [--greeks]
                                    Black-Scholes, Greeks, binomial and Monte Carlo prices; SVI volatility surface

@@ -3,9 +3,10 @@
 // features sampled every --step seconds. The penalty is chosen by purged, embargoed k-fold
 // cross-validation on the train days; split-conformal half-widths come from the out-of-fold residuals;
 // everything is then scored unchanged on the test days. --model DIR writes DIR/SYMBOL.alpha for the
-// `alpha:` strategy. Prints Markdown.
+// `alpha:` strategy. --symbolic G also searches G generations for a closed-form formula on the same
+// features, picked on the last fifth of the train days and scored on the test days. Prints Markdown.
 // Usage: itch_alpha --train <store>[,..] --test <store>[,..] [--symbols N|SYM,..] [--horizon S] [--step S]
-//                   [--folds K] [--miscoverage A] [--model DIR]
+//                   [--folds K] [--miscoverage A] [--model DIR] [--symbolic GENERATIONS]
 
 #include <algorithm>
 #include <array>
@@ -15,6 +16,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -28,6 +30,7 @@
 #include "strategy/microstructure.hpp"
 #include "strategy/mlofi.hpp"
 #include "strategy/multi_features.hpp"
+#include "strategy/symreg.hpp"
 
 namespace {
 
@@ -151,7 +154,71 @@ struct Result {
     std::size_t n_train = 0, n_test = 0;
     Scaler z;
     std::vector<double> b;
+    // Symbolic regression: the chosen formula and the accuracy-complexity front it came from.
+    std::string formula;
+    std::size_t formula_size = 0;
+    double sym_valid = NAN, sym_r2 = NAN, sym_ic = NAN;
+    std::vector<std::array<double, 3>> front;  // size, fit R², validation R²
 };
+
+double corr(const std::vector<double>& a, const std::vector<double>& b);
+
+// Standardised feature columns and target of the samples.
+strategy::symreg::Data columns(const std::vector<const Sample*>& s, const Scaler& z, std::size_t max_size) {
+    std::vector<std::vector<double>> cols(kF, std::vector<double>(s.size()));
+    std::vector<double> y(s.size());
+    for (std::size_t i = 0; i < s.size(); ++i) {
+        const auto r = z.row(*s[i]);
+        for (std::size_t j = 0; j < kF; ++j) cols[j][i] = r[j];
+        y[i] = s[i]->y;
+    }
+    return strategy::symreg::Data(std::move(cols), std::move(y), max_size);
+}
+
+// Chronological split of the train samples: the search fits on the first 80% (thinned to at most
+// 20,000 rows, purged of labels reaching into the rest), the front is ranked on the last 20%.
+void symbolic(Result& o, const std::vector<const Sample*>& tr, const std::vector<std::uint64_t>& start,
+              const std::vector<std::uint64_t>& end, const std::vector<const Sample*>& te, std::size_t generations, std::uint64_t seed) {
+    namespace sr = strategy::symreg;
+    const std::size_t cut = tr.size() * 4 / 5;
+    std::vector<const Sample*> fit, valid(tr.begin() + static_cast<std::ptrdiff_t>(cut), tr.end());
+    const std::size_t stride = std::max<std::size_t>(1, cut / 20000);
+    for (std::size_t i = 0; i < cut; i += stride)
+        if (end[i] < start[cut]) fit.push_back(tr[i]);
+    if (fit.size() < 500 || valid.size() < 100 || te.size() < 100) return;
+    Scaler z;
+    z.fit(fit);
+    sr::Params prm;
+    prm.generations = generations, prm.seed = seed;
+    sr::Data df = columns(fit, z, prm.max_size), dv = columns(valid, z, prm.max_size), dt = columns(te, z, prm.max_size);
+    std::vector<double> yv, yt;
+    for (const Sample* p : valid) yv.push_back(p->y);
+    for (const Sample* p : te) yt.push_back(p->y);
+    const auto hof = sr::evolve(df, prm);
+    // The front keeps a size only if it fits better than every smaller formula.
+    std::vector<const sr::Formula*> front;
+    std::vector<double> val;
+    double floor = std::numeric_limits<double>::infinity(), top = -std::numeric_limits<double>::infinity();
+    for (const sr::Formula& f : hof) {
+        if (!(f.mse < floor)) continue;
+        floor = f.mse;
+        const double v = strategy::micro::r2_of(dv.predict(f), yv);
+        front.push_back(&f), val.push_back(v);
+        o.front.push_back({static_cast<double>(f.size()), 1 - f.mse * static_cast<double>(df.rows()) / df.sst(), v});
+        if (std::isfinite(v)) top = std::max(top, v);
+    }
+    // Parsimony: the smallest formula whose validation error is within 0.5% of the best one's.
+    const sr::Formula* best = nullptr;
+    for (std::size_t k = 0; k < front.size() && !best; ++k)
+        if (std::isfinite(val[k]) && 1 - val[k] <= 1.005 * (1 - top)) best = front[k], o.sym_valid = val[k];
+    if (!best) return;
+    std::vector<std::string> names(SymbolFeatures::kNames.begin(), SymbolFeatures::kNames.end());
+    o.formula = sr::to_string(best->prog, names);
+    o.formula_size = best->size();
+    const auto pt = dt.predict(*best);
+    o.sym_r2 = strategy::micro::r2_of(pt, yt);
+    o.sym_ic = corr(pt, yt);
+}
 
 double corr(const std::vector<double>& a, const std::vector<double>& b) {
     const double n = static_cast<double>(a.size());
@@ -167,11 +234,11 @@ double corr(const std::vector<double>& a, const std::vector<double>& b) {
 int main(int argc, char** argv) {
     constexpr const char* usage =
         "usage: itch_alpha --train <store>[,..] --test <store>[,..] [--symbols N|SYM,..] [--horizon S] [--step S] [--folds K] "
-        "[--miscoverage A] [--model DIR]";
+        "[--miscoverage A] [--model DIR] [--symbolic GENERATIONS]";
     std::vector<fs::path> train, test;
     std::string symbols = "10", model_dir;
     double horizon_s = 5, step_s = 1, miscoverage = 0.1;
-    std::size_t folds = 5;
+    std::size_t folds = 5, generations = 0;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         if (i + 1 >= argc) return std::fprintf(stderr, "missing value for %s\n%s\n", a.c_str(), usage), 2;
@@ -184,6 +251,7 @@ int main(int argc, char** argv) {
         else if (a == "--folds") folds = std::strtoul(v.c_str(), nullptr, 10);
         else if (a == "--miscoverage") miscoverage = std::atof(v.c_str());
         else if (a == "--model") model_dir = v;
+        else if (a == "--symbolic") generations = std::strtoul(v.c_str(), nullptr, 10);
         else return std::fprintf(stderr, "unknown option %s\n%s\n", a.c_str(), usage), 2;
     }
     const double ratio = horizon_s / step_s;
@@ -269,6 +337,12 @@ int main(int argc, char** argv) {
         for (std::size_t k = 0; k < top; ++k) caught += (pred[idx[k]] > 0 ? 1 : -1) * y[idx[k]];
         o.top_move = caught / static_cast<double>(top);
         o.half = strategy::micro::median(half);
+        if (generations) {
+            std::vector<const Sample*> te;
+            for (std::size_t d = T; d < D; ++d)
+                for (const Sample& p : sets[s * D + d]) te.push_back(&p);
+            symbolic(o, tr, start, end, te, generations, s + 1);
+        }
     });
 
     std::printf("# Alpha model\n\n%zu symbols; train %zu days, test %zu days. Target: mid change over the next %g s (ticks), sampled every %g s "
@@ -293,6 +367,29 @@ int main(int argc, char** argv) {
     std::printf("| median | | | | %.4f | %.3f | | | %.3f | | |\n", median(r2), median(ic), median(cov));
     std::printf("\nA forecast pays to trade on only when its top-decile move exceeds the half spread plus fees; otherwise it can still "
                 "skew passive quotes (strategy `alpha:`).\n");
+
+    if (generations) {
+        std::printf("\n## Symbolic regression\n\nGenetic programming over the same standardised features (+, -, *, protected /, negation, "
+                    "tanh; at most 25 nodes; %zu generations of 400), each candidate linearly scaled to the target. The sizes whose best formula fits "
+                    "better than every smaller one form the accuracy-complexity front; on the last fifth of the train days the smallest "
+                    "formula within 0.5%% of the best validation error is chosen and scored on the test days. Ridge's test R² for comparison.\n\n"
+                    "| Symbol | nodes | validation R² | test R² | test IC | ridge test R² | formula |\n|---|---|---|---|---|---|---|\n",
+                    generations);
+        for (std::size_t s = 0; s < S; ++s) {
+            const Result& o = res[s];
+            if (o.formula.empty()) {
+                std::printf("| %s | too few samples | | | | | |\n", u.names[s].c_str());
+                continue;
+            }
+            std::printf("| %s | %zu | %.4f | %.4f | %.3f | %.4f | `%s` |\n", u.names[s].c_str(), o.formula_size, o.sym_valid, o.sym_r2, o.sym_ic,
+                        o.r2, o.formula.c_str());
+        }
+        for (std::size_t s = 0; s < S; ++s) {
+            if (res[s].front.empty()) continue;
+            std::printf("\nFront for %s:\n\n| nodes | fit R² | validation R² |\n|---|---|---|\n", u.names[s].c_str());
+            for (const auto& f : res[s].front) std::printf("| %.0f | %.4f | %.4f |\n", f[0], f[1], f[2]);
+        }
+    }
 
     if (!model_dir.empty()) {
         fs::create_directories(model_dir);

@@ -22,8 +22,9 @@ reg=$("$apps/itch_regime" --train "$tmp/day1" --test "$tmp/day2" --symbols QRSIM
 echo "$reg" | grep -q '^## Backtest PnL by regime'
 [ "$(wc -l <"$tmp/reg.csv")" -eq 381 ]  # header and 380 minutes
 
-alpha=$("$apps/itch_alpha" --train "$tmp/day1" --test "$tmp/day2" --symbols QRSIM --horizon 5 --step 1 --model "$tmp/models" 2>/dev/null)
-echo "$alpha" | awk -F'|' '/^\| QRSIM \|/{c=$10; found=1} END{exit !(found && c > 0.8 && c < 0.97)}'  # 90% target coverage
+alpha=$("$apps/itch_alpha" --train "$tmp/day1" --test "$tmp/day2" --symbols QRSIM --horizon 5 --step 1 --model "$tmp/models" --symbolic 5 2>/dev/null)
+echo "$alpha" | grep -q '^## Symbolic regression'
+echo "$alpha" | awk -F'|' '/^\| QRSIM \|/{c=$10; found=1; exit} END{exit !(found && c > 0.8 && c < 0.97)}'  # 90% target coverage
 "$apps/itch_backtest" "$tmp/day2" QRSIM "alpha:$tmp/models/QRSIM.alpha" | grep -q '^total_usd'
 "$apps/itch_backtest" "$tmp/day2" QRSIM conformal | awk '$1 == "fills" {exit !($2 > 0)}'
 

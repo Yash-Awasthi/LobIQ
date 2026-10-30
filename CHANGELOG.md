@@ -16,6 +16,7 @@ Research
   causal labels on test days, backtest PnL by regime. Tests: `Hmm.*`, `KMeans.*`.
 - **Alpha model.** `itch_alpha` / `lobiq alpha`: ridge on the streaming features, purged and
   embargoed k-fold, split-conformal intervals, model files for the new `alpha:<FILE>` strategy.
+  `--symbolic G`: symbolic regression over the same features. Tests: `SymReg.*`.
 - **Conformal market maker.** Strategy `conformal`: quotes at an adaptive conformal interval of the
   micro-price forecast. Tests: `SplitConformal.*`, `AdaptiveConformal.*`.
 - **Options.** `options` / `lobiq options`: Black-Scholes with Greeks, digitals, implied volatility,

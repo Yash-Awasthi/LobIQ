@@ -404,6 +404,22 @@ sampled every `--step` seconds; target the mid change over the next `--horizon` 
 
 Code: `apps/itch_alpha.cpp`, `strategies/alpha.cpp`, `purged_kfold` in `src/backtest/overfit.hpp`. Tests: `PurgedKFold.*`, `Research.SyntheticDays`.
 
+## Symbolic regression
+
+`itch_alpha --symbolic G` searches formulas over the same standardised features, the method of PySR
+(Cranmer 2023) without its Julia engine. Programs are postfix arrays over $+, -, \times$, protected
+division ($a / b$, or 0 when $|b| < 10^{-6}$), negation and $\tanh$, at most 25 nodes; a population of
+400 starts ramped half-and-half (Koza 1992) and evolves for $G$ generations by tournament selection
+(7, ties to the smaller program), subtree crossover, subtree and constant mutation, with elitism.
+Every candidate is linearly scaled, $\hat y = a + b f(x)$ by least squares (Keijzer 2003), so the search
+looks for shape, not constants. The best formula of each size is kept; sizes that fit better than every
+smaller one form the accuracy-complexity front. The search fits the first 80% of the train samples
+(thinned to 20,000, purged of labels reaching past the split); on the last 20% the smallest front member
+whose validation error is within 0.5% of the best is chosen, then scored on the test days. Evaluation
+runs a whole column per node over buffers allocated once.
+
+Code: `src/strategy/symreg.hpp`. Tests: `SymReg.*` (a planted interaction is recovered at its size).
+
 ## Options
 
 - **Black-Scholes-Merton** (Black and Scholes 1973) with dividend yield $q$:
@@ -478,12 +494,15 @@ Code: `src/surveil/surveil.hpp`. Tests: `Surveil.*`.
 - Brown, E., Barbieri, R., Ventura, V., Kass, R. and Frank, L. (2002). The time-rescaling theorem and its application to neural spike train data analysis. *Neural Computation* 14(2).
 - Corsi, F. (2009). A simple approximate long-memory model of realized volatility. *Journal of Financial Econometrics* 7(2).
 - Cox, J., Ross, S. and Rubinstein, M. (1979). Option pricing: a simplified approach. *Journal of Financial Economics* 7(3).
+- Cranmer, M. (2023). Interpretable machine learning for science with PySR and SymbolicRegression.jl. arXiv:2305.01582.
 - Diebold, F. and Mariano, R. (1995). Comparing predictive accuracy. *Journal of Business and Economic Statistics* 13(3).
 - Gatheral, J. (2004). A parsimonious arbitrage-free implied volatility parameterization. Global Derivatives conference.
 - Gatheral, J. and Jacquier, A. (2014). Arbitrage-free SVI volatility surfaces. *Quantitative Finance* 14(1).
 - Gibbs, I. and Candes, E. (2021). Adaptive conformal inference under distribution shift. *NeurIPS*.
 - Hansen, P. (2005). A test for superior predictive ability. *Journal of Business and Economic Statistics* 23(4).
 - Hansen, P., Lunde, A. and Nason, J. (2011). The model confidence set. *Econometrica* 79(2).
+- Keijzer, M. (2003). Improving symbolic regression with interval arithmetic and linear scaling. *EuroGP*.
+- Koza, J. (1992). *Genetic Programming*. MIT Press.
 - Lei, J., G'Sell, M., Rinaldo, A., Tibshirani, R. and Wasserman, L. (2018). Distribution-free predictive inference for regression. *JASA* 113(523).
 - Lewis, E. and Mohler, G. (2011). A nonparametric EM algorithm for multiscale Hawkes processes. *Journal of Nonparametric Statistics* 1(1).
 - Lopez de Prado, M. (2018). *Advances in Financial Machine Learning*. Wiley.

@@ -11,7 +11,7 @@ add_executable(hft_tests endian_test.cpp itch_test.cpp store_test.cpp gzip_test.
                          arb_test.cpp engine_test.cpp session_test.cpp pm_decoder_test.cpp
                          exec_test.cpp ledger_test.cpp risk_test.cpp oms_test.cpp config_test.cpp arb_exec_test.cpp
                          sim_venue_test.cpp report_test.cpp quoter_test.cpp pool_test.cpp microstructure_test.cpp parallel_test.cpp surveil_test.cpp bestex_test.cpp markov_test.cpp mlofi_test.cpp lobster_test.cpp realism_test.cpp
-                         garch_test.cpp hawkes_mv_test.cpp regime_test.cpp conformal_test.cpp overfit_test.cpp options_test.cpp ${HFT_STRATEGY_SOURCES} ${HFT_QUOTER_SOURCES})
+                         garch_test.cpp hawkes_mv_test.cpp regime_test.cpp conformal_test.cpp overfit_test.cpp options_test.cpp symreg_test.cpp ${HFT_STRATEGY_SOURCES} ${HFT_QUOTER_SOURCES})
 target_link_libraries(hft_tests PRIVATE hft_core hft_data GTest::gtest_main rapidcheck
                                         zstd::libzstd OpenSSL::SSL OpenSSL::Crypto)
 target_compile_definitions(hft_tests PRIVATE HFT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")

@@ -683,7 +683,9 @@ synthetic-day end-to-end test `Research.SyntheticDays`, also runnable from the s
 - **Regimes** (`lobiq regime`): a Gaussian HMM over minute features, states by BIC, test minutes
   labelled by the forward filter so no label sees the future; `--pnl` splits a backtest's PnL by regime.
 - **Alpha** (`lobiq alpha`): ridge on the 23 streaming features with purged, embargoed k-fold
-  cross-validation and split-conformal intervals; `--model` feeds the `alpha:<FILE>` strategy. The
+  cross-validation and split-conformal intervals; `--model` feeds the `alpha:<FILE>` strategy.
+  `--symbolic G` searches for a closed-form formula on the same features (genetic programming with
+  linear scaling and an accuracy-complexity front, the method of PySR), picked for parsimony on held-out days. The
   `conformal` strategy quotes at an adaptive conformal interval of the micro-price's forecast.
 - **Options** (`lobiq options`): prices and Greeks by Black-Scholes, CRR binomial (American too) and
   Monte Carlo side by side; from a CSV chain, forwards by put-call parity, Black-76 implied
