@@ -168,7 +168,7 @@ def find_bash():
 BASH = find_bash()
 
 
-def run_hft(args, timeout=None):
+def run_lobiq(args, timeout=None):
     return subprocess.run([BASH, LOBIQ, *args], cwd=ROOT, capture_output=True, text=True,
                           timeout=timeout)
 
@@ -338,7 +338,7 @@ def tool_list(cmd):
     if cmd not in _TOOL_LISTS:
         out = []
         if bin_dir():
-            r = run_hft([cmd], timeout=30)
+            r = run_lobiq([cmd], timeout=30)
             for line in r.stdout.splitlines():
                 m = re.match(r"^\s*(\S+)\s+(.*)$", line)
                 if m:
@@ -475,13 +475,13 @@ class Handler(BaseHTTPRequestHandler):
                 e = report_entry(d, bootstrap=True) if d and os.path.isdir(d) else None
                 return self._json(200, e) if e else self._send(404, {"error": "no report there"})
             if p == "/api/markov":
-                r = run_hft(lobiq_args(dict(q, kind="markov")), timeout=600)
+                r = run_lobiq(lobiq_args(dict(q, kind="markov")), timeout=600)
                 if r.returncode != 0:
                     return self._json(400, {"error": (r.stderr or r.stdout).strip()[-500:]})
                 return self._json(200, json.loads(r.stdout))
             if p == "/api/book":
                 spec = dict(q, kind="book")
-                r = run_hft(lobiq_args(spec), timeout=120)
+                r = run_lobiq(lobiq_args(spec), timeout=120)
                 if r.returncode != 0:
                     return self._json(400, {"error": (r.stderr or r.stdout).strip()[-500:]})
                 return self._json(200, parse_book(r.stdout))
@@ -598,21 +598,21 @@ def demo_results():
     }
     for kind, spec in specs.items():
         args = lobiq_args(dict(spec, kind=kind))
-        r = run_hft(args, timeout=1800)
+        r = run_lobiq(args, timeout=1800)
         # No machine paths in the page: repository files relative to it, the data directory by its variable.
         shown = [os.path.relpath(a, ROOT).replace(os.sep, "/") if a.startswith(ROOT) else
                  "$LOBIQ_DATA" + a[len(DATA):].replace(os.sep, "/") if a.startswith(DATA) else a for a in args]
         text = (r.stdout or r.stderr).replace(ROOT + os.sep, "").replace(DATA, "$LOBIQ_DATA")
         demo["analysis"][kind] = {"command": "lobiq " + " ".join(shown), "rc": r.returncode, "text": text}
     for d in days:
-        r = run_hft(lobiq_args({"kind": "markov", "day": d["day"], "symbol": "QRSIM", "buckets": "5"}), timeout=600)
+        r = run_lobiq(lobiq_args({"kind": "markov", "day": d["day"], "symbol": "QRSIM", "buckets": "5"}), timeout=600)
         try:
             demo["markov"][f"{d['day']}|QRSIM|5"] = json.loads(r.stdout)
         except ValueError:
             pass
     for s in range(BOOK_SECONDS):
         t = f"10:{s // 60:02d}:{s % 60:02d}"
-        r = run_hft(lobiq_args({"kind": "book", "day": d0, "symbol": "QRSIM", "time": t, "levels": "10"}), timeout=120)
+        r = run_lobiq(lobiq_args({"kind": "book", "day": d0, "symbol": "QRSIM", "time": t, "levels": "10"}), timeout=120)
         if r.returncode == 0:
             demo["book"][f"{d0}|QRSIM|{t}|10"] = parse_book(r.stdout)
     return demo

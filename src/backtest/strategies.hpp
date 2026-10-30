@@ -197,7 +197,7 @@ struct DpPolicy {
         std::ifstream f(path, std::ios::binary);
         char magic[8];
         f.read(magic, 8);
-        if (!f || std::string(magic, 8) != "HFTDP001")
+        if (!f || std::string(magic, 8) != "LOBIQDP1")
             throw std::runtime_error("not a policy table: " + path);
         std::int32_t h[6];
         f.read(reinterpret_cast<char*>(h), sizeof h);

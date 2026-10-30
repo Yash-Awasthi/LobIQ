@@ -240,7 +240,7 @@ std::string write_table(const TempDir& dir, double w0, double w1) {
     at(0, 0, 0, 4, 0, 1) = 9;  // strong bid imbalance: take
     {
         std::ofstream f(path, std::ios::binary);
-        f.write("HFTDP001", 8);
+        f.write("LOBIQDP1", 8);
         const std::int32_t h[6] = {Q, nq * nq, ni, ns, ng, k};
         f.write(reinterpret_cast<const char*>(h), sizeof h);
         const double imb[4] = {-0.6, -0.2, 0.2, 0.6}, spr[2] = {1.5, 3.5}, sig[2] = {-0.5, 0.5};

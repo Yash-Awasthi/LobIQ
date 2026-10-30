@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.7.1 (2026-10-31)
+
+The last traces of the former name are gone. Policy tables for `dp:` and `ext:` now start with the tag
+`LOBIQDP1`; a table written before this release loads after its first eight bytes are rewritten:
+`printf LOBIQDP1 | dd of=policy.bin conv=notrunc`. Settings are read only from `LOBIQ_*` environment
+variables (`LOBIQ_DATA`, `LOBIQ_BIN`, `LOBIQ_REPORTS`, ...), as in v1.7.
+
 ## v1.7 (2026-10-31)
 
 Forecasting models and an options engine, all in the C++ codebase with no new dependency. Book,
