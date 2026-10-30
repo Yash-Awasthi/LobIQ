@@ -45,6 +45,13 @@ Studio and published reports
   The alpha tool saves its models to `REPORTS/alpha-models`, which the Backtest tab runs as
   `alpha:NAME.alpha`. Sweep runs carry their model confidence set p-value into the leaderboard.
   Tests: `test_model_arguments`, `test_option_price_job`.
+- **The published studio is no longer empty**: the snapshot runs every studio tool once on two
+  synthetic days when CI builds it (`server.py --snapshot OUT --demo`), so its Analysis tab shows each
+  tool's output, the Prediction tab the Markov chain, and the Order book tab steps through
+  10:00:00-10:01:59, instead of refusing.
+- **`lobiq synthetic`** writes those two synthetic days into `LOBIQ_DATA`, so a fresh install can try
+  every tool before downloading a Nasdaq day. README: a "Run it on your machine" guide (published page,
+  Docker with a data volume, native build, variables).
 - **Published site** gains the forecasting models and options pages (`scripts/demo/models.sh`), and
   the sweep card names its overfitting checks. The sample chain lives in `data/sample/`.
 

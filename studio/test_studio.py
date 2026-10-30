@@ -369,6 +369,25 @@ class Snapshot(unittest.TestCase):
         [row] = snap["leaderboard"]
         self.assertEqual((row["path"], row["strategy"], row["max_drawdown_usd"]), ("../backtest/naive", "naive", 3))
         self.assertIn("pnl_ci_low", row)
+        self.assertNotIn("demo", snap)
+
+    # --demo runs every tool once on the stored days, so the published page shows results, not refusals.
+    def test_demo_results(self):
+        out = TMP + "/snapdemo"
+        os.makedirs(out)
+        subprocess.run([sys.executable, os.path.join(HERE, "server.py"), "--snapshot", out, "--demo"], check=True, capture_output=True)
+        with open(out + "/studio/snapshot.json") as f:
+            snap = json.load(f)
+        demo = snap["demo"]
+        day = demo["days"][0]["day"]
+        self.assertEqual(snap["state"]["days"], demo["days"])
+        self.assertEqual(len(demo["book"]), server.BOOK_SECONDS)
+        self.assertIn(f"{day}|QRSIM|10:01:59|10", demo["book"])
+        self.assertIn(f"{day}|QRSIM|5", demo["markov"])
+        for kind in ("surveil", "vol", "hawkes", "regime", "alpha", "options", "surface"):
+            self.assertTrue(demo["analysis"][kind]["command"].startswith("lobiq "), kind)
+        self.assertEqual(demo["analysis"]["surface"]["command"], "lobiq options surface data/sample/options_chain.csv --rate 0.04 --greeks")
+        self.assertIn("Black-Scholes", demo["analysis"]["options"]["text"])  # the stub prices it
 
 
 @unittest.skipUnless(REAL_BIN, "needs built tools")

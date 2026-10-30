@@ -36,6 +36,8 @@ LobIQ (lobiq): low-latency trading toolkit. Data: $data (LOBIQ_DATA). Tools: ${b
 Nasdaq ITCH days (DAY is S121025, 2025-12-10 or a store path):
   lobiq get DAY...                 download from Nasdaq, verify, build the store
   lobiq days                       stores on disk, with symbols and size
+  lobiq synthetic                  two synthetic days (2025-01-07, 2025-01-08; symbol QRSIM) to try every
+                                   tool without downloading: queue-reactive order flow, not a real market
   lobiq replay DAY                 rebuild every book of the day, check invariants, time it
   lobiq book DAY SYMBOL HH:MM:SS[.f] [LEVELS]
                                    the order book at that moment (from the nearest checkpoint)
@@ -104,6 +106,18 @@ get)
     for d in "$@"; do
         [[ $d =~ ^([0-9]{4})-([0-9]{2})-([0-9]{2})$ ]] && d="S${BASH_REMATCH[2]}${BASH_REMATCH[3]}${BASH_REMATCH[1]:2:2}"
         LOBIQ_DATA=$data LOBIQ_INGEST=$bin/ingest LOBIQ_CHECKPOINT=$bin/checkpoint "$root/scripts/ingest_day.sh" "$d-v50.txt.gz"
+    done
+    ;;
+
+synthetic)
+    need
+    mkdir -p "$data"
+    for x in "7 S010725" "8 S010825"; do
+        set -- $x
+        s="$data/store-$2-v50"
+        if [ -d "$s" ]; then echo "$(date_of "$s"): $s exists"; continue; fi
+        { "$bin/gen_day" "$1" 390 2>/dev/null | "$bin/ingest" "$s" && "$bin/checkpoint" "$s"; } >/dev/null 2>&1 || die "could not write $s"
+        echo "$(date_of "$s"): $s (synthetic, symbol QRSIM)"
     done
     ;;
 

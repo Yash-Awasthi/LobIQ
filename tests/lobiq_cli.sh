@@ -10,6 +10,9 @@ rc=0; "$lobiq" bogus 2>/dev/null || rc=$?; [ $rc -eq 2 ]
 rc=0; "$lobiq" replay S010101 2>/dev/null || rc=$?; [ $rc -eq 1 ]  # no such store
 "$LOBIQ_BIN/gen_day" 1 120 2>/dev/null | "$LOBIQ_BIN/ingest" "$LOBIQ_DATA/store-S010125-v50" >/dev/null 2>&1
 "$lobiq" days | grep "S010125    2025-01-01" >/dev/null
+"$lobiq" synthetic | grep -c "symbol QRSIM" | grep -qx 2
+"$lobiq" synthetic | grep -c "exists" | grep -qx 2  # a second call keeps the stores
+"$lobiq" days | grep -q "S010825    2025-01-08"
 "$lobiq" replay 2025-01-01 | grep "symbols, .* 0 check failures" >/dev/null
 "$lobiq" backtest S010125 QRSIM naive >/dev/null 2>&1
 ls "$LOBIQ_DATA"/reports/backtest-*/report.html >/dev/null

@@ -575,8 +575,52 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(400, {"error": str(e)})
 
 
-def snapshot(out):
-    """Read-only copy of the UI over the reports in OUT, at OUT/studio/: static files, no server."""
+BOOK_SECONDS = 120  # the snapshot's order book steps through 10:00:00 to 10:01:59
+
+
+def demo_results():
+    """Every tool the studio can run, run once on the stored days (synthetic in CI) for the snapshot: the
+    Analysis tab's outputs, the Prediction tab's Markov chains and the Order book tab's books, so the
+    published page shows real results where it cannot run anything."""
+    days = list_days()
+    demo = {"days": days, "analysis": {}, "markov": {}, "book": {}}
+    if not days or not bin_dir():
+        return demo
+    d0, d1 = days[0]["day"], days[-1]["day"]
+    models = {"train": d0, "test": d1, "symbols": "QRSIM"}
+    specs = {
+        "surveil": {"day": d0}, "bestex": {"day": d0}, "replay": {"day": d0},
+        "mlofi": {"day": d0, "symbols": "QRSIM"}, "realism": {"day": d0, "symbol": "QRSIM"},
+        "leadlag": {"days": d0, "pairs": "QRSIM:QRSIM"}, "study": {"train": d0, "test": d1},
+        "vol": models, "hawkes": models, "regime": models, "alpha": dict(models, generations="10"),
+        "options": {"right": "put", "spot": "100", "strike": "105", "years": "1", "rate": "0.05", "yield": "0", "vol": "0.25"},
+        "surface": {"chain": "sample", "rate": "0.04"},
+    }
+    for kind, spec in specs.items():
+        args = lobiq_args(dict(spec, kind=kind))
+        r = run_hft(args, timeout=1800)
+        # No machine paths in the page: repository files relative to it, the data directory by its variable.
+        shown = [os.path.relpath(a, ROOT).replace(os.sep, "/") if a.startswith(ROOT) else
+                 "$LOBIQ_DATA" + a[len(DATA):].replace(os.sep, "/") if a.startswith(DATA) else a for a in args]
+        text = (r.stdout or r.stderr).replace(ROOT + os.sep, "").replace(DATA, "$LOBIQ_DATA")
+        demo["analysis"][kind] = {"command": "lobiq " + " ".join(shown), "rc": r.returncode, "text": text}
+    for d in days:
+        r = run_hft(lobiq_args({"kind": "markov", "day": d["day"], "symbol": "QRSIM", "buckets": "5"}), timeout=600)
+        try:
+            demo["markov"][f"{d['day']}|QRSIM|5"] = json.loads(r.stdout)
+        except ValueError:
+            pass
+    for s in range(BOOK_SECONDS):
+        t = f"10:{s // 60:02d}:{s % 60:02d}"
+        r = run_hft(lobiq_args({"kind": "book", "day": d0, "symbol": "QRSIM", "time": t, "levels": "10"}), timeout=120)
+        if r.returncode == 0:
+            demo["book"][f"{d0}|QRSIM|{t}|10"] = parse_book(r.stdout)
+    return demo
+
+
+def snapshot(out, demo=False):
+    """Read-only copy of the UI over the reports in OUT, at OUT/studio/: static files, no server. With demo,
+    also every tool's output on the stored days (demo_results)."""
     out = os.path.abspath(out)
     for k in TREES:
         TREES[k] = out if k == "out" else os.path.join(out, ".none")
@@ -601,6 +645,9 @@ def snapshot(out):
     # /files/out/X is ../X from OUT/studio/.
     data = {"state": {"data": "snapshot", "reports": "", "bin": "snapshot", "days": [], "runs": [], "jobs": []},
             "leaderboard": rows, "catalog": catalog(), "paper": []}
+    if demo:
+        data["demo"] = demo_results()
+        data["state"]["days"] = data["demo"]["days"]
     text = json.dumps(json.loads(json.dumps(data, default=str), parse_constant=lambda c: None), allow_nan=False)
     with open(os.path.join(dest, "snapshot.json"), "w", encoding="utf-8") as f:
         f.write(text.replace('"/files/out/', '"../'))
@@ -612,9 +659,10 @@ def main(argv=None):
     ap.add_argument("--port", type=int, default=int(os.environ.get("LOBIQ_STUDIO_PORT", 8000)))
     ap.add_argument("--bind", default="127.0.0.1", help="address to listen on (0.0.0.0 inside a container)")
     ap.add_argument("--snapshot", metavar="OUT", help="write a read-only copy of the UI over the reports in OUT and exit")
+    ap.add_argument("--demo", action="store_true", help="with --snapshot: also run every tool on the stored days and embed the results")
     a = ap.parse_args(argv)
     if a.snapshot:
-        return snapshot(a.snapshot)
+        return snapshot(a.snapshot, a.demo)
     srv = ThreadingHTTPServer((a.bind, a.port), Handler)
     srv.daemon_threads = True
     print(f"lobiq studio on http://127.0.0.1:{srv.server_address[1]}/  (data {DATA}, Ctrl-C stops)", flush=True)

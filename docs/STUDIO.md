@@ -55,7 +55,11 @@ Formulas and sources: [METHODS.md](METHODS.md#evaluation). Code: `studio/metrics
 `python3 studio/server.py --snapshot OUT` writes a read-only copy of the UI over the backtest
 reports in OUT to `OUT/studio/`: the same page and metrics, from a `snapshot.json`, with no server.
 `scripts/demo/all.sh` writes one after the demos, so the published demo reports include the
-leaderboard (`studio/index.html` next to `index.html`).
+leaderboard (`studio/index.html` next to `index.html`). With `--demo` it also runs every tool once on
+the days in `LOBIQ_DATA` (all.sh makes two synthetic ones) and embeds the results: the Analysis tab shows
+each tool's output with the command that made it, the Prediction tab the Markov chain of `QRSIM` with 5
+buckets, and the Order book tab `QRSIM`'s book every second from 10:00:00 to 10:01:59. Anything else
+still asks for a local `lobiq studio`.
 
 ## Themes
 

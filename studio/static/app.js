@@ -17,6 +17,19 @@ async function api(path, body) {
       '/api/paper': SNAPDATA.paper}[path]
       ?? (path.startsWith('/api/report?path=') && SNAPDATA.leaderboard.find(r => r.path === decodeURIComponent(path.slice(17)))));
     if (found) return found;
+    // Markov chains and books the snapshot precomputed (server.py demo_results).
+    const q = new URLSearchParams(path.split('?')[1] || '');
+    const demo = SNAPDATA.demo || {};
+    if (path.startsWith('/api/markov?') && demo.markov?.[`${q.get('day')}|${q.get('symbol')}|${q.get('buckets')}`])
+      return demo.markov[`${q.get('day')}|${q.get('symbol')}|${q.get('buckets')}`];
+    if (path.startsWith('/api/book?')) {
+      const b = demo.book?.[`${q.get('day')}|${q.get('symbol')}|${(q.get('time') || '').slice(0, 8)}|${q.get('levels')}`];
+      if (b) return b;
+      if (demo.book && Object.keys(demo.book).length)
+        throw new Error('Read-only snapshot: books are precomputed for QRSIM, 10 levels, 10:00:00 to 10:01:59; run lobiq studio locally for any symbol and time');
+    }
+    if (path.startsWith('/api/markov?') && demo.markov && Object.keys(demo.markov).length)
+      throw new Error('Read-only snapshot: precomputed for QRSIM with 5 buckets; run lobiq studio locally for other settings');
     throw new Error('Read-only snapshot: run lobiq studio locally for this');
   }
   const r = await fetch(path, body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {});
@@ -87,7 +100,8 @@ async function refresh() {
   const s = STATE;
   const warn = $('#warn');
   warn.hidden = !SNAP;
-  warn.innerHTML = 'Read-only snapshot of the demo reports, built by CI. Run <code>lobiq studio</code> locally to run backtests, replays and live paper trading.';
+  warn.innerHTML = 'Read-only snapshot of the demo reports, built by CI on synthetic days: the Analysis, Prediction and Order book tabs show runs made then (symbol QRSIM). Run <code>lobiq studio</code> locally to run backtests, replays, every tool on your data and live paper trading.';
+  if (SNAP) for (const f of ['#book-form', '#mk-form']) if (!$(f).symbol.value) $(f).symbol.value = 'QRSIM';
   $('#setup').hidden = SNAP || !!s.bin;
   const running = s.jobs.filter(j => j.running).length;
   $('#running').hidden = !running;
@@ -329,7 +343,7 @@ $('#book-play').onclick = () => {
 
 // Analysis tools print Markdown: headings, paragraphs, bullets and tables.
 function markdown(src) {
-  const out = [], ls = src.split('\n');
+  const out = [], ls = src.split(/\r?\n/);
   const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`(.+?)`/g, '<code>$1</code>');
   for (let i = 0; i < ls.length; i++) {
     const l = ls[i];
@@ -359,8 +373,19 @@ $('#an-form').onsubmit = async e => {
   for (const k of ['spot', 'strike', 'years', 'rate', 'yield', 'vol', 'chain', 'interval', 'window', 'states', 'horizon', 'generations'])
     spec[k] = f[k].value.trim();
   $('#an-out').innerHTML = '';
+  const show = text => /^[#|]/m.test(text) ? markdown(text) : `<pre class="log">${esc(text)}</pre>`;
+  // The published snapshot cannot run tools: it shows the run CI made of each one when it built the page.
+  if (SNAP) {
+    await api('/api/state');
+    const d = SNAPDATA.demo?.analysis?.[kind];
+    $('#an-status').innerHTML = d
+      ? `Read-only snapshot: the run CI made when it built this page, on synthetic days and the bundled option chain (<code>${esc(d.command)}</code>); the inputs above are not used. Run <code>lobiq studio</code> locally to run it on your own data.`
+      : 'Read-only snapshot: run <code>lobiq studio</code> locally to run this tool.';
+    if (d) $('#an-out').innerHTML = show(d.text);
+    return;
+  }
   const job = await runJob(spec, null, $('#an-status'));
-  if (job) $('#an-out').innerHTML = job.lines.some(l => /^[#|]/.test(l)) ? markdown(job.lines.join('\n')) : `<pre class="log">${esc(job.lines.join('\n'))}</pre>`;
+  if (job) $('#an-out').innerHTML = show(job.lines.join('\n'));
 };
 
 $('#live-form').onsubmit = e => {

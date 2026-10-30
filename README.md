@@ -49,11 +49,70 @@ the [forecasting models and options](https://yash-awasthi.github.io/LobIQ/models
 |---|---|
 | [![paper report](docs/img/paper-report.png)](https://yash-awasthi.github.io/LobIQ/paper/report.html) | [![sweep report](docs/img/sweep-report.png)](docs/img/sweep-report.png) |
 
-Contents: [Use it](#use-it) · [Plug in a strategy](#plug-in-a-strategy) · [Evaluating a strategy](#evaluating-a-strategy) · [Highlights](#highlights) ·
+Contents: [Run it on your machine](#run-it-on-your-machine) · [Use it](#use-it) · [Plug in a strategy](#plug-in-a-strategy) · [Evaluating a strategy](#evaluating-a-strategy) · [Highlights](#highlights) ·
 [Architecture](#architecture) · [Performance](#performance) · [Tests](#tests) ·
 [Build and run](#build-and-run) · [Prediction markets](#prediction-markets) ·
 [Live paper trading](#live-paper-trading) · [Paper execution](#paper-execution) ·
 [Market microstructure research](#market-microstructure-research) · [Not planned](#not-planned)
+
+## Run it on your machine
+
+Three ways in, from no install to a native build. Everything except the published page needs Linux
+x86-64 underneath; on Windows and macOS use Docker (or Podman), or WSL2 with Ubuntu 24.04 on Windows.
+
+**1. Look, install nothing.** [yash-awasthi.github.io/LobIQ](https://yash-awasthi.github.io/LobIQ/) is rebuilt
+by CI on every commit: the demo reports, the forecasting model pages, and a read-only studio whose
+Analysis, Prediction and Order book tabs show runs made on synthetic days when the page was built.
+
+**2. Docker or Podman, no build.** The image holds the built tools, the studio and the sample data.
+
+```
+docker run --rm -v "$PWD/out:/lobiq/out" ghcr.io/yash-awasthi/lobiq        # every demo; open out/index.html
+
+docker volume create lobiq-data                                            # days and reports persist here
+docker run --rm -v lobiq-data:/root/data ghcr.io/yash-awasthi/lobiq lobiq synthetic
+docker run --rm -p 8000:8000 -v lobiq-data:/root/data ghcr.io/yash-awasthi/lobiq lobiq studio --bind 0.0.0.0
+```
+
+Then open http://localhost:8000/: every tab works on the two synthetic days (symbol `QRSIM`). For a
+real Nasdaq day, `docker run --rm -v lobiq-data:/root/data ghcr.io/yash-awasthi/lobiq lobiq get 2025-12-10`
+downloads, verifies and stores it (a public file of 5 to 10 GB; Nasdaq's server limits each connection,
+so expect an hour or more without `aria2c`). Any `lobiq` command runs the same way.
+
+**3. Native build (Ubuntu 24.04, Arch, or WSL2 Ubuntu).** Needs GCC 13 or Clang 18 or newer, CMake 3.28+,
+Ninja, OpenSSL headers, Python 3 for the studio, and vcpkg for the C++ dependencies:
+
+```
+sudo apt install g++ cmake ninja-build git curl zip unzip tar pkg-config libssl-dev python3   # Ubuntu
+git clone https://github.com/microsoft/vcpkg ~/vcpkg && ~/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+export VCPKG_ROOT=~/vcpkg
+
+git clone https://github.com/Yash-Awasthi/LobIQ.git ~/lobiq && cd ~/lobiq
+cmake --preset native && cmake --build build/native      # 'release' instead of 'native' for a portable build
+ctest --test-dir build/native                            # about 410 tests, a few minutes
+export PATH="$PWD/scripts:$PATH"                         # puts lobiq on the PATH (add it to ~/.bashrc)
+
+lobiq doctor                                             # tools, data directory, machine tuning
+lobiq synthetic                                          # two synthetic days to try everything at once
+lobiq studio                                             # http://127.0.0.1:8000/
+lobiq get 2025-12-10                                     # a real day (aria2c makes it much faster)
+```
+
+The first configure builds the vcpkg dependencies (zstd, LZ4, zlib-ng, GoogleTest, Google Benchmark,
+RapidCheck), which takes a few minutes once. VS Code users can open the repository in its dev container
+(`.devcontainer/`, the same toolchain as the image), or in GitHub Codespaces from the badge above.
+
+| Variable | Default | What it sets |
+|---|---|---|
+| `LOBIQ_DATA` | `~/data` | where days (`store-SMMDDYY-v50/`), live runs and reports live |
+| `LOBIQ_REPORTS` | `$LOBIQ_DATA/reports` | HTML reports, and the alpha models the studio saves |
+| `LOBIQ_BIN` | found in `bin/`, `build/native/apps` or `build/release/apps` | which built tools `lobiq` runs |
+| `THREADS` | all hardware threads | worker threads of the parallel tools |
+| `LOBIQ_STUDIO_PORT` | `8000` | the studio's port (or `--port N`) |
+
+Live paper trading (`lobiq live`) also needs outbound HTTPS to Polymarket's public market stream; it
+never sends an order. For the latency figures in [Performance](#performance), see
+[docs/BARE_METAL.md](docs/BARE_METAL.md): an isolated, pinned Linux machine.
 
 ## Use it
 
@@ -98,27 +157,14 @@ a sweep's winner for the number of runs tried); scrub through any symbol's order
 second; start a live paper run and trip its kill switch ([docs/STUDIO.md](docs/STUDIO.md)).
 
 ```
-lobiq studio                                  # then open http://127.0.0.1:8000/
-docker run --rm -p 8000:8000 ghcr.io/yash-awasthi/lobiq lobiq studio --bind 0.0.0.0
+lobiq synthetic && lobiq studio               # then open http://127.0.0.1:8000/
 ```
 
 `lobiq doctor` checks the tools, the data and the machine tuning; `lobiq demo` runs every demo on
-bundled data. Without building anything, with Docker or Podman:
-
-```
-docker run --rm -v "$PWD/out:/lobiq/out" ghcr.io/yash-awasthi/lobiq
-```
-
-That writes HTML reports to `./out` (open `out/index.html`): strategies backtested on a synthetic
-Nasdaq session, a parameter sweep, and paper execution replayed on a bundled 20-minute recording of
-the live feed (`data/sample`), each checked against a fixed value.
-
-From source (Linux, a C++23 compiler, CMake, Ninja, OpenSSL, vcpkg):
-
-```
-cmake --preset native && cmake --build build/native && ctest --test-dir build/native
-export PATH="$PWD/scripts:$PATH"            # puts lobiq on the PATH
-```
+bundled data: strategies backtested on a synthetic Nasdaq session, a parameter sweep with its
+overfitting checks, paper execution replayed on a bundled 20-minute recording of the live feed
+(`data/sample`), and the forecasting models, each checked when it runs. Installing, Docker and the
+native build: [Run it on your machine](#run-it-on-your-machine).
 
 ## Plug in a strategy
 
