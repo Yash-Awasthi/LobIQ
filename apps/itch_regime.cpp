@@ -48,6 +48,7 @@ struct Minute {
 };
 
 // Mid sampled each second for realized variance and spread, in penny ticks; OFI and trades per event.
+// Only the whole minutes the feed covers are kept: after the last message there is no data, not calm.
 std::vector<Minute> replay(const fs::path& dir, std::uint16_t loc) {
     std::vector<Minute> out(kMinutes);
     book::TickBook b;
@@ -76,8 +77,10 @@ std::vector<Minute> replay(const fs::path& dir, std::uint16_t loc) {
             next_sec += kSec;
         }
     };
+    std::uint64_t last_ts = 0;
     while (rd.next(rec)) {
         const std::uint64_t ts = itch::detail::read_header(rec.data).timestamp;
+        last_ts = ts;
         if (ts >= kOpen) sample(ts);
         if (ts >= kClose) break;
         if (!feed.on_itch(rec.data, rec.len, rec.seq, e)) continue;
@@ -93,8 +96,10 @@ std::vector<Minute> replay(const fs::path& dir, std::uint16_t loc) {
         }
         prev = q;
     }
-    sample(kClose);
+    const std::uint64_t end = std::min(std::max(last_ts, kOpen), kClose);
+    sample(end);
     if (std::isfinite(open_mid) && std::isfinite(last_mid)) out[cur].dmid = last_mid - open_mid;
+    out.resize((end - kOpen) / kMin);
     return out;
 }
 
@@ -153,6 +158,10 @@ int main(int argc, char** argv) {
         std::vector<const rg::Row*> tr;
         for (std::size_t d = 0; d < T; ++d)
             for (const rg::Row& r : seqs[s * D + d]) tr.push_back(&r);
+        if (tr.size() < 30) {  // too little train data to standardise: the symbol sits out
+            for (std::size_t d = 0; d < D; ++d) seqs[s * D + d].clear();
+            continue;
+        }
         z[s].fit(tr);
         for (std::size_t d = 0; d < D; ++d)
             for (rg::Row& r : seqs[s * D + d]) r = z[s].apply(r);

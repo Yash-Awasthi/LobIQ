@@ -159,7 +159,7 @@ int main(int argc, char** argv) {
         for (std::size_t k = 0; k < kTypes * kTypes; ++k) a[k].push_back(o.m.alpha[k]);
     }
     using strategy::micro::median;
-    std::printf("| median | | | %.3f | | %+.3f | | %.3f |\n", median(br), median(gain), median(kst));
+    if (!br.empty()) std::printf("| median | | | %.3f | | %+.3f | | %.3f |\n", median(br), median(gain), median(kst));
     if (br.empty()) return 0;
     std::printf("\n## Who triggers whom\n\nMedian over symbols of a_ij: expected events of the row type triggered by one event of the "
                 "column type.\n\n| triggered \\ by |");

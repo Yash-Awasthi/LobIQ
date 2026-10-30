@@ -50,7 +50,8 @@ struct Sample {
 };
 
 // Features exactly as itch_backtest computes them for a strategy, sampled on the grid; the label is
-// the mid `ahead` grid steps later.
+// the mid `ahead` grid steps later. Only labels the feed covers count: after the last message a flat
+// mid is missing data, not a zero move.
 std::vector<Sample> samples(const fs::path& dir, std::uint16_t loc, std::uint64_t step, std::size_t ahead) {
     strategy::FeatureParams fp;
     strategy::MultiFeatures mf(1, {}, fp);
@@ -60,6 +61,7 @@ std::vector<Sample> samples(const fs::path& dir, std::uint16_t loc, std::uint64_
     data::SymbolReader rd(dir, loc);
     data::Record rec{};
     std::size_t next = 0;
+    std::uint64_t last_ts = 0;
     auto take = [&] {
         mf.row(0, kOpen + next * step, rows[next].data());
         mid[next] = mf.symbol(0).mid();
@@ -69,13 +71,14 @@ std::vector<Sample> samples(const fs::path& dir, std::uint16_t loc, std::uint64_
     };
     while (rd.next(rec)) {
         const std::uint64_t ts = itch::detail::read_header(rec.data).timestamp;
+        last_ts = ts;
         while (next < n && ts >= kOpen + next * step) take();
         if (next >= n) break;
         mf.on_itch(0, rec.data, rec.len, rec.seq);
     }
     while (next < n) take();
     std::vector<Sample> out;
-    for (std::size_t k = 0; k + ahead < n; ++k)
+    for (std::size_t k = 0; k + ahead < n && kOpen + (k + ahead) * step <= last_ts; ++k)
         if (std::isfinite(mid[k]) && std::isfinite(mid[k + ahead]))
             out.push_back({kOpen + k * step, rows[k], mid[k + ahead] - mid[k], half[k]});
     return out;
@@ -364,7 +367,7 @@ int main(int argc, char** argv) {
         r2.push_back(o.r2), ic.push_back(o.ic), cov.push_back(o.coverage);
     }
     using strategy::micro::median;
-    std::printf("| median | | | | %.4f | %.3f | | | %.3f | | |\n", median(r2), median(ic), median(cov));
+    if (!r2.empty()) std::printf("| median | | | | %.4f | %.3f | | | %.3f | | |\n", median(r2), median(ic), median(cov));
     std::printf("\nA forecast pays to trade on only when its top-decile move exceeds the half spread plus fees; otherwise it can still "
                 "skew passive quotes (strategy `alpha:`).\n");
 

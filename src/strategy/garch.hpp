@@ -56,7 +56,7 @@ inline double sample_variance(const std::vector<double>& r) {
 
 // Returns are taken as mean zero. Fitted on r / sd, so the optimiser sees unit scale; the variance
 // recursion starts at the sample variance. Persistence and alpha's share of it go through logistic
-// maps, so alpha, beta >= 0 and alpha + beta < 1 always hold; nu = 2 + exp(.) stays above 2.
+// maps, so alpha, beta >= 0 and alpha + beta < 1 always hold; nu = 2.1 + exp(.) keeps the variance finite.
 inline GarchFit fit_garch(const std::vector<double>& r, bool student) {
     GarchFit out;
     const double var = sample_variance(r);
@@ -68,7 +68,7 @@ inline GarchFit fit_garch(const std::vector<double>& r, bool student) {
     auto unpack = [&](const std::vector<double>& p, double& omega, double& alpha, double& beta, double& nu) {
         const double pers = 0.9999 * logistic(p[1]), share = logistic(p[2]);
         alpha = pers * share, beta = pers * (1 - share), omega = std::exp(p[0]);
-        nu = student ? std::min(2 + std::exp(p[3]), 500.0) : 0;
+        nu = student ? std::min(2.1 + std::exp(p[3]), 500.0) : 0;
     };
     auto f = [&](const std::vector<double>& p) {
         double omega = 0, alpha = 0, beta = 0, nu = 0;

@@ -23,6 +23,12 @@ Research
   CRR binomial (American), Monte Carlo with control variates, SVI surface with arbitrage checks.
   Tests: `BlackScholes.*`, `Binomial.*`, `MonteCarlo.*`, `Svi.*`, `Options.SyntheticChain`.
 
+Robustness
+- The research tools use only the span the feed covers (a short or truncated day is missing data,
+  not a calm market), decline symbols with too few mid changes or minutes, never print nan or inf,
+  and the Student-t degrees of freedom stay above 2.1. `Research.SyntheticDays` checks this on
+  thirty-minute days; option chains with no usable quotes and bad model files fail with a message.
+
 Studio
 - **Analysis tab** runs `vol`, `hawkes`, `regime`, `alpha` and an option price; indented lines of
   tool output (the GARCH keys) render as code. Tests: `test_model_arguments`, `test_option_price_job`.

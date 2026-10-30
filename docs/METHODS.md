@@ -313,7 +313,7 @@ Mid changes $r_t$ in ticks over a fixed interval (`--interval`, default 10 s), 0
   $z_t$ standard normal or standardised Student-t with $\nu$ degrees of freedom (Bollerslev 1987):
   $\log f(z) = \log\Gamma(\tfrac{\nu+1}2) - \log\Gamma(\tfrac\nu2) - \tfrac12\log(\pi(\nu-2)) - \tfrac{\nu+1}2\log(1 + \tfrac{z^2}{\nu-2})$.
   Maximum likelihood by Nelder-Mead on $r / \mathrm{sd}(r)$, with $h_0$ the sample variance and
-  $\alpha + \beta = 0.9999\,\sigma(p_1)$, $\alpha = (\alpha + \beta)\,\sigma(p_2)$, $\nu = 2 + e^{p_3}$ ($\sigma$ logistic), so
+  $\alpha + \beta = 0.9999\,\sigma(p_1)$, $\alpha = (\alpha + \beta)\,\sigma(p_2)$, $\nu = 2.1 + e^{p_3}$ ($\sigma$ logistic), so
   every trial point is stationary. The $k$-step forecast is $\bar h + (\alpha+\beta)^{k-1}(h_{t+1} - \bar h)$
   with $\bar h = \omega / (1 - \alpha - \beta)$; half-life $\log\tfrac12 / \log(\alpha + \beta)$ intervals.
 - **HAR** (Corsi 2009) on per-minute realized variance $RV_m = \sum r_t^2$:

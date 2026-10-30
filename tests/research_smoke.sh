@@ -33,4 +33,15 @@ echo "$alpha" | awk -F'|' '/^\| QRSIM \|/{c=$10; found=1; exit} END{exit !(found
     head -1 | grep -q 'mcs_p$'
 grep -q 'QRSIM: 3 runs, SPA p' "$tmp/err"
 grep -q 'Overfitting checks' "$tmp/sweep/index.html"
+
+# Thirty-minute days: the feed ends at 10:00, and what follows is missing data, not a calm market.
+# Each tool must decline or fit on the covered span, never print nan or inf.
+for s in 3 4; do "$apps/gen_day" $s 30 | "$apps/ingest" "$tmp/short$s" >/dev/null 2>&1; done
+short() { "$apps/itch_$1" --train "$tmp/short3" --test "$tmp/short4" --symbols QRSIM "${@:2}" 2>&1 || true; }
+out=$(short vol; short hawkes --window 5; short regime; short alpha)
+echo "$out" | grep -q '^| QRSIM | no fit (too few mid changes)'
+echo "$out" | grep -q '^| QRSIM | too few events'
+echo "$out" | grep -q '^no regime model: too few minutes'
+echo "$out" | awk -F'|' '/^\| QRSIM \| [0-9]+ \|/{c=$10; found=1; exit} END{exit !(found && c > 0.8)}'  # coverage holds on the covered span
+if echo "$out" | grep -qiw 'nan\|inf'; then echo "nan or inf on a short day"; exit 1; fi
 echo "research tools ok"

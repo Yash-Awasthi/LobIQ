@@ -4,6 +4,7 @@
 // use (60 s time constant). Prints Markdown, and the avellaneda_stoikov keys of each fit.
 // Usage: itch_vol --train <store>[,..] --test <store>[,..] [--symbols N|SYM,..] [--interval SECONDS]
 
+#include <algorithm>
 #include <cinttypes>
 #include <cmath>
 #include <cstdint>
@@ -33,7 +34,9 @@ constexpr std::uint64_t kSec = 1'000'000'000ull;
 constexpr std::uint64_t kOpen = (9 * 3600 + 35 * 60) * kSec, kClose = (15 * 3600 + 55 * 60) * kSec;
 constexpr double kEwmaTau = 60;  // seconds, AvellanedaStoikov::var_tau_s
 
-// Mid changes in ticks over the grid; the mid at a boundary is the last one before it.
+// Mid changes in ticks over the grid; the mid at a boundary is the last one before it. The grid
+// ends at the last whole minute the feed covers: past the last message a flat mid is no data, not
+// zero volatility (an early close or a short recording would otherwise look like a calm market).
 std::vector<double> returns(const fs::path& dir, std::uint16_t loc, std::uint64_t step) {
     const std::size_t n = (kClose - kOpen) / step;
     std::vector<double> mid(n + 1, NAN);
@@ -43,8 +46,10 @@ std::vector<double> returns(const fs::path& dir, std::uint16_t loc, std::uint64_
     data::Record rec{};
     double last = NAN;
     std::size_t next = 0;
+    std::uint64_t last_ts = 0;
     while (rd.next(rec)) {
         const std::uint64_t ts = itch::detail::read_header(rec.data).timestamp;
+        last_ts = ts;
         while (next <= n && ts >= kOpen + next * step) mid[next++] = last;
         if (next > n) break;
         ap.seq = rec.seq;
@@ -53,8 +58,10 @@ std::vector<double> returns(const fs::path& dir, std::uint16_t loc, std::uint64_
         if (q.bid_px && q.ask_px && q.ask_px > q.bid_px) last = (static_cast<double>(q.bid_px) + q.ask_px) / 200.0;
     }
     while (next <= n) mid[next++] = last;
-    std::vector<double> r(n, 0);
-    for (std::size_t k = 0; k < n; ++k)
+    const std::uint64_t covered = last_ts > kOpen ? std::min<std::uint64_t>(last_ts, kClose) - kOpen : 0;
+    const std::size_t per_min = 60'000'000'000ull / step;
+    std::vector<double> r(covered / 60'000'000'000ull * per_min, 0);
+    for (std::size_t k = 0; k < r.size(); ++k)
         if (std::isfinite(mid[k]) && std::isfinite(mid[k + 1])) r[k] = mid[k + 1] - mid[k];
     return r;
 }
@@ -118,6 +125,11 @@ int main(int argc, char** argv) {
             tr.insert(tr.end(), x.begin(), x.end());
             rv_train.push_back(minute_rv(x, per_min));
         }
+        // A handful of mid changes fits noise and scores nothing: both sides need real moves.
+        auto moves = [](const std::vector<double>& x) { return std::count_if(x.begin(), x.end(), [](double v) { return v != 0; }); };
+        std::ptrdiff_t test_moves = 0;
+        for (std::size_t d = T; d < D; ++d) test_moves += moves(r[s * D + d]);
+        if (moves(tr) < 200 || test_moves < 50) return;
         o.n = vol::fit_garch(tr, false);
         o.t = vol::fit_garch(tr, true);
         const vol::Har har = vol::fit_har(rv_train);
@@ -177,7 +189,7 @@ int main(int argc, char** argv) {
         c_int.push_back(o.d_int), c_har.push_back(o.d_har), c_gm.push_back(o.d_gm), c_ll.push_back(o.ll_gain);
     }
     using strategy::micro::median;
-    std::printf("| median | | | | | %+.4f | %+.4f | %+.4f | %+.4f |\n", median(c_ll), median(c_int), median(c_har), median(c_gm));
+    if (!c_int.empty()) std::printf("| median | | | | | %+.4f | %+.4f | %+.4f | %+.4f |\n", median(c_ll), median(c_int), median(c_har), median(c_gm));
     std::printf("\n## Keys for avellaneda_stoikov\n\nThe Student-t fit, in ticks squared per %" PRIu64 " s interval:\n\n", interval);
     for (std::size_t s = 0; s < S; ++s)
         if (res[s].t.ok)
