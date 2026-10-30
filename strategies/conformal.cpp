@@ -5,7 +5,8 @@
 
 #include <algorithm>
 #include <cmath>
-#include <deque>
+#include <stdexcept>
+#include <vector>
 
 #include "backtest/registry.hpp"
 #include "strategy/conformal.hpp"
@@ -27,24 +28,27 @@ struct ConformalMaker {
         std::uint64_t ts;
         double mid, pred, width;
     };
-    std::deque<Pending> pending;
-    std::uint64_t next_sample = 0;
+    // At most horizon / sample + 1 forecasts are open at once: a ring sized for that never allocates.
+    std::vector<Pending> ring;
+    std::size_t head = 0, open = 0;
+    std::uint64_t next_sample = 0, horizon_ns = 1'000'000'000, sample_ns = 100'000'000;
 
     void decide(const View& v, Desired& d) {
         const hft::book::Bbo b = v.book.bbo();
         if (!b.bid_px || !b.ask_px || b.ask_px <= b.bid_px || !std::isfinite(v.mid)) return;
         const double bq = static_cast<double>(b.bid_qty), aq = static_cast<double>(b.ask_qty);
         const double micro = (static_cast<double>(b.bid_px) * aq + static_cast<double>(b.ask_px) * bq) / (bq + aq) / tick;
-        const auto h = static_cast<std::uint64_t>(horizon_s * 1e9);
-        while (!pending.empty() && v.now >= pending.front().ts + h) {
-            const Pending& p = pending.front();
+        for (; open && v.now >= ring[head].ts + horizon_ns; --open) {
+            const Pending& p = ring[head];
             aci.observe(std::abs(v.mid - p.mid - p.pred), p.width);
-            pending.pop_front();
+            head = head + 1 == ring.size() ? 0 : head + 1;
         }
         const double q = aci.quantile();
-        if (v.now >= next_sample) {
-            pending.push_back({v.now, v.mid, micro - v.mid, q});
-            next_sample = v.now + static_cast<std::uint64_t>(sample_s * 1e9);
+        if (v.now >= next_sample && open < ring.size()) {
+            const std::size_t at = head + open < ring.size() ? head + open : head + open - ring.size();
+            ring[at] = {v.now, v.mid, micro - v.mid, q};
+            ++open;
+            next_sample = v.now + sample_ns;
         }
         if (aci.observed() < warmup || !std::isfinite(q)) return;
         const double half = std::max(q, min_edge_ticks);
@@ -67,6 +71,10 @@ HFT_STRATEGY("conformal",
                  s.tick = static_cast<double>(r.config.exchange.tick);
                  s.horizon_s = p.get("horizon_s", 1);
                  s.sample_s = p.get("sample_s", 0.1);
+                 if (!(s.horizon_s > 0 && s.sample_s > 0)) throw std::runtime_error("conformal needs horizon_s > 0 and sample_s > 0");
+                 s.horizon_ns = static_cast<std::uint64_t>(s.horizon_s * 1e9);
+                 s.sample_ns = static_cast<std::uint64_t>(s.sample_s * 1e9);
+                 s.ring.resize(static_cast<std::size_t>(std::ceil(s.horizon_s / s.sample_s)) + 2);
                  s.min_edge_ticks = p.get("min_edge_ticks", 0.5);
                  s.skew_ticks = p.get("skew_ticks", 0.5);
                  s.warmup = static_cast<std::size_t>(p.get("warmup", 100));

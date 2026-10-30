@@ -91,7 +91,7 @@ lobiq paper sample --quoter skew --set arb=1  # test a quote model on a recorded
 ```
 
 **3. Drive it all from a browser.** `lobiq studio` serves a local web UI on http://127.0.0.1:8000/:
-run backtests, sweeps, replays, surveillance and execution-quality reports as streamed jobs; rank every
+run backtests, sweeps, replays, surveillance and execution-quality reports, the forecasting models and option pricing as streamed jobs; rank every
 report on disk in a leaderboard with Sharpe, drawdown and the deflated Sharpe ratio (which discounts
 a sweep's winner for the number of runs tried); scrub through any symbol's order book second by
 second; start a live paper run and trip its kill switch ([docs/STUDIO.md](docs/STUDIO.md)).
@@ -671,7 +671,7 @@ answer (`tests/microstructure_test.cpp`).
 ### Forecasting models
 
 Walk-forward tools on the stored days: fitted on the train days, scored unchanged on the test days,
-synthetic-day end-to-end test `Research.SyntheticDays` (formulas in [docs/METHODS.md](docs/METHODS.md)):
+synthetic-day end-to-end test `Research.SyntheticDays`, also runnable from the studio's Analysis tab (formulas in [docs/METHODS.md](docs/METHODS.md)):
 
 - **Volatility** (`lobiq vol`): GARCH(1,1) with normal and Student-t innovations on mid changes over
   a fixed interval, and HAR on per-minute realized variance, against the EWMA the makers use, by QLIKE

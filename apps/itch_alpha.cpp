@@ -99,11 +99,50 @@ struct Scaler {
     }
 };
 
-std::vector<double> fit_ridge(const std::vector<const Sample*>& s, const Scaler& z, double lambda) {
-    std::vector<std::vector<double>> X;
-    std::vector<double> y;
-    for (const Sample* p : s) X.push_back(z.row(*p)), y.push_back(p->y);
-    return strategy::mlofi::ridge(X, y, lambda * static_cast<double>(s.size()));
+// Normal equations of y ~ b0 + x b, accumulated once and solved for any penalty lambda * n on b
+// (not b0): one pass over the samples serves the whole penalty grid.
+struct Gram {
+    static constexpr std::size_t P = kF + 1;
+    std::array<std::array<double, P + 1>, P> a{};  // [X'X | X'y], X with a leading 1
+    double n = 0;
+    void add(const std::vector<double>& x, double y) {
+        double r[P];
+        r[0] = 1;
+        for (std::size_t j = 0; j < kF; ++j) r[j + 1] = x[j];
+        for (std::size_t i = 0; i < P; ++i) {
+            for (std::size_t j = i; j < P; ++j) a[i][j] += r[i] * r[j];
+            a[i][P] += r[i] * y;
+        }
+        n += 1;
+    }
+    std::vector<double> solve(double lambda) const {
+        auto m = a;
+        for (std::size_t i = 0; i < P; ++i)
+            for (std::size_t j = 0; j < i; ++j) m[i][j] = m[j][i];
+        for (std::size_t i = 1; i < P; ++i) m[i][i] += lambda * n;
+        // Positive definite once penalised: elimination without pivoting.
+        for (std::size_t c = 0; c < P; ++c) {
+            if (std::abs(m[c][c]) < 1e-12) continue;
+            for (std::size_t r = c + 1; r < P; ++r) {
+                const double f = m[r][c] / m[c][c];
+                for (std::size_t k = c; k <= P; ++k) m[r][k] -= f * m[c][k];
+            }
+        }
+        std::vector<double> b(P, 0);
+        for (std::size_t c = P; c-- > 0;) {
+            if (std::abs(m[c][c]) < 1e-12) continue;
+            double s = m[c][P];
+            for (std::size_t k = c + 1; k < P; ++k) s -= m[c][k] * b[k];
+            b[c] = s / m[c][c];
+        }
+        return b;
+    }
+};
+
+Gram gram(const std::vector<const Sample*>& s, const Scaler& z) {
+    Gram g;
+    for (const Sample* p : s) g.add(z.row(*p), p->y);
+    return g;
 }
 
 struct Result {
@@ -182,9 +221,12 @@ int main(int argc, char** argv) {
             for (const std::size_t i : f.train) fit.push_back(tr[i]);
             Scaler z;
             z.fit(fit);
+            const Gram g = gram(fit, z);
+            std::vector<std::vector<double>> rows;
+            for (const std::size_t i : f.test) rows.push_back(z.row(*tr[i]));
             for (std::size_t l = 0; l < lambdas.size(); ++l) {
-                const auto b = fit_ridge(fit, z, lambdas[l]);
-                for (const std::size_t i : f.test) oof[l][i] = strategy::mlofi::predict(b, z.row(*tr[i]));
+                const auto b = g.solve(lambdas[l]);
+                for (std::size_t k = 0; k < rows.size(); ++k) oof[l][f.test[k]] = strategy::mlofi::predict(b, rows[k]);
             }
         }
         std::vector<double> ytr;
@@ -199,7 +241,7 @@ int main(int argc, char** argv) {
         for (std::size_t i = 0; i < tr.size(); ++i) scores.push_back(std::abs(ytr[i] - oof[best][i]));
         o.q = strategy::conformal::split_quantile(scores, miscoverage);
         o.z.fit(tr);
-        o.b = fit_ridge(tr, o.z, o.lambda);
+        o.b = gram(tr, o.z).solve(o.lambda);
 
         std::vector<double> pred, y, half;
         for (std::size_t d = T; d < D; ++d)

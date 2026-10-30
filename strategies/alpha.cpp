@@ -18,7 +18,7 @@ namespace {
 
 struct AlphaModel {
     double intercept = 0, half_width = 0;
-    std::vector<double> mean, sd, coef;
+    std::vector<double> mean, inv_sd, coef;
 
     void load(const std::string& path) {
         std::ifstream f(path);
@@ -43,14 +43,14 @@ struct AlphaModel {
             std::string name;
             double m, s, c;
             if (!(f >> name >> m >> s >> c) || name != names[j]) throw std::runtime_error("alpha model feature " + std::to_string(j) + " is not " + names[j]);
-            mean.push_back(m), sd.push_back(s), coef.push_back(c);
+            mean.push_back(m), inv_sd.push_back(1 / s), coef.push_back(c);
         }
     }
 
     double predict(const double* x, std::size_t n) const {
         double y = intercept;
         for (std::size_t j = 0; j < coef.size() && j < n; ++j)
-            if (std::isfinite(x[j])) y += coef[j] * std::clamp((x[j] - mean[j]) / sd[j], -5.0, 5.0);
+            if (std::isfinite(x[j])) y += coef[j] * std::clamp((x[j] - mean[j]) * inv_sd[j], -5.0, 5.0);
         return y;
     }
 };

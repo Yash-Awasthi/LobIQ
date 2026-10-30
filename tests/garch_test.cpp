@@ -100,6 +100,19 @@ TEST(Garch, OnlineFilterMatchesTheBatchRecursion) {
     EXPECT_NEAR(o.rate(), h.back(), 1e-12);
 }
 
+// A quote after a long silence folds the quiet intervals into one step, like the recursion over them.
+TEST(Garch, OnlineFilterFoldsQuietIntervals) {
+    OnlineGarch o;
+    o.omega = 0.05, o.alpha = 0.1, o.beta = 0.85, o.dt_s = 1;
+    o.update(500'000'000, 100);
+    o.update(1'500'000'000, 102);
+    o.update(2'500'000'000, 102);    // second boundary: change 2
+    o.update(40'500'000'000, 102);   // the next 38 boundaries: no change
+    std::vector<double> r = {0, 2};
+    r.resize(40, 0.0);
+    EXPECT_NEAR(o.rate(), garch_filter(r, 0.05, 0.1, 0.85, 1.0).back(), 1e-12);
+}
+
 TEST(Har, ConstantRealizedVarianceForecastsItself) {
     std::vector<std::vector<double>> days(3);
     for (auto& d : days)

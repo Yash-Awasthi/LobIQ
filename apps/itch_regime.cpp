@@ -37,7 +37,7 @@ namespace rg = strategy::regime;
 constexpr std::uint64_t kSec = 1'000'000'000ull, kMin = 60 * kSec;
 constexpr std::uint64_t kOpen = (9 * 3600 + 35 * 60) * kSec, kClose = (15 * 3600 + 55 * 60) * kSec;
 constexpr std::size_t kMinutes = (kClose - kOpen) / kMin, kF = 4;
-constexpr std::array<const char*, kF> kFeature = {"log RV", "log spread", "log trades", "log |OFI|/depth"};
+constexpr std::array<const char*, kF> kFeature = {"log RV", "log spread", "log trades", "log OFI/depth"};
 
 struct Minute {
     double rv = 0, spread_sum = 0, spread_n = 0, trades = 0, ofi = 0, depth_sum = 0, depth_n = 0, dmid = 0;
@@ -198,7 +198,7 @@ int main(int argc, char** argv) {
         }
 
     std::printf("# Market regimes\n\n%zu symbols; train %zu days, test %zu days. Per minute from 09:35 to 15:55 ET: log realized variance "
-                "of 1 s mid changes, log mean spread, log trade count, log |OFI| over depth; standardised per symbol on the train days. "
+                "of 1 s mid changes, log mean spread, log trade count, log absolute OFI over depth; standardised per symbol on the train days. "
                 "One Gaussian HMM (diagonal covariances) over every train symbol-day by Baum-Welch; test minutes labelled by the forward "
                 "filter, which uses nothing later. States ordered from the calmest. Method: docs/METHODS.md.\n\n",
                 S, T, D - T);

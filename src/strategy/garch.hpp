@@ -112,22 +112,27 @@ inline double variance_sum(const GarchFit& g, double h_next, std::size_t m) {
 struct OnlineGarch {
     double omega = 0, alpha = 0, beta = 0, dt_s = 1;
     double h = NAN, anchor = NAN, last = NAN;
-    std::uint64_t boundary = 0;
+    std::uint64_t boundary = 0, step = 0;
 
     double rate() const { return h / dt_s; }
 
     // At each grid boundary the change since the previous boundary is the mid last seen before it.
+    // After the first boundary crossed, the changes are 0, so k quiet steps fold into one power.
     void update(std::uint64_t now, double mid) {
-        if (!std::isfinite(h)) h = omega / (1 - alpha - beta);
-        const auto step = static_cast<std::uint64_t>(dt_s * 1e9);
         if (!std::isfinite(anchor)) {
+            h = omega / (1 - alpha - beta), step = static_cast<std::uint64_t>(dt_s * 1e9);
             anchor = last = mid, boundary = now + step;
             return;
         }
-        while (now >= boundary) {
+        if (now >= boundary) {
             const double r = last - anchor;
             h = omega + alpha * r * r + beta * h;
-            anchor = last, boundary += step;
+            const std::uint64_t quiet = (now - boundary) / step;
+            if (quiet) {
+                const double lr = omega / (1 - beta);
+                h = lr + std::pow(beta, static_cast<double>(quiet)) * (h - lr);
+            }
+            anchor = last, boundary += (quiet + 1) * step;
         }
         last = mid;
     }

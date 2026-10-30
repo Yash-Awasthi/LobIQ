@@ -42,11 +42,15 @@ inline std::vector<std::vector<double>> bootstrap_means(const std::vector<std::v
     const std::size_t n = x.empty() ? 0 : x[0].size();
     std::vector<std::vector<double>> out(reps, std::vector<double>(x.size(), 0));
     const rng::Stream rng(seed, 0, 0);
+    // A resample's mean is a dot product with how often it drew each period: contiguous, vectorisable.
+    std::vector<double> count(n);
     for (std::size_t b = 0; b < reps; ++b) {
-        const auto idx = stationary_bootstrap(n, block, rng, static_cast<std::uint32_t>(b));
+        std::fill(count.begin(), count.end(), 0.0);
+        for (const std::size_t i : stationary_bootstrap(n, block, rng, static_cast<std::uint32_t>(b))) count[i] += 1;
         for (std::size_t k = 0; k < x.size(); ++k) {
+            const double* xk = x[k].data();
             double s = 0;
-            for (const std::size_t i : idx) s += x[k][i];
+            for (std::size_t i = 0; i < n; ++i) s += count[i] * xk[i];
             out[b][k] = s / static_cast<double>(n);
         }
     }

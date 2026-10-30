@@ -60,7 +60,9 @@ inline double radius(const Model& m) { return spectral_radius(m.alpha, m.D); }
 inline double loglik(const std::vector<Realization>& data, const Model& m) {
     const std::size_t D = m.D;
     double ll = 0;
-    std::vector<double> R(D);
+    std::vector<double> R(D), out(D, 0.0);  // out[j]: events one type-j event triggers in all
+    for (std::size_t i = 0; i < D; ++i)
+        for (std::size_t j = 0; j < D; ++j) out[j] += m.alpha[i * D + j];
     for (const Realization& x : data) {
         std::fill(R.begin(), R.end(), 0.0);
         double prev = 0;
@@ -68,14 +70,13 @@ inline double loglik(const std::vector<Realization>& data, const Model& m) {
             const double decay = std::exp(-m.beta * (x.t[k] - prev));
             for (double& r : R) r *= decay;
             const std::size_t i = x.type[k];
+            const double* a = &m.alpha[i * D];
             double lam = m.mu[i];
-            for (std::size_t j = 0; j < D; ++j) lam += m.alpha[i * D + j] * R[j];
+            for (std::size_t j = 0; j < D; ++j) lam += a[j] * R[j];
             ll += std::log(lam);
             R[i] += m.beta;
             prev = x.t[k];
-            double out = 0;
-            for (std::size_t r = 0; r < D; ++r) out += m.alpha[r * D + i];
-            ll -= out * -std::expm1(-m.beta * (x.horizon - x.t[k]));
+            ll -= out[i] * -std::expm1(-m.beta * (x.horizon - x.t[k]));
         }
         for (std::size_t i = 0; i < D; ++i) ll -= m.mu[i] * x.horizon;
     }
@@ -98,27 +99,40 @@ inline Model fit_em(const std::vector<Realization>& data, std::size_t D, double 
     if (T <= 0 || total < 2 * static_cast<double>(D)) return m;
     m.mu.resize(D), m.alpha.assign(D * D, 0.1 / static_cast<double>(D));
     for (std::size_t i = 0; i < D; ++i) m.mu[i] = std::max(0.5 * n[i] / T, 1e-6 / T);
-    std::vector<double> bg(D), trig(D * D), R(D);
+    // The kernel sums R_j(t_k) depend on beta and the times only, so one pass fills them for every
+    // EM iteration: each iteration is then multiply-adds over a contiguous array, with no exp.
+    std::vector<double> Rk(static_cast<std::size_t>(total) * D), R(D);
+    std::vector<std::uint8_t> type;
+    type.reserve(static_cast<std::size_t>(total));
+    for (std::size_t at = 0; const Realization& x : data) {
+        std::fill(R.begin(), R.end(), 0.0);
+        double prev = 0;
+        for (std::size_t k = 0; k < x.t.size(); ++k, ++at) {
+            const double decay = std::exp(-beta * (x.t[k] - prev));
+            for (double& r : R) r *= decay;
+            std::copy(R.begin(), R.end(), Rk.begin() + static_cast<std::ptrdiff_t>(at * D));
+            type.push_back(x.type[k]);
+            R[x.type[k]] += beta;
+            prev = x.t[k];
+        }
+    }
+    std::vector<double> bg(D), trig(D * D);
     double prev_ll = -1e300;
     for (int it = 0; it < max_iter; ++it) {
         std::fill(bg.begin(), bg.end(), 0.0);
         std::fill(trig.begin(), trig.end(), 0.0);
         double ll = 0;
-        for (const Realization& x : data) {
-            std::fill(R.begin(), R.end(), 0.0);
-            double prev = 0;
-            for (std::size_t k = 0; k < x.t.size(); ++k) {
-                const double decay = std::exp(-beta * (x.t[k] - prev));
-                for (double& r : R) r *= decay;
-                const std::size_t i = x.type[k];
-                double lam = m.mu[i];
-                for (std::size_t j = 0; j < D; ++j) lam += m.alpha[i * D + j] * R[j];
-                ll += std::log(lam);
-                bg[i] += m.mu[i] / lam;
-                for (std::size_t j = 0; j < D; ++j) trig[i * D + j] += m.alpha[i * D + j] * R[j] / lam;
-                R[i] += beta;
-                prev = x.t[k];
-            }
+        for (std::size_t e = 0; e < type.size(); ++e) {
+            const std::size_t i = type[e];
+            const double* r = &Rk[e * D];
+            const double* a = &m.alpha[i * D];
+            double lam = m.mu[i];
+            for (std::size_t j = 0; j < D; ++j) lam += a[j] * r[j];
+            ll += std::log(lam);
+            const double inv = 1 / lam;
+            bg[i] += m.mu[i] * inv;
+            double* tr = &trig[i * D];
+            for (std::size_t j = 0; j < D; ++j) tr[j] += a[j] * r[j] * inv;
         }
         for (std::size_t i = 0; i < D; ++i) {
             ll -= m.mu[i] * T;

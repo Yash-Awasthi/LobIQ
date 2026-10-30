@@ -48,6 +48,9 @@ PATTERNS = {
     "recording": re.compile(r"^(?:sample|\d{8}T\d{6})$"),
     "quoter": re.compile(r"^[a-z_][a-z0-9_]*$"),
     "buckets": re.compile(r"^(?:[2-9]|1[0-9]|20)$"),
+    "universe": re.compile(rf"^(?:[1-9]\d?|{SYM}(?:,{SYM})*)$"),
+    "number": re.compile(r"^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$"),
+    "right": re.compile(r"^(?:call|put)$"),
 }
 SAMPLE = os.path.join(ROOT, "data", "sample", "pm-20261009T1600-20min")
 
@@ -99,6 +102,11 @@ def hft_args(spec):
         return opt(kind, field(spec, "day", "day"), field(spec, "symbols", "symbols", False))
     if kind == "study":
         return ["study", field(spec, "train", "days"), field(spec, "test", "days")]
+    if kind in ("vol", "hawkes", "regime", "alpha"):
+        return opt(kind, field(spec, "train", "days"), field(spec, "test", "days"), field(spec, "symbols", "universe", False))
+    if kind == "options":
+        return ["options", "price", field(spec, "right", "right"),
+                *(field(spec, k, "number") for k in ("spot", "strike", "years", "rate", "yield", "vol"))]
     if kind == "leadlag":
         return opt("leadlag", field(spec, "days", "days"), field(spec, "pairs", "pairs", False))
     if kind == "book":

@@ -63,6 +63,7 @@ echo "exec orders 40 ledger_pnl_usd -12.50" >&2
     "itch_markov": r"""#!/usr/bin/env bash
 echo '{"symbol":"'$2'","buckets":2,"max_spread":1,"split":"12:45","events":9,"states":[{"id":0,"spread":1,"imb_lo":0,"imb_hi":0.5,"time_share":0.4,"up":1,"down":3,"p_up":0.25},{"id":1,"spread":1,"imb_lo":0.5,"imb_hi":1,"time_share":0.6,"up":3,"down":1,"p_up":0.75}],"transitions":[[0,1,5],[1,0,4]],"test":{"moves":10,"hits":7,"hit_rate":0.7,"baseline":0.5},"args":"'"$*"'"}'
 """,
+    "options": "#!/usr/bin/env bash\nprintf '# %s\\n\\n| Model | price |\\n|---|---|\\n| Black-Scholes | 4.7594 |\\n' \"$*\"\n",
     "itch_surveil": "#!/usr/bin/env bash\nprintf '# Surveillance report\\n\\n## Summary\\n\\n| | Candidates |\\n|---|---|\\n| Spoofing | 0 |\\n'\n",
 }
 
@@ -259,6 +260,27 @@ class Server(unittest.TestCase):
                     {"kind": "live", "minutes": "5", "params": ["--run=/tmp"]}):
             with self.assertRaises(server.BadRequest):
                 server.hft_args(bad)
+
+    def test_model_arguments(self):
+        self.assertEqual(server.hft_args({"kind": "vol", "train": "S010125", "test": "2025-01-02", "symbols": "QRSIM"}),
+                         ["vol", "S010125", "2025-01-02", "QRSIM"])
+        self.assertEqual(server.hft_args({"kind": "alpha", "train": "S010125", "test": "S010225", "symbols": "20"}),
+                         ["alpha", "S010125", "S010225", "20"])
+        self.assertEqual(server.hft_args({"kind": "regime", "train": "S010125", "test": "S010225"}), ["regime", "S010125", "S010225"])
+        self.assertEqual(server.hft_args({"kind": "options", "right": "put", "spot": "100", "strike": "105", "years": "0.5",
+                                          "rate": "-0.01", "yield": "0", "vol": ".2"}),
+                         ["options", "price", "put", "100", "105", "0.5", "-0.01", "0", ".2"])
+        for bad in ({"kind": "hawkes", "train": "S010125", "test": "S010225", "symbols": "--window"},
+                    {"kind": "options", "right": "call", "spot": "1e", "strike": "1", "years": "1", "rate": "0", "yield": "0", "vol": "1"},
+                    {"kind": "options", "right": "straddle", "spot": "1", "strike": "1", "years": "1", "rate": "0", "yield": "0", "vol": "1"}):
+            with self.assertRaises(server.BadRequest):
+                server.hft_args(bad)
+
+    def test_option_price_job(self):
+        v = run_job({"kind": "options", "right": "call", "spot": "42", "strike": "40", "years": "0.5", "rate": "0.1",
+                     "yield": "0", "vol": "0.2"})
+        self.assertEqual(v["rc"], 0, v["lines"])
+        self.assertTrue(any(l.startswith("| Black-Scholes | 4.7594") for l in v["lines"]), v["lines"])
 
     def test_backtest_job_to_leaderboard(self):
         v = run_job({"kind": "backtest", "day": "2025-01-01", "symbols": "QRSIM", "strategy": "naive",

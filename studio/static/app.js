@@ -336,7 +336,8 @@ function markdown(src) {
       for (; i < ls.length && /^\|/.test(ls[i]); i++) if (!/^\|[-| :]+\|$/.test(ls[i])) rows.push(ls[i].slice(1, -1).split('|').map(c => c.trim()));
       i--;
       out.push(`<div class="scroll"><table><thead><tr>${rows[0].map(c => `<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>${rows.slice(1).map(r => `<tr>${r.map(c => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
-    } else if (/^#{1,4} /.test(l)) out.push(`<h3>${inline(l.replace(/^#+ /, ''))}</h3>`);
+    } else if (/^ {4}\S/.test(l)) out.push(`<pre class="log">${esc(l.slice(4))}</pre>`);
+    else if (/^#{1,4} /.test(l)) out.push(`<h3>${inline(l.replace(/^#+ /, ''))}</h3>`);
     else if (/^- /.test(l)) out.push(`<li>${inline(l.slice(2))}</li>`);
     else if (l.trim()) out.push(`<p>${inline(l)}</p>`);
   }
@@ -352,7 +353,8 @@ $('#an-form').onsubmit = async e => {
   const f = e.target, kind = f.kind.value;
   const spec = {kind, day: f.day.value.trim(), days: f.day.value.trim(), symbols: f.symbols.value.trim().toUpperCase(),
     pairs: f.pairs.value.trim().toUpperCase(), train: f.train.value.trim(), test: f.test.value.trim(),
-    symbol: f.symbol.value.trim().toUpperCase()};
+    symbol: f.symbol.value.trim().toUpperCase(), right: f.right.value};
+  for (const k of ['spot', 'strike', 'years', 'rate', 'yield', 'vol']) spec[k] = f[k].value.trim();
   $('#an-out').innerHTML = '';
   const job = await runJob(spec, null, $('#an-status'));
   if (job) $('#an-out').innerHTML = job.lines.some(l => /^[#|]/.test(l)) ? markdown(job.lines.join('\n')) : `<pre class="log">${esc(job.lines.join('\n'))}</pre>`;

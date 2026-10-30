@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-Forecasting models and an options engine, all in the C++ codebase with no new dependency.
+Forecasting models and an options engine, all in the C++ codebase with no new dependency. Book,
+matching and feed hot paths untouched; the new strategies allocate nothing per event after warm-up
+(fixed rings, in-place sorted window), and Hawkes EM caches its kernel sums so iterations do no `exp`.
 
 Research
 - **Volatility forecasts.** `itch_vol` / `lobiq vol`: GARCH(1,1) (normal and Student-t) and HAR
@@ -19,6 +21,10 @@ Research
 - **Options.** `options` / `lobiq options`: Black-Scholes with Greeks, digitals, implied volatility,
   CRR binomial (American), Monte Carlo with control variates, SVI surface with arbitrage checks.
   Tests: `BlackScholes.*`, `Binomial.*`, `MonteCarlo.*`, `Svi.*`, `Options.SyntheticChain`.
+
+Studio
+- **Analysis tab** runs `vol`, `hawkes`, `regime`, `alpha` and an option price; indented lines of
+  tool output (the GARCH keys) render as code. Tests: `test_model_arguments`, `test_option_price_job`.
 
 Evaluation
 - **Overfitting checks on every sweep.** Hansen's SPA p-value against not trading, model confidence

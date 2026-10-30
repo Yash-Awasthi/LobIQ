@@ -295,13 +295,25 @@
         <option value="mlofi">Multi-level OFI and cross-impact (Cont, Cucuringu, Zhang 2023)</option>
         <option value="lobster">Export to LOBSTER format (for LOBCAST, LOBFrame, DeepMarket)</option>
         <option value="realism">Market realism: a real day against the simulator (LOB-Bench statistics)</option>
+        <option value="vol">Volatility forecasts: GARCH and HAR against the makers' EWMA</option>
+        <option value="hawkes">Order flow as a multivariate Hawkes process</option>
+        <option value="regime">Market regimes (hidden Markov model)</option>
+        <option value="alpha">Alpha model: ridge, purged cross-validation, conformal intervals</option>
+        <option value="options">Option price and Greeks: Black-Scholes, binomial, Monte Carlo</option>
       </select></label>
       <label data-for="surveil bestex replay leadlag mlofi lobster realism">Day(s) <input name="day" placeholder="2025-12-10"></label>
-      <label data-for="surveil bestex mlofi lobster">Symbols <input name="symbols" placeholder="optional: AAPL,MSFT"></label>
+      <label data-for="surveil bestex mlofi lobster vol hawkes regime alpha">Symbols <input name="symbols" placeholder="optional: AAPL,MSFT"></label>
       <label data-for="realism">Symbol <input name="symbol" placeholder="AAPL"></label>
       <label data-for="leadlag">Pairs <input name="pairs" placeholder="QQQ:TQQQ,QQQ:SQQQ:-1"></label>
-      <label data-for="study">Train days <input name="train" placeholder="2025-12-08,2025-12-09"></label>
-      <label data-for="study">Test days <input name="test" placeholder="2025-12-10"></label>
+      <label data-for="study vol hawkes regime alpha">Train days <input name="train" placeholder="2025-12-08,2025-12-09"></label>
+      <label data-for="study vol hawkes regime alpha">Test days <input name="test" placeholder="2025-12-10"></label>
+      <label data-for="options">Type <select name="right"><option>call</option><option>put</option></select></label>
+      <label data-for="options">Spot <input name="spot" type="number" step="any" value="100"></label>
+      <label data-for="options">Strike <input name="strike" type="number" step="any" value="100"></label>
+      <label data-for="options">Years <input name="years" type="number" step="any" min="0" value="0.5"></label>
+      <label data-for="options">Rate <input name="rate" type="number" step="any" value="0.04"></label>
+      <label data-for="options">Dividend yield <input name="yield" type="number" step="any" value="0"></label>
+      <label data-for="options">Volatility <input name="vol" type="number" step="any" min="0" value="0.2"></label>
       <button>Run</button>
     </div>
   </form>

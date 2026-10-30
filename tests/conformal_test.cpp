@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
@@ -41,4 +42,21 @@ TEST(AdaptiveConformal, KeepsCoverageThroughAShift) {
     }
     EXPECT_NEAR(a.miss_rate(), 0.1, 0.01);
     EXPECT_NEAR(late_miss / 20000, 0.1, 0.015);
+}
+
+// The in-place window update gives the same quantile as sorting the last `window` scores.
+TEST(AdaptiveConformal, WindowQuantileMatchesASortedCopy) {
+    const rng::Stream r(6, 0, 0);
+    Adaptive a(0.2, 0.0, 50);
+    std::vector<double> all;
+    for (std::uint32_t i = 0; i < 1000; ++i) {
+        const double s = std::floor(10 * r.uniform(i, 0));  // ties exercise both shift directions
+        a.observe(s, a.quantile());
+        all.push_back(s);
+        std::vector<double> w(all.end() - static_cast<std::ptrdiff_t>(std::min<std::size_t>(all.size(), 50)), all.end());
+        std::sort(w.begin(), w.end());
+        const double rank = std::ceil((static_cast<double>(w.size()) + 1) * 0.8);
+        const double want = rank > static_cast<double>(w.size()) ? INFINITY : w[static_cast<std::size_t>(rank) - 1];
+        ASSERT_EQ(a.quantile(), want) << i;
+    }
 }

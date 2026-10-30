@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <deque>
 #include <limits>
 #include <vector>
 
@@ -27,14 +26,17 @@ inline double split_quantile(std::vector<double> scores, double alpha) {
 
 // Online: quantile() is the current half-width; observe(score) scores the last interval and
 // updates alpha_t <- alpha_t + gamma (alpha - miss), over a sliding window of recent scores.
+// The window lives in a fixed ring and a sorted array reserved up front, so after the first
+// `window` scores an update allocates nothing: the expiring score is replaced in place by one shift.
 class Adaptive {
    public:
     Adaptive(double alpha = 0.1, double gamma = 0.005, std::size_t window = 500)
-        : alpha_(alpha), gamma_(gamma), window_(window), at_(alpha) {}
+        : alpha_(alpha), gamma_(gamma), at_(alpha), ring_(std::max<std::size_t>(window, 1)) {
+        sorted_.reserve(ring_.size());
+    }
 
     double quantile() const {
-        if (sorted_.empty()) return std::numeric_limits<double>::infinity();
-        if (at_ <= 0) return std::numeric_limits<double>::infinity();
+        if (sorted_.empty() || at_ <= 0) return std::numeric_limits<double>::infinity();
         if (at_ >= 1) return 0;
         const double rank = std::ceil((static_cast<double>(sorted_.size()) + 1) * (1 - at_));
         if (rank > static_cast<double>(sorted_.size())) return std::numeric_limits<double>::infinity();
@@ -46,12 +48,17 @@ class Adaptive {
         const double miss = score > issued_width ? 1 : 0;
         misses_ += miss, ++n_;
         at_ += gamma_ * (alpha_ - miss);
-        recent_.push_back(score);
-        sorted_.insert(std::upper_bound(sorted_.begin(), sorted_.end(), score), score);
-        if (recent_.size() > window_) {
-            sorted_.erase(std::lower_bound(sorted_.begin(), sorted_.end(), recent_.front()));
-            recent_.pop_front();
+        if (sorted_.size() < ring_.size()) {
+            sorted_.insert(std::upper_bound(sorted_.begin(), sorted_.end(), score), score);
+        } else {
+            // Move the slot of the expiring score to where the new one belongs.
+            auto out = std::lower_bound(sorted_.begin(), sorted_.end(), ring_[head_]);
+            auto in = std::upper_bound(sorted_.begin(), sorted_.end(), score);
+            if (in > out) std::move(out + 1, in, out), *(in - 1) = score;
+            else std::move_backward(in, out, out + 1), *in = score;
         }
+        ring_[head_] = score;
+        head_ = head_ + 1 == ring_.size() ? 0 : head_ + 1;
     }
 
     double working_alpha() const { return at_; }
@@ -59,11 +66,9 @@ class Adaptive {
     std::size_t observed() const { return n_; }
 
    private:
-    double alpha_, gamma_;
-    std::size_t window_;
-    double at_;
-    std::deque<double> recent_;
-    std::vector<double> sorted_;
+    double alpha_, gamma_, at_;
+    std::vector<double> ring_, sorted_;
+    std::size_t head_ = 0;
     double misses_ = 0;
     std::size_t n_ = 0;
 };
