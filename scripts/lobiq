@@ -59,6 +59,21 @@ Nasdaq ITCH days (DAY is S121025, 2025-12-10 or a store path):
   lobiq leadlag DAY[,..] [A:B[:-1],..]
                                    how related products follow each other (placebo-checked)
 
+Walk-forward models (TRAIN and TEST: DAY[,..]; SYMBOLS: a count of the most active, or SYM,..; default 10):
+  lobiq vol TRAIN TEST [SYMBOLS] [--interval S]
+                                   GARCH(1,1) and HAR volatility forecasts against the makers' EWMA, with
+                                   the avellaneda_stoikov keys of each fit
+  lobiq hawkes TRAIN TEST [SYMBOLS] [--window MIN]
+                                   order flow as a six-type Hawkes process: who triggers whom, out of sample
+  lobiq regime TRAIN TEST [SYMBOLS] [--states K] [--out CSV] [--pnl SYMBOL:pnl_minutes.csv]
+                                   market regimes by a hidden Markov model, labelled causally on the test days
+  lobiq alpha TRAIN TEST [SYMBOLS] [--horizon S] [--step S] [--model DIR]
+                                   ridge alpha on the streaming features, purged cross-validation, conformal
+                                   intervals; --model writes files for the alpha:<FILE> strategy
+  lobiq options price call|put S K T r q sigma
+  lobiq options surface QUOTES.csv [--rate r] [--greeks]
+                                   Black-Scholes, Greeks, binomial and Monte Carlo prices; SVI volatility surface
+
 Prediction market, paper only (no order is ever sent):
   lobiq live [MINUTES] [pm_exec options]
                                    paper market making on the live feed, dashboard on localhost;
@@ -201,6 +216,23 @@ leadlag)
     days=
     for x in ${1//,/ }; do days+="${days:+,}$(store "$x")"; done
     exec "$bin/itch_leadlag" "$days" ${2:+"$2"}
+    ;;
+
+vol | hawkes | regime | alpha)
+    [ $# -ge 2 ] || die "usage: lobiq $cmd TRAIN[,..] TEST[,..] [SYMBOLS] [options]"
+    need
+    join() { local o= x; for x in ${1//,/ }; do o+="${o:+,}$(store "$x")"; done; echo "$o"; }
+    train=$(join "$1") test=$(join "$2")
+    shift 2
+    syms=10
+    if [ $# -gt 0 ] && [[ $1 != -* ]]; then syms=$1; shift; fi
+    exec "$bin/itch_$cmd" --train "$train" --test "$test" --symbols "$syms" "$@"
+    ;;
+
+options)
+    [ $# -ge 1 ] || die "usage: lobiq options price call|put S K T r q sigma | lobiq options surface QUOTES.csv [--rate r] [--greeks]"
+    need
+    exec "$bin/options" "$@"
     ;;
 
 live)

@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+Forecasting models and an options engine, all in the C++ codebase with no new dependency.
+
+Research
+- **Volatility forecasts.** `itch_vol` / `lobiq vol`: GARCH(1,1) (normal and Student-t) and HAR
+  fitted on train days, scored on test days against the makers' EWMA by QLIKE and Diebold-Mariano.
+  `avellaneda_stoikov garch=1` quotes with the GARCH forecast. Tests: `Garch.*`, `Har.*`.
+- **Multivariate Hawkes order flow.** `itch_hawkes` / `lobiq hawkes`: six event types by EM with a
+  golden-section decay, out-of-sample gain over Poisson, time-rescaling KS. Tests: `HawkesMv.*`.
+- **Market regimes.** `itch_regime` / `lobiq regime`: Gaussian HMM from k-means++, states by BIC,
+  causal labels on test days, backtest PnL by regime. Tests: `Hmm.*`, `KMeans.*`.
+- **Alpha model.** `itch_alpha` / `lobiq alpha`: ridge on the streaming features, purged and
+  embargoed k-fold, split-conformal intervals, model files for the new `alpha:<FILE>` strategy.
+- **Conformal market maker.** Strategy `conformal`: quotes at an adaptive conformal interval of the
+  micro-price forecast. Tests: `SplitConformal.*`, `AdaptiveConformal.*`.
+- **Options.** `options` / `lobiq options`: Black-Scholes with Greeks, digitals, implied volatility,
+  CRR binomial (American), Monte Carlo with control variates, SVI surface with arbitrage checks.
+  Tests: `BlackScholes.*`, `Binomial.*`, `MonteCarlo.*`, `Svi.*`, `Options.SyntheticChain`.
+
+Evaluation
+- **Overfitting checks on every sweep.** Hansen's SPA p-value against not trading, model confidence
+  set p-values (`mcs_p` column) and the probability of backtest overfitting, on stderr and in the
+  sweep report. Tests: `Spa.*`, `ModelConfidenceSet.*`, `Pbo.*`, `PurgedKFold.*`.
+
 ## v1.6 (2026-10-22)
 
 LobIQ: the project's new name, a local web studio with a risk-adjusted leaderboard, and order book

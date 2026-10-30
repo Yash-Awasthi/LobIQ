@@ -288,6 +288,150 @@ fees, checked after every event. Details: docs/STRATEGIES.md.
   of $\mathrm{round}(T^{1/3})$ minutes, 2,000 resamples with a fixed seed: the 2.5% and 97.5%
   quantiles of the summed PnL and the share of resamples below zero. Code: `block_bootstrap` in
   `studio/metrics.py`.
+- **Superior predictive ability** (Hansen 2005). For the $K$ runs of a sweep on one symbol, $d_{k,t}$ is
+  run $k$'s minute PnL over not trading. $T_{SPA} = \max(\max_k \sqrt n\,\bar d_k / \hat\omega_k, 0)$ with $\hat\omega_k$ from
+  1,000 stationary-bootstrap resamples (Politis and Romano 1994; mean block 10 minutes, fixed seed).
+  The null distribution recentres each run at $\bar d_k \mathbf 1\{\sqrt n\,\bar d_k/\hat\omega_k < -\sqrt{2\log\log n}\}$ (consistent
+  p-value: only clearly worse runs keep their negative mean); recentring every run at zero excess
+  gives White's reality check, the upper bound. A small p-value says the best run beats not trading by
+  more than the search over $K$ runs explains.
+- **Model confidence set** (Hansen, Lunde and Nason 2011) on minute losses $-d_{k,t}$ with the $T_{\max}$
+  statistic: repeatedly drop the run with the largest studentised excess loss, each time with its
+  bootstrap p-value; a run's MCS p-value is the largest p-value up to its removal. `mcs_p` in the sweep
+  table; the runs with $p \ge 0.1$ form the 90% set.
+- **Probability of backtest overfitting** (Bailey, Borwein, Lopez de Prado and Zhu 2017). The day's
+  minutes are cut into 10 blocks; for each of the 252 ways to pick 5 as in-sample, the run with the
+  best in-sample Sharpe is ranked among all runs out of sample, $\omega \in (0, 1)$; PBO is the share of splits
+  with $\omega \le 1/2$. Code: `src/backtest/overfit.hpp`, printed by every sweep and in its report.
+  Tests: `StationaryBootstrap.*`, `Spa.*`, `ModelConfidenceSet.*`, `Pbo.*`.
+
+## Volatility forecasts
+
+Mid changes $r_t$ in ticks over a fixed interval (`--interval`, default 10 s), 09:35 to 15:55 ET.
+
+- **GARCH(1,1)** (Bollerslev 1986): $h_{t+1} = \omega + \alpha r_t^2 + \beta h_t$, $r_t = \sqrt{h_t}\,z_t$ with
+  $z_t$ standard normal or standardised Student-t with $\nu$ degrees of freedom (Bollerslev 1987):
+  $\log f(z) = \log\Gamma(\tfrac{\nu+1}2) - \log\Gamma(\tfrac\nu2) - \tfrac12\log(\pi(\nu-2)) - \tfrac{\nu+1}2\log(1 + \tfrac{z^2}{\nu-2})$.
+  Maximum likelihood by Nelder-Mead on $r / \mathrm{sd}(r)$, with $h_0$ the sample variance and
+  $\alpha + \beta = 0.9999\,\sigma(p_1)$, $\alpha = (\alpha + \beta)\,\sigma(p_2)$, $\nu = 2 + e^{p_3}$ ($\sigma$ logistic), so
+  every trial point is stationary. The $k$-step forecast is $\bar h + (\alpha+\beta)^{k-1}(h_{t+1} - \bar h)$
+  with $\bar h = \omega / (1 - \alpha - \beta)$; half-life $\log\tfrac12 / \log(\alpha + \beta)$ intervals.
+- **HAR** (Corsi 2009) on per-minute realized variance $RV_m = \sum r_t^2$:
+  $RV_{m+1} = b_0 + b_1 RV_m + b_2 \overline{RV}_{m-4..m} + b_3 \overline{RV}_{m-29..m}$ by least squares.
+- **Evaluation.** Fitted on the train days and scored unchanged on the test days against the EWMA
+  the makers use ($\tau = 60$ s), with Patton's (2011) robust loss $\mathrm{QLIKE}(RV, f) = \log f + RV / f$,
+  which ranks forecasts as the true variance would when $RV$ is a noisy proxy. The Diebold and
+  Mariano (1995) statistic is the mean loss difference over its Newey-West standard error.
+- **Quoting.** `avellaneda_stoikov garch=1 garch_omega=.. garch_alpha=.. garch_beta=.. garch_dt_s=..`
+  replaces $\sigma^2$ by the one-step GARCH forecast per second, $h_{t+1} / \Delta t$, updated at each
+  grid boundary from the last mid seen before it; `lobiq vol` prints the keys.
+
+Code: `src/strategy/garch.hpp`, `apps/itch_vol.cpp`. Tests: `Garch.*`, `Har.*`, `Qlike.*`, `DieboldMariano.*`, `NelderMead.*`.
+
+## Multivariate Hawkes
+
+Six event types at the best quotes (`apps/itch_hawkes.cpp`): market buys and sells (executions,
+one per timestamp), limit orders joining or improving the bid or the ask, cancels at the bid or the
+ask. Intensities
+
+$$\lambda_i(t) = \mu_i + \sum_j a_{ij} \sum_{t_k < t,\ d_k = j} \beta e^{-\beta (t - t_k)},$$
+
+so $a_{ij}$ is the expected number of type-$i$ events one type-$j$ event triggers; log-likelihood
+$\sum_k \log\lambda_{d_k}(t_k) - T\sum_i \mu_i - \sum_k \bigl(\sum_i a_{i d_k}\bigr)(1 - e^{-\beta(T - t_k)})$, summed over windows.
+
+- **EM** (Lewis and Mohler 2011) at fixed $\beta$: each event's probability of being background,
+  $\mu_i / \lambda_i(t_k)$, or triggered by type $j$, $a_{ij} R_j(t_k) / \lambda_i(t_k)$ with $R_j$ the decayed
+  kernel sum; then $\mu_i$ = expected background events / $T$ and $a_{ij}$ = expected $j$-triggered type-$i$
+  events / $\sum_{d_k = j}(1 - e^{-\beta(T - t_k)})$. Each pass is $O(N D^2)$ by the exponential recursion and
+  never lowers the likelihood. $\beta$: best of a log grid, refined by golden-section search.
+- **Branching ratio**: the spectral radius of $(a_{ij})$ (power iteration on $I + a$, which removes
+  periodicity); below 1 the process is stationary and it is the share of triggered events.
+- **Out of sample**: test-window log-likelihood per event over a Poisson process with the train
+  rates. **Time rescaling** (Brown et al. 2002): the compensator increments between consecutive events
+  of each type are Exp(1) under the true model; the Kolmogorov-Smirnov distance from Exp(1) is reported.
+- **Simulation**: Ogata's (1981) thinning, with the total intensity just after the last event as the bound.
+
+Code: `src/strategy/hawkes_mv.hpp`. Tests: `HawkesMv.*` (including agreement with the univariate likelihood above).
+
+## Regimes
+
+Per symbol-minute (`apps/itch_regime.cpp`): $\log(RV + 10^{-4})$ of 1 s mid changes, log mean spread,
+$\log(1 + \text{trades})$ and $\log(1 + |\mathrm{OFI}| / \text{depth})$, standardised per symbol on the train days.
+
+- **Gaussian HMM** with diagonal covariances, started from k-means++ (Arthur and Vassilvitskii 2007),
+  fitted by Baum-Welch with scaled forward-backward passes (Rabiner 1989) over every train symbol-day;
+  variances floored at $10^{-3}$. The number of states (2 to 4) minimises
+  $\mathrm{BIC} = -2\ell + p \log n$, $p = (K - 1) + K(K - 1) + 2KF$.
+- **Causal labels**: test minutes take the state of largest forward probability
+  $P(s_t \mid x_{1..t})$, which uses nothing after $t$ (test `Hmm.FilterIsCausal`); states are ordered by
+  their mean log realized variance. Each regime is described by the next minute's realized variance and
+  absolute mid change, and `--pnl` splits a backtest's minute PnL by the regime it was earned in.
+
+Code: `src/strategy/regime.hpp`. Tests: `KMeans.*`, `Hmm.*`.
+
+## Conformal intervals
+
+- **Split conformal** (Vovk et al. 2005; Lei et al. 2018): with calibration scores $s_i = |y_i - \hat y_i|$,
+  $i = 1..n$, the half-width is the $\lceil (n + 1)(1 - \alpha) \rceil$-th smallest score; a new exchangeable
+  point lands inside with probability at least $1 - \alpha$.
+- **Adaptive conformal inference** (Gibbs and Candes 2021): the working level moves after each outcome,
+  $\alpha_{t+1} = \alpha_t + \gamma(\alpha - \mathrm{miss}_t)$, and the half-width is the split quantile at $\alpha_t$ over a
+  sliding window of scores; the long-run miss rate stays near $\alpha$ under any distribution shift.
+- **`conformal` strategy**: the micro-price $P_\mu$ forecasts the mid $h$ seconds ahead; every
+  `sample_s` a forecast is issued with the current half-width $q_t$ and scored $h$ later. Quotes are
+  $\lfloor r - \max(q_t, e) \rfloor$ and $\lceil r + \max(q_t, e) \rceil$ ticks with $r = P_\mu - s\,q/n$ for skew $s$,
+  inventory $q$ and quote size $n$; post-only.
+
+Code: `src/strategy/conformal.hpp`, `strategies/conformal.cpp`. Tests: `SplitConformal.*`, `AdaptiveConformal.*`.
+
+## Alpha model
+
+`apps/itch_alpha.cpp`: the 23 streaming features of `SymbolFeatures`, exactly as a strategy sees them,
+sampled every `--step` seconds; target the mid change over the next `--horizon` seconds.
+
+- **Ridge** with an unpenalised intercept on features standardised on the training set and clipped
+  at $\pm 5$ (missing values at the mean); penalty $\lambda n$ with $\lambda \in \{10^{-4}, \dots, 10\}$.
+- **Purged, embargoed k-fold** (Lopez de Prado 2018): contiguous test folds; a training sample is kept
+  only if its label ends before the fold's first sample or it starts more than the embargo (one
+  horizon) after the fold's last label ends, so no training label overlaps test information. Each
+  fold standardises on its own training samples. $\lambda$ maximises out-of-fold $R^2$.
+- **Interval**: split-conformal half-width from the out-of-fold residuals at the chosen $\lambda$.
+- **Test days**: $R^2$, information coefficient (Pearson correlation of forecast and outcome), sign hit
+  rate over non-zero moves, interval coverage, and the move caught by the most confident tenth of
+  forecasts against the median half spread. `--model DIR` writes the scaler and coefficients;
+  `alpha:<FILE>` shifts its reservation price by `shade` times the forecast and, with `taking`,
+  crosses when the forecast exceeds half the spread plus `fee_ticks` and `take_margin`.
+
+Code: `apps/itch_alpha.cpp`, `strategies/alpha.cpp`, `purged_kfold` in `src/backtest/overfit.hpp`. Tests: `PurgedKFold.*`, `Research.SyntheticDays`.
+
+## Options
+
+- **Black-Scholes-Merton** (Black and Scholes 1973) with dividend yield $q$:
+  $d_{1,2} = (\log(S/K) + (r - q \pm \sigma^2/2)T) / (\sigma\sqrt T)$, call $S e^{-qT}N(d_1) - K e^{-rT}N(d_2)$; delta,
+  gamma, vega, theta, rho, vanna $= -e^{-qT}\varphi(d_1) d_2/\sigma$ and volga $= \text{vega}\, d_1 d_2/\sigma$.
+  **Digital** (cash-or-nothing) call $e^{-rT}N(d_2)$, which is $-\partial C/\partial K$: a prediction-market
+  share on "above $K$ at $T$".
+- **Implied volatility**: Newton steps on vega from the Brenner-Subrahmanyam start, kept inside a
+  bisection bracket; NaN outside the no-arbitrage bounds.
+- **Binomial tree** (Cox, Ross and Rubinstein 1979): $u = e^{\sigma\sqrt{\Delta t}}$, $d = 1/u$,
+  $p = (e^{(r-q)\Delta t} - d)/(u - d)$; American values take $\max(\text{continuation}, \text{exercise})$ at every node;
+  delta and gamma from the first two steps.
+- **Itô's lemma and Monte Carlo.** For $dS = \mu S\,dt + \sigma S\,dW$, Itô's lemma on $f = \log S$ gives
+  $d\log S = (\mu - \tfrac12\sigma^2)dt + \sigma\,dW$: the $-\tfrac12\sigma^2$ is the second-order term
+  $\tfrac12 f''(S)\,\sigma^2 S^2$. So $S_T = S\exp((\mu - \tfrac12\sigma^2)T + \sigma\sqrt T Z)$ exactly, and $E[\log S_T]$
+  lies $\tfrac12\sigma^2 T$ below $\log E[S_T]$ (test `MonteCarlo.ItoDriftCorrection`). The same lemma on
+  $x = \log(p/(1-p))$ is why the prediction-market quoter works in logit units. European prices under
+  $\mu = r - q$ with antithetic pairs and $S_T$ as control variate ($E[S_T] = S e^{(r-q)T}$); pathwise delta
+  $e^{-rT}\mathbf 1\{S_T > K\} S_T / S$ for a call.
+- **SVI surface** (Gatheral 2004): total variance per expiry
+  $w(k) = a + b(\rho(k - m) + \sqrt{(k - m)^2 + s^2})$ at $k = \log(K/F)$, fitted by vega-weighted least squares
+  in $w$ with $b > 0$, $|\rho| < 1$, $s > 0$ and $a + b s\sqrt{1 - \rho^2} \ge 0$. The forward is the median over
+  strikes of $K + e^{rT}(C - P)$ (put-call parity), and implied volatilities come from out-of-the-money
+  mids with Black-76. Butterfly arbitrage where Durrleman's
+  $g(k) = (1 - k w'/(2w))^2 - \tfrac{w'^2}4(\tfrac1w + \tfrac14) + \tfrac{w''}2 < 0$ (Gatheral and Jacquier 2014); calendar
+  arbitrage where $w$ falls with expiry at fixed $k$. Between expiries $w$ is linear in $T$.
+
+Code: `src/options/`, `apps/options.cpp`. Tests: `BlackScholes.*`, `ImpliedVol.*`, `Digital.*`, `Binomial.*`, `MonteCarlo.*`, `Svi.*`, `Options.SyntheticChain`.
 
 ## Surveillance rules
 
@@ -326,6 +470,28 @@ Code: `src/surveil/surveil.hpp`. Tests: `Surveil.*`.
 - Robert, C. and Rosenbaum, M. (2011). A new approach for the dynamics of ultra-high-frequency data: the model with uncertainty zones. *Journal of Financial Econometrics* 9(2).
 - Stoikov, S. (2018). The micro-price: a high-frequency estimator of future prices. *Quantitative Finance* 18(12).
 - Zhang, L., Mykland, P. and Ait-Sahalia, Y. (2005). A tale of two time scales. *Journal of the American Statistical Association* 100(472).
+- Arthur, D. and Vassilvitskii, S. (2007). k-means++: the advantages of careful seeding. *SODA*.
+- Bailey, D., Borwein, J., Lopez de Prado, M. and Zhu, Q. (2017). The probability of backtest overfitting. *Journal of Computational Finance* 20(4).
+- Black, F. and Scholes, M. (1973). The pricing of options and corporate liabilities. *Journal of Political Economy* 81(3).
+- Bollerslev, T. (1986). Generalized autoregressive conditional heteroskedasticity. *Journal of Econometrics* 31(3).
+- Bollerslev, T. (1987). A conditionally heteroskedastic time series model for speculative prices and rates of return. *Review of Economics and Statistics* 69(3).
+- Brown, E., Barbieri, R., Ventura, V., Kass, R. and Frank, L. (2002). The time-rescaling theorem and its application to neural spike train data analysis. *Neural Computation* 14(2).
+- Corsi, F. (2009). A simple approximate long-memory model of realized volatility. *Journal of Financial Econometrics* 7(2).
+- Cox, J., Ross, S. and Rubinstein, M. (1979). Option pricing: a simplified approach. *Journal of Financial Economics* 7(3).
+- Diebold, F. and Mariano, R. (1995). Comparing predictive accuracy. *Journal of Business and Economic Statistics* 13(3).
+- Gatheral, J. (2004). A parsimonious arbitrage-free implied volatility parameterization. Global Derivatives conference.
+- Gatheral, J. and Jacquier, A. (2014). Arbitrage-free SVI volatility surfaces. *Quantitative Finance* 14(1).
+- Gibbs, I. and Candes, E. (2021). Adaptive conformal inference under distribution shift. *NeurIPS*.
+- Hansen, P. (2005). A test for superior predictive ability. *Journal of Business and Economic Statistics* 23(4).
+- Hansen, P., Lunde, A. and Nason, J. (2011). The model confidence set. *Econometrica* 79(2).
+- Lei, J., G'Sell, M., Rinaldo, A., Tibshirani, R. and Wasserman, L. (2018). Distribution-free predictive inference for regression. *JASA* 113(523).
+- Lewis, E. and Mohler, G. (2011). A nonparametric EM algorithm for multiscale Hawkes processes. *Journal of Nonparametric Statistics* 1(1).
+- Lopez de Prado, M. (2018). *Advances in Financial Machine Learning*. Wiley.
+- Ogata, Y. (1981). On Lewis' simulation method for point processes. *IEEE Transactions on Information Theory* 27(1).
+- Patton, A. (2011). Volatility forecast comparison using imperfect volatility proxies. *Journal of Econometrics* 160(1).
+- Politis, D. and Romano, J. (1994). The stationary bootstrap. *JASA* 89(428).
+- Rabiner, L. (1989). A tutorial on hidden Markov models and selected applications in speech recognition. *Proceedings of the IEEE* 77(2).
+- Vovk, V., Gammerman, A. and Shafer, G. (2005). *Algorithmic Learning in a Random World*. Springer.
 - SEC Rule 605 of Regulation NMS, 17 CFR 242.605.
 
 Engineering references: docs/exec/REFS.md.

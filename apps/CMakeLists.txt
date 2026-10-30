@@ -72,3 +72,18 @@ target_link_libraries(itch_surveil PRIVATE hft_core hft_data)
 
 add_executable(itch_bestex itch_bestex.cpp)
 target_link_libraries(itch_bestex PRIVATE hft_core hft_data)
+
+add_executable(itch_vol itch_vol.cpp)
+target_link_libraries(itch_vol PRIVATE hft_core hft_data)
+
+add_executable(itch_hawkes itch_hawkes.cpp)
+target_link_libraries(itch_hawkes PRIVATE hft_core hft_data)
+
+add_executable(itch_regime itch_regime.cpp)
+target_link_libraries(itch_regime PRIVATE hft_core hft_data)
+
+add_executable(itch_alpha itch_alpha.cpp)
+target_link_libraries(itch_alpha PRIVATE hft_core hft_data)
+
+add_executable(options options.cpp)
+target_link_libraries(options PRIVATE hft_core)

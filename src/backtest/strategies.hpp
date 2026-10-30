@@ -10,6 +10,7 @@
 #include "backtest/backtest.hpp"
 #include "backtest/intensity.hpp"
 #include "core/philox.hpp"
+#include "strategy/garch.hpp"
 
 namespace hft::backtest {
 
@@ -92,7 +93,8 @@ struct PerfectForesight {
 namespace hft::backtest {
 
 // Avellaneda-Stoikov in ticks (GLFT bounded-inventory quotes with `glft`); sigma^2 is an EWMA of
-// squared mid changes, A and k come from the fill model (refitted after each fill with `online`).
+// squared mid changes, or with `use_garch` a GARCH(1,1) forecast fitted offline (apps/itch_vol.cpp);
+// A and k come from the fill model (refitted after each fill with `online`).
 struct AvellanedaStoikov {
     double gamma = 0.1, A = 1.0, k = 1.5;
     bool glft = true;
@@ -104,6 +106,8 @@ struct AvellanedaStoikov {
     std::uint64_t end_ns = 57'600'000'000'000;
     std::uint32_t tick = 100;
     double var_tau_s = 60;
+    bool use_garch = false;
+    strategy::vol::OnlineGarch garch;
 
     double var = 0.0, last_mid = NAN;
     std::uint64_t last_ts = 0;
@@ -139,18 +143,20 @@ struct AvellanedaStoikov {
             var += w * (dm * dm / dt - var);
         }
         if (v.now > last_ts || !last_ts) last_mid = v.mid, last_ts = v.now;
+        if (use_garch) garch.update(v.now, v.mid);
+        const double s2 = use_garch ? garch.rate() : var;
         const double q = static_cast<double>(v.inventory) / size;
         double bid_d, ask_d;
         if (glft) {
             const double base = std::log1p(gamma / k) / gamma;
             const double c =
-                std::sqrt(var * gamma / (2 * k * A) * std::pow(1 + gamma / k, 1 + k / gamma));
+                std::sqrt(s2 * gamma / (2 * k * A) * std::pow(1 + gamma / k, 1 + k / gamma));
             bid_d = base + (2 * q + 1) / 2 * c;
             ask_d = base - (2 * q - 1) / 2 * c;
         } else {
             const double tl = v.now < end_ns ? (end_ns - v.now) * 1e-9 : 0;
-            const double r_off = -q * gamma * var * tl;
-            const double half = std::log1p(gamma / k) / gamma + gamma * var * tl / 2;
+            const double r_off = -q * gamma * s2 * tl;
+            const double half = std::log1p(gamma / k) / gamma + gamma * s2 * tl / 2;
             bid_d = half - r_off;
             ask_d = half + r_off;
         }

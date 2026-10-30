@@ -8,6 +8,7 @@
 
 #include "backtest/backtest.hpp"
 #include "backtest/metrics.hpp"
+#include "backtest/overfit.hpp"
 #include "report/html.hpp"
 
 namespace hft::backtest {
@@ -123,6 +124,7 @@ struct SweepRun {
     std::vector<std::pair<std::string, double>> params;
     Summary summary;
     RiskStats risk;
+    double mcs_p = NAN;  // model confidence set p-value among the symbol's runs
     std::string params_label() const {
         std::string s;
         for (const auto& [k, v] : params) {
@@ -139,8 +141,16 @@ struct SweepRun {
 };
 
 // DIR/index.html: runs ranked by total PnL with links to each run's own report, PnL curves overlaid.
+// Overfitting checks over one symbol's runs (backtest/overfit.hpp).
+struct SweepTrials {
+    std::string symbol;
+    std::size_t runs = 0, in_mcs = 0;
+    SpaResult spa;
+    PboResult pbo;
+};
+
 inline void write_sweep_report(const std::string& dir, const std::string& symbol, const std::string& strategy,
-                               std::vector<SweepRun> runs) {
+                               std::vector<SweepRun> runs, const std::vector<SweepTrials>& trials = {}) {
     std::sort(runs.begin(), runs.end(), [](const SweepRun& a, const SweepRun& b) { return a.summary.total > b.summary.total; });
     static const char* kColors[] = {"#2563eb", "#dc2626", "#059669", "#d97706", "#7c3aed", "#db2777", "#0891b2", "#65a30d"};
     std::vector<report::Series> curves;
@@ -159,11 +169,23 @@ inline void write_sweep_report(const std::string& dir, const std::string& symbol
                 report::num(usd(s.total)) + "</td><td>" + report::num(usd(s.spread)) + "</td><td>" + report::num(usd(s.inventory_pnl)) +
                 "</td><td>" + report::num(usd(s.fees)) + "</td><td>" + std::to_string(s.fills) + "</td><td>" +
                 std::to_string(s.max_abs_inventory) + "</td><td>" + std::to_string(s.divergence.diverted) + "</td><td>" +
-                report::num(r.risk.sharpe_annual) + "</td><td>" + report::num(r.risk.dsr, 3) + "</td></tr>";
+                report::num(r.risk.sharpe_annual) + "</td><td>" + report::num(r.risk.dsr, 3) + "</td><td>" + report::num(r.mcs_p, 3) +
+                "</td></tr>";
     }
     body += "<h2>Runs, best total first</h2><table><thead><tr><th>parameters</th><th>total</th><th>spread</th><th>inventory</th>"
-            "<th>fees</th><th>fills</th><th>max |inv|</th><th>diverted</th><th>Sharpe</th><th>DSR</th></tr></thead><tbody>" +
+            "<th>fees</th><th>fills</th><th>max |inv|</th><th>diverted</th><th>Sharpe</th><th>DSR</th><th>MCS p</th></tr></thead><tbody>" +
             rows + "</tbody></table>";
+    if (!trials.empty()) {
+        std::vector<std::vector<std::string>> t;
+        for (const SweepTrials& x : trials)
+            t.push_back({x.symbol, std::to_string(x.runs), report::num(x.spa.p_consistent, 3), report::num(x.spa.p_upper, 3),
+                         std::to_string(x.in_mcs), report::num(x.pbo.pbo, 3), report::num(x.pbo.oos_loss, 3)});
+        body += "<h2>Overfitting checks</h2>" +
+                report::table({"symbol", "runs", "SPA p", "reality check p", "runs in 90% MCS", "PBO", "P(OOS loss)"}, t) +
+                "<p class=\"muted\">SPA p: Hansen's test that no run beats not trading, on minute PnL (stationary bootstrap). "
+                "MCS: the runs not significantly worse than the best at 10%. PBO: the share of half-and-half splits of the "
+                "day in which the best run of one half ranks below the median in the other (docs/METHODS.md).</p>";
+    }
     if (!runs.empty() && !runs[0].symbol.empty()) {  // several symbols: totals per parameter set
         std::vector<std::pair<std::string, std::pair<std::int64_t, std::size_t>>> by;
         for (const SweepRun& r : runs) {

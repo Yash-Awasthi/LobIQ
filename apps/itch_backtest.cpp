@@ -121,6 +121,7 @@ int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, c
     });
     if (!error.empty()) throw std::runtime_error(error);
     // Each symbol's runs are one set of trials for the deflated Sharpe ratio.
+    std::vector<backtest::SweepTrials> trials;
     for (const auto& [name, locate] : symbols) {
         std::vector<std::size_t> idx;
         std::vector<backtest::RiskStats> stats;
@@ -128,6 +129,28 @@ int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, c
             if (runs[i].locate == locate) idx.push_back(i), stats.push_back(backtest::risk_stats(runs[i].summary.minute_pnl));
         backtest::deflate(stats);
         for (std::size_t j = 0; j < idx.size(); ++j) runs[idx[j]].risk = stats[j];
+        if (idx.size() < 2) continue;
+        // The same trials against overfitting: SPA against not trading, the MCS on minute losses, PBO.
+        std::size_t T = ~std::size_t{0};
+        for (const std::size_t i : idx) T = std::min(T, runs[i].summary.minute_pnl.size());
+        std::vector<std::vector<double>> steps, losses;
+        for (const std::size_t i : idx) {
+            const auto& m = runs[i].summary.minute_pnl;
+            std::vector<double> x(T);
+            for (std::size_t t = 0; t < T; ++t) x[t] = backtest::usd(m[t] - (t ? m[t - 1] : 0));
+            losses.emplace_back(x.size());
+            std::transform(x.begin(), x.end(), losses.back().begin(), [](double v) { return -v; });
+            steps.push_back(std::move(x));
+        }
+        backtest::SweepTrials st;
+        st.symbol = name, st.runs = idx.size();
+        st.spa = backtest::spa_test(steps);
+        st.pbo = backtest::pbo_cscv(steps);
+        const auto mcs = backtest::model_confidence_set(losses);
+        for (std::size_t j = 0; j < idx.size(); ++j) runs[idx[j]].mcs_p = mcs[j], st.in_mcs += mcs[j] >= 0.1;
+        std::fprintf(stderr, "%s: %zu runs, SPA p %.3f (reality check %.3f), %zu in the 90%% MCS, PBO %.3f, P(OOS loss) %.3f\n",
+                     name.c_str(), st.runs, st.spa.p_consistent, st.spa.p_upper, st.in_mcs, st.pbo.pbo, st.pbo.oos_loss);
+        trials.push_back(st);
     }
     if (!report_dir.empty())
         hft::parallel_for(runs.size(), [&](std::size_t i) {
@@ -142,20 +165,20 @@ int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, c
     if (!error.empty()) throw std::runtime_error(error);
     if (symbols.size() > 1) std::printf("symbol\t");
     for (const auto& [k, v] : axes) std::printf("%s\t", k.c_str());
-    std::printf("total_usd\tspread_usd\tinventory_usd\tfees_usd\tfills\tmax_abs_inventory\tdiverted_shares\tsharpe_annual\tpsr\tdsr\n");
+    std::printf("total_usd\tspread_usd\tinventory_usd\tfees_usd\tfills\tmax_abs_inventory\tdiverted_shares\tsharpe_annual\tpsr\tdsr\tmcs_p\n");
     for (const backtest::SweepRun& run : runs) {
         if (symbols.size() > 1) std::printf("%s\t", run.symbol.c_str());
         for (const auto& [k, v] : run.params) std::printf("%g\t", v);
         const backtest::Summary& s = run.summary;
-        std::printf("%.2f\t%.2f\t%.2f\t%.2f\t%llu\t%lld\t%llu\t%.2f\t%.4f\t%.4f\n", backtest::usd(s.total), backtest::usd(s.spread),
+        std::printf("%.2f\t%.2f\t%.2f\t%.2f\t%llu\t%lld\t%llu\t%.2f\t%.4f\t%.4f\t%.3f\n", backtest::usd(s.total), backtest::usd(s.spread),
                     backtest::usd(s.inventory_pnl), backtest::usd(s.fees), (unsigned long long)s.fills,
                     (long long)s.max_abs_inventory, (unsigned long long)s.divergence.diverted, run.risk.sharpe_annual,
-                    run.risk.psr, run.risk.dsr);
+                    run.risk.psr, run.risk.dsr, run.mcs_p);
     }
     if (!report_dir.empty()) {
         std::string names;
         for (const auto& [name, loc] : symbols) names += (names.empty() ? "" : ",") + name;
-        backtest::write_sweep_report(report_dir, names, strategy, runs);
+        backtest::write_sweep_report(report_dir, names, strategy, runs, trials);
         std::fprintf(stderr, "report: %s/index.html\n", report_dir.c_str());
     }
     return 0;

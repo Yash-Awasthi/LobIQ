@@ -144,6 +144,28 @@ TEST(Strategies, AvellanedaStoikovDistanceCap) {
     EXPECT_LE(near.ask_px, 10'0500u + 500u);
 }
 
+// GARCH with no dynamics (alpha = beta = 0) is a constant variance omega per interval, so it quotes
+// exactly like the EWMA strategy holding omega / dt.
+TEST(Strategies, AvellanedaStoikovGarchWithoutDynamicsIsConstantVariance) {
+    book::TickBook b;
+    b.add(1, Side::Buy, 100, 10'0000, 1);
+    b.add(2, Side::Sell, 100, 10'0500, 2);
+    std::vector<Working> w;
+    Desired fixed, garch;
+    for (const bool g : {false, true}) {
+        AvellanedaStoikov as;
+        as.k = 0.3;
+        as.var = 4.0, as.last_mid = 1002.5, as.last_ts = 2;  // no EWMA update at the same timestamp
+        as.use_garch = g;
+        as.garch.omega = 40, as.garch.alpha = 0, as.garch.beta = 0, as.garch.dt_s = 10;
+        if (g) as.var = 0;
+        as.decide(View{2, b, nullptr, 0, 1002.5, 100, w, true, 0}, g ? garch : fixed);
+    }
+    ASSERT_GT(fixed.bid_px, 0u);
+    EXPECT_EQ(garch.bid_px, fixed.bid_px);
+    EXPECT_EQ(garch.ask_px, fixed.ask_px);
+}
+
 // A bid fill after 10 s of quoting raises the fitted intensity; without `online` A, k stay.
 TEST(Strategies, AvellanedaStoikovRecalibratesOnItsFills) {
     book::TickBook b;
@@ -516,10 +538,14 @@ TEST(Report, SweepReportCarriesSharpeAndDsr) {
     std::vector<RiskStats> st = {risk_stats(a.summary.minute_pnl), risk_stats(b.summary.minute_pnl)};
     deflate(st);
     a.risk = st[0], b.risk = st[1];
+    a.mcs_p = 1, b.mcs_p = 0.25;
+    SweepTrials t;
+    t.symbol = "SYM", t.runs = 2, t.in_mcs = 2;
     TempDir out{"sweep_dsr"};
-    write_sweep_report(out.path.string(), "SYM", "naive", {a, b});
+    write_sweep_report(out.path.string(), "SYM", "naive", {a, b}, {t});
     std::ifstream page(out.path / "index.html");
     const std::string html((std::istreambuf_iterator<char>(page)), {});
     EXPECT_NE(html.find("<th>DSR</th>"), std::string::npos);
-    EXPECT_NE(html.find("<td>" + hft::report::num(b.risk.dsr, 3) + "</td></tr>"), std::string::npos);
+    EXPECT_NE(html.find("<td>" + hft::report::num(b.risk.dsr, 3) + "</td><td>0.250</td></tr>"), std::string::npos);
+    EXPECT_NE(html.find("<h2>Overfitting checks</h2>"), std::string::npos);
 }

@@ -26,4 +26,6 @@ ls "$HFT_DATA"/reports/backtest-*/report.html >/dev/null
 ls "$HFT_DATA"/lob/QRSIM_2025-01-01_34200000_57600000_orderbook_3.csv >/dev/null
 "$hft" realism 2025-01-01 QRSIM 2025-01-01 QRSIM | grep '^| \*\*mean\*\* | | | \*\*0.000\*\*' >/dev/null
 "$hft" realism 2025-01-01 QRSIM | grep '^## Stylised facts' >/dev/null
+"$hft" vol 2025-01-01 2025-01-01 QRSIM | grep '^## Keys for avellaneda_stoikov' >/dev/null
+"$hft" options price call 100 100 1 0.03 0 0.2 | grep '^| Black-Scholes' >/dev/null
 echo "hft cli ok"

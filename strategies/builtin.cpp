@@ -53,7 +53,7 @@ HFT_STRATEGY("perfect_foresight", "sees the future mid (upper bound); keys: hori
 
 HFT_STRATEGY("avellaneda_stoikov",
              "inventory-skewed market maker; keys: gamma A k glft online max_dist_ticks online_tau_s online_prior_s "
-             "size max_inventory",
+             "size max_inventory garch garch_omega garch_alpha garch_beta garch_dt_s",
              [](const Params& p, const RunSpec& r) {
                  AvellanedaStoikov s;
                  s.gamma = p.get("gamma", 0.1);
@@ -64,6 +64,15 @@ HFT_STRATEGY("avellaneda_stoikov",
                  s.max_dist_ticks = p.get("max_dist_ticks", 0);
                  s.online_tau_s = p.get("online_tau_s", 600);
                  s.online_prior_s = p.get("online_prior_s", 60);
+                 // Variance from GARCH(1,1) on mid changes in ticks over garch_dt_s (lobiq vol prints the keys).
+                 s.use_garch = p.get("garch", 0) != 0;
+                 s.garch.omega = p.get("garch_omega", 0.01);
+                 s.garch.alpha = p.get("garch_alpha", 0.05);
+                 s.garch.beta = p.get("garch_beta", 0.9);
+                 s.garch.dt_s = p.get("garch_dt_s", 10);
+                 if (s.use_garch && !(s.garch.omega > 0 && s.garch.alpha >= 0 && s.garch.beta >= 0 &&
+                                      s.garch.alpha + s.garch.beta < 1 && s.garch.dt_s > 0))
+                     throw std::runtime_error("garch needs garch_omega > 0, garch_alpha + garch_beta < 1, garch_dt_s > 0");
                  s.size = size_of(p);
                  s.max_inventory = max_inv(p);
                  s.end_ns = r.config.end_ns;

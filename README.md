@@ -16,7 +16,11 @@ system in C++23, with no framework underneath, driven by one command, `lobiq` (`
   with latency, queues, fees, settlement and injected faults. It never sends an order.
 - **Microstructure research** on the same Nasdaq data, fitted on some days and tested on later
   ones: order flow imbalance, the micro-price, the value of queue position, and what a signal is
-  worth to a market maker after latency ([results](#market-microstructure-research)).
+  worth to a market maker after latency ([results](#market-microstructure-research)); GARCH and HAR
+  volatility forecasts, order flow as a multivariate Hawkes process, HMM market regimes and a ridge
+  alpha with purged cross-validation and conformal intervals, all walk-forward
+  ([forecasting models](#forecasting-models)), and an options engine: Black-Scholes and Greeks,
+  binomial trees, Monte Carlo and an SVI volatility surface.
 - **Surveillance and execution quality** on real Nasdaq days: spoofing, layering and
   quote-stuffing candidates with their evidence ([surveillance](#market-surveillance)), a
   Rule 605-style best-execution report ([execution quality](#execution-quality)), and the book of
@@ -68,6 +72,11 @@ lobiq markov 2025-12-10 AAPL                  # Markov chain of the book: predic
 lobiq mlofi 2025-12-10 SPY,QQQ,AAPL,MSFT      # multi-level OFI and cross-impact (Cont, Cucuringu, Zhang 2023)
 lobiq realism 2025-12-10 AAPL                 # how realistic is the simulator? LOB-Bench statistics
 lobiq lobster 2025-12-10 AAPL,MSFT            # export in LOBSTER format for LOBCAST, LOBFrame, DeepMarket
+lobiq vol 2025-12-08,2025-12-09 2025-12-10    # GARCH-t and HAR against the makers' EWMA; prints GARCH keys
+lobiq hawkes 2025-12-09 2025-12-10 AAPL,MSFT  # six-type Hawkes order flow: who triggers whom
+lobiq regime 2025-12-09 2025-12-10 20         # HMM regimes, labelled causally on the test day
+lobiq alpha 2025-12-09 2025-12-10 AAPL --model alpha/   # ridge alpha; then backtest alpha:alpha/AAPL.alpha
+lobiq options surface chain.csv --rate 0.04   # SVI surface from an option chain; options price for one option
 ```
 
 **2. Paper-trade the live prediction market.** Market makers and an arbitrage executor run on
@@ -153,6 +162,9 @@ selection):
 | PSR | probability that the true Sharpe is above zero, allowing for skew and fat tails (Bailey and López de Prado 2012) |
 | DSR | the same, but against the best Sharpe that luck alone would give across the sweep's runs of that symbol (Bailey and López de Prado 2014) |
 | Bootstrap interval | 95% range of the day's PnL and the chance of a losing day, from a circular block bootstrap (studio) |
+| SPA p | Hansen's (2005) test that no run of the sweep beats not trading, on minute PnL with a stationary bootstrap; the reality check p-value is its upper bound |
+| MCS p | each run's p-value in the model confidence set (Hansen, Lunde and Nason 2011): runs at 0.1 or above are not significantly worse than the best |
+| PBO | probability of backtest overfitting (Bailey et al. 2017): the share of half-and-half splits of the day where the best run of one half ranks below the median in the other |
 | Models | Kyle (1985) insider equilibrium, Glosten-Milgrom (1985) spreads, Almgren-Chriss (2000) optimal execution, Avellaneda-Stoikov (2008) quotes, interactive (studio Models tab, also on the published site) |
 | Portfolio frontier | Markowitz: every mix of selected runs as risk against expected PnL, with the least-risk and best-Sharpe mixes and their weights (studio) |
 
@@ -655,6 +667,27 @@ Full tables: [docs/results/microstructure.md](docs/results/microstructure.md),
 [docs/results/leader-walkforward.md](docs/results/leader-walkforward.md). The estimators are in
 `src/strategy/microstructure.hpp`, unit-tested against the papers' cases and a chain with a known
 answer (`tests/microstructure_test.cpp`).
+
+### Forecasting models
+
+Walk-forward tools on the stored days: fitted on the train days, scored unchanged on the test days,
+synthetic-day end-to-end test `Research.SyntheticDays` (formulas in [docs/METHODS.md](docs/METHODS.md)):
+
+- **Volatility** (`lobiq vol`): GARCH(1,1) with normal and Student-t innovations on mid changes over
+  a fixed interval, and HAR on per-minute realized variance, against the EWMA the makers use, by QLIKE
+  with Diebold-Mariano statistics. The Student-t fit's keys run `avellaneda_stoikov garch=1 ...` with
+  GARCH variance in place of the EWMA.
+- **Order flow** (`lobiq hawkes`): market orders, limit orders and cancels on each side as a six-type
+  Hawkes process, by EM; branching ratio, the median trigger matrix, the out-of-sample gain over
+  Poisson and a time-rescaling check.
+- **Regimes** (`lobiq regime`): a Gaussian HMM over minute features, states by BIC, test minutes
+  labelled by the forward filter so no label sees the future; `--pnl` splits a backtest's PnL by regime.
+- **Alpha** (`lobiq alpha`): ridge on the 23 streaming features with purged, embargoed k-fold
+  cross-validation and split-conformal intervals; `--model` feeds the `alpha:<FILE>` strategy. The
+  `conformal` strategy quotes at an adaptive conformal interval of the micro-price's forecast.
+- **Options** (`lobiq options`): prices and Greeks by Black-Scholes, CRR binomial (American too) and
+  Monte Carlo side by side; from a CSV chain, forwards by put-call parity, Black-76 implied
+  volatilities and an SVI slice per expiry with butterfly and calendar arbitrage checks.
 
 ### Order book models
 

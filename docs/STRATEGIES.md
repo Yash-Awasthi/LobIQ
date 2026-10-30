@@ -152,6 +152,17 @@ which pins the new code to a known strategy before its own parameters change any
 itch_backtest /tmp/qrsim QRSIM microprice --sweep edge_ticks=0,0.5,1 --sweep skew_ticks=0,0.5,1 --report out/mp
 ```
 
+Three strategies take a fitted model. `alpha:<FILE>` serves a ridge forecast written by
+`lobiq alpha ... --model DIR`; `conformal` sizes its spread by an adaptive conformal interval of the
+micro-price's forecast; `avellaneda_stoikov garch=1` takes the GARCH keys `lobiq vol` prints. Fit on
+some days, backtest on later ones, and read the sweep's SPA, MCS and PBO lines before trusting a
+winner (docs/METHODS.md):
+
+```
+lobiq alpha 2025-12-08,2025-12-09 2025-12-10 AAPL --model alpha
+lobiq backtest 2025-12-11 AAPL alpha:alpha/AAPL.alpha shade=1 taking=0
+```
+
 ### Reinforcement learning
 
 `rl/lobiq_env.py` wraps the backtester as a Gymnasium-style environment (`reset()`, `step(action)`),

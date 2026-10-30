@@ -10,7 +10,8 @@ add_executable(hft_tests endian_test.cpp itch_test.cpp store_test.cpp gzip_test.
                          tape_test.cpp spsc_test.cpp histogram_test.cpp
                          arb_test.cpp engine_test.cpp session_test.cpp pm_decoder_test.cpp
                          exec_test.cpp ledger_test.cpp risk_test.cpp oms_test.cpp config_test.cpp arb_exec_test.cpp
-                         sim_venue_test.cpp report_test.cpp quoter_test.cpp pool_test.cpp microstructure_test.cpp parallel_test.cpp surveil_test.cpp bestex_test.cpp markov_test.cpp mlofi_test.cpp lobster_test.cpp realism_test.cpp ${HFT_STRATEGY_SOURCES} ${HFT_QUOTER_SOURCES})
+                         sim_venue_test.cpp report_test.cpp quoter_test.cpp pool_test.cpp microstructure_test.cpp parallel_test.cpp surveil_test.cpp bestex_test.cpp markov_test.cpp mlofi_test.cpp lobster_test.cpp realism_test.cpp
+                         garch_test.cpp hawkes_mv_test.cpp regime_test.cpp conformal_test.cpp overfit_test.cpp options_test.cpp ${HFT_STRATEGY_SOURCES} ${HFT_QUOTER_SOURCES})
 target_link_libraries(hft_tests PRIVATE hft_core hft_data GTest::gtest_main rapidcheck
                                         zstd::libzstd OpenSSL::SSL OpenSSL::Crypto)
 target_compile_definitions(hft_tests PRIVATE HFT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
@@ -26,6 +27,9 @@ if(NOT CMAKE_CXX_FLAGS MATCHES "-fsanitize")
 endif()
 add_test(NAME ItchStudy.SyntheticDays COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/study_smoke.sh $<TARGET_FILE_DIR:itch_study>)
 add_test(NAME ItchLeadLag.SyntheticDay COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/leadlag_smoke.sh $<TARGET_FILE_DIR:itch_leadlag>)
+add_test(NAME Research.SyntheticDays COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/research_smoke.sh $<TARGET_FILE_DIR:itch_vol>)
+set_tests_properties(Research.SyntheticDays PROPERTIES TIMEOUT 900)
+add_test(NAME Options.SyntheticChain COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/options_smoke.sh $<TARGET_FILE_DIR:options> ${CMAKE_CURRENT_SOURCE_DIR}/data/options_chain.csv)
 add_test(NAME ItchBook.CheckpointMatchesReplay COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/book_query.sh $<TARGET_FILE_DIR:itch_book>)
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_FOUND)
