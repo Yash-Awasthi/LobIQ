@@ -341,24 +341,8 @@ $('#book-play').onclick = () => {
   PLAY = setInterval(() => $('#book-next').onclick(), 1000);
 };
 
-// Analysis tools print Markdown: headings, paragraphs, bullets and tables.
-function markdown(src) {
-  const out = [], ls = src.split(/\r?\n/);
-  const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`(.+?)`/g, '<code>$1</code>');
-  for (let i = 0; i < ls.length; i++) {
-    const l = ls[i];
-    if (/^\|/.test(l)) {
-      const rows = [];
-      for (; i < ls.length && /^\|/.test(ls[i]); i++) if (!/^\|[-| :]+\|$/.test(ls[i])) rows.push(ls[i].slice(1, -1).split('|').map(c => c.trim()));
-      i--;
-      out.push(`<div class="scroll"><table><thead><tr>${rows[0].map(c => `<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>${rows.slice(1).map(r => `<tr>${r.map(c => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
-    } else if (/^ {4}\S/.test(l)) out.push(`<pre class="log">${esc(l.slice(4))}</pre>`);
-    else if (/^#{1,4} /.test(l)) out.push(`<h3>${inline(l.replace(/^#+ /, ''))}</h3>`);
-    else if (/^- /.test(l)) out.push(`<li>${inline(l.slice(2))}</li>`);
-    else if (l.trim()) out.push(`<p>${inline(l)}</p>`);
-  }
-  return out.join('');
-}
+// Analysis tools print Markdown; viz.js turns it into tables and the charts that read them.
+const markdown = src => vizRender(src);
 function syncAnalysis() {
   const k = $('#an-form [name=kind]').value;
   $$('#an-form [data-for]').forEach(l => l.hidden = !l.dataset.for.split(' ').includes(k));

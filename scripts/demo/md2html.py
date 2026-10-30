@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Markdown that the research tools print (headings, paragraphs, bullets, tables, indented code) as a
-standalone HTML page in the demo reports' style. Usage: md2html.py TITLE < in.md > out.html"""
+"""Markdown that the research tools print as a standalone HTML page in the demo reports' style. The page
+draws its tables and charts with the studio's renderer (viz.js and style.css next to it, as models.sh
+copies them); without JavaScript it shows the tables converted here. Usage: md2html.py TITLE < in.md > out.html"""
 
 import html
+import json
 import re
 import sys
 
@@ -57,12 +59,17 @@ def convert(src):
 
 def main():
     title = sys.argv[1] if len(sys.argv) > 1 else "LobIQ"
-    body = convert(sys.stdin.read())
+    src = sys.stdin.read()
+    body = convert(src)
+    data = json.dumps(src).replace("</", "<\\/")  # a JSON string, safe inside its script element
     sys.stdout.write(f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{html.escape(title)}</title><style>{STYLE}</style></head>
+<title>{html.escape(title)}</title><link rel="stylesheet" href="style.css"><style>{STYLE}</style></head>
 <body><main><p><a href="index.html">Forecasting models</a> &middot; <a href="../index.html">All demo reports</a></p>
-{body}
+<div id="out" class="md"><noscript>{body}</noscript></div>
+<script type="application/json" id="src">{data}</script>
+<script src="viz.js"></script>
+<script>document.getElementById("out").innerHTML = vizRender(JSON.parse(document.getElementById("src").textContent));</script>
 </main></body></html>
 """)
 

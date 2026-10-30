@@ -50,6 +50,15 @@ from the PnL path, so it also scores reports written before the backend had them
 have a winner with a high PSR; the DSR says whether it beats what ten tries at random would give.
 Formulas and sources: [METHODS.md](METHODS.md#evaluation). Code: `studio/metrics.py`.
 
+## Charts
+
+`static/viz.js` turns the Markdown the tools print into tables and, for the sections that have one,
+the chart that reads them (inline SVG on the page's colour tokens, so both themes work): Hawkes order
+flow as a directed network and heatmap, regime transitions as a graph, volatility forecasts against
+realized variance, volatility smiles and the ATM term structure, the alpha model's coefficients and
+accuracy-complexity front, an option's price and delta across spot. The published model pages use the
+same file. `studio/test_viz.mjs` (`Studio.Viz`) draws each one from a sample.
+
 ## Snapshot
 
 `python3 studio/server.py --snapshot OUT` writes a read-only copy of the UI over the backtest

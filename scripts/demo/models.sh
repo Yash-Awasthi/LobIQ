@@ -11,6 +11,7 @@ out=${1:-out/models}
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$out"
+cp studio/static/viz.js studio/static/style.css "$out/"  # the pages draw their charts with the studio's renderer
 for s in 7 8; do "$B/gen_day" $s 390 2>/dev/null | "$B/ingest" "$tmp/day$s" >/dev/null; done
 days=(--train "$tmp/day7" --test "$tmp/day8" --symbols QRSIM)
 fail=0

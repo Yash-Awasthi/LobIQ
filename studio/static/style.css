@@ -112,4 +112,8 @@ svg .cloud { fill: var(--muted); opacity: .3; }
 svg .single { fill: var(--link); }
 svg .mark { fill: var(--neg-fill); stroke: var(--fg); stroke-width: 1; }
 #frontier td:last-child { white-space: normal; }
+figure.viz { margin: 8px 0 14px; } figure.viz svg { margin-top: 4px; }
+svg .grid { stroke: var(--line); stroke-width: 1; } svg .axis { stroke: var(--muted); stroke-width: 1; }
+.vlegend { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: 12px; margin-top: 4px; }
+.vlegend span { display: inline-flex; gap: 6px; align-items: center; } .vlegend i { width: 16px; height: 3px; border-radius: 2px; }
 svg .l1-t { fill: var(--link); } svg .l2-t { fill: var(--neg); } svg .l3-t { fill: var(--pos); }

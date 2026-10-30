@@ -370,6 +370,22 @@ int main(int argc, char** argv) {
     if (!r2.empty()) std::printf("| median | | | | %.4f | %.3f | | | %.3f | | |\n", median(r2), median(ic), median(cov));
     std::printf("\nA forecast pays to trade on only when its top-decile move exceeds the half spread plus fees; otherwise it can still "
                 "skew passive quotes (strategy `alpha:`).\n");
+    std::vector<std::size_t> fitted;
+    for (std::size_t s = 0; s < S && fitted.size() < 6; ++s)
+        if (!res[s].b.empty()) fitted.push_back(s);
+    if (!fitted.empty()) {
+        std::printf("\n## Ridge coefficients\n\nTicks of predicted mid change per standard deviation of each feature, for up to "
+                    "six symbols.\n\n| Feature |");
+        for (const std::size_t s : fitted) std::printf(" %s |", u.names[s].c_str());
+        std::printf("\n|---|");
+        for (std::size_t k = 0; k < fitted.size(); ++k) std::printf("---|");
+        std::printf("\n");
+        for (std::size_t j = 0; j < kF; ++j) {
+            std::printf("| %s |", SymbolFeatures::kNames[j]);
+            for (const std::size_t s : fitted) std::printf(" %+.4f |", res[s].b[j + 1]);
+            std::printf("\n");
+        }
+    }
 
     if (generations) {
         std::printf("\n## Symbolic regression\n\nGenetic programming over the same standardised features (+, -, *, protected /, negation, "

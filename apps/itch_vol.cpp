@@ -5,6 +5,7 @@
 // Usage: itch_vol --train <store>[,..] --test <store>[,..] [--symbols N|SYM,..] [--interval SECONDS]
 
 #include <algorithm>
+#include <array>
 #include <cinttypes>
 #include <cmath>
 #include <cstdint>
@@ -76,6 +77,7 @@ struct Result {
     vol::GarchFit n, t;
     double ll_gain = NAN;  // test log-likelihood per interval, Student-t less normal
     double d_int = NAN, dm_int = NAN, d_har = NAN, dm_har = NAN, d_gm = NAN, dm_gm = NAN;
+    std::vector<std::array<double, 5>> path;  // first test day: minute, realized, EWMA, HAR, GARCH-t
 };
 
 double mean_diff(const std::vector<double>& a, const std::vector<double>& b) {
@@ -154,6 +156,7 @@ int main(int argc, char** argv) {
             for (std::size_t m = har.w3; m < rv.size(); ++m) {
                 const std::size_t at = m * per_min;
                 const double fh = har.forecast(rv, m - 1), fg = vol::variance_sum(o.t, ht[at], per_min);
+                if (d == T) o.path.push_back({static_cast<double>(m), rv[m], e[at] * static_cast<double>(per_min), fh, fg});
                 me.push_back(vol::qlike(rv[m], std::max(e[at] * static_cast<double>(per_min), 1e-12)));
                 mh.push_back(vol::qlike(rv[m], std::max(fh, 1e-12)));
                 mg.push_back(vol::qlike(rv[m], std::max(fg, 1e-12)));
@@ -190,6 +193,17 @@ int main(int argc, char** argv) {
     }
     using strategy::micro::median;
     if (!c_int.empty()) std::printf("| median | | | | | %+.4f | %+.4f | %+.4f | %+.4f |\n", median(c_ll), median(c_int), median(c_har), median(c_gm));
+    for (std::size_t s = 0; s < S; ++s) {
+        if (res[s].path.empty()) continue;
+        std::printf("\n## Forecasts on the first test day: %s\n\nRealized variance of each minute's mid changes (ticks squared) and "
+                    "each model's forecast of it, made at the start of the minute.\n\n| Time | realized | EWMA | HAR | GARCH-t |\n|---|---|---|---|---|\n",
+                    u.names[s].c_str());
+        for (const auto& p : res[s].path) {
+            const auto at = 9 * 60 + 35 + static_cast<std::size_t>(p[0]);
+            std::printf("| %02zu:%02zu | %.4g | %.4g | %.4g | %.4g |\n", at / 60, at % 60, p[1], p[2], p[3], p[4]);
+        }
+        break;  // one symbol is enough to see the models at work
+    }
     std::printf("\n## Keys for avellaneda_stoikov\n\nThe Student-t fit, in ticks squared per %" PRIu64 " s interval:\n\n", interval);
     for (std::size_t s = 0; s < S; ++s)
         if (res[s].t.ok)

@@ -228,6 +228,22 @@ int main(int argc, char** argv) {
         std::printf(" %.3f | %.3f |\n", nxt[k] > 0 ? next_rv[k] / nxt[k] : NAN, nxt[k] > 0 ? next_abs[k] / nxt[k] : NAN);
     }
     std::printf("\nFeature columns are means of the raw (unstandardised) features over the minutes labelled with the state.\n");
+    // Where each regime went the next minute, counted over the test days' causal labels.
+    std::vector<double> to(K * K, 0);
+    for (std::size_t i = 0; i < labels.size(); ++i)
+        for (std::size_t t = 0; t + 1 < labels[i].size(); ++t) to[labels[i][t] * K + labels[i][t + 1]] += 1;
+    std::printf("\n## Transitions on the test days\n\nP(next minute's state | this minute's state), from the causal labels.\n\n| from \\ to |");
+    for (std::size_t k = 0; k < K; ++k) std::printf(" %zu |", k);
+    std::printf("\n|---|");
+    for (std::size_t k = 0; k < K; ++k) std::printf("---|");
+    std::printf("\n");
+    for (std::size_t a = 0; a < K; ++a) {
+        double row = 0;
+        for (std::size_t b = 0; b < K; ++b) row += to[a * K + b];
+        std::printf("| %zu |", a);
+        for (std::size_t b = 0; b < K; ++b) std::printf(" %.3f |", row > 0 ? to[a * K + b] / row : 0.0);
+        std::printf("\n");
+    }
 
     if (!out_path.empty()) {
         std::FILE* f = std::fopen(out_path.c_str(), "w");

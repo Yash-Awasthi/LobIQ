@@ -40,6 +40,13 @@ Robustness
   thirty-minute days; option chains with no usable quotes and bad model files fail with a message.
 
 Studio and published reports
+- **Charts for the forecasting tools** (`studio/static/viz.js`, inline SVG, no library), in the studio and
+  on the published pages: the Hawkes trigger matrix as a directed network of event types and a
+  heatmap; regimes as a transition graph with next-minute variance bars; the volatility forecasts
+  against realized variance through the test day; volatility smiles, the ATM term structure and skew;
+  the alpha model's coefficients and accuracy-complexity front; an option's price and delta across
+  spot. The tools print the data they need (the forecast path, the regime transitions, the ridge
+  coefficients); long tables fold away. Test: `Studio.Viz`.
 - **Analysis tab** runs `vol`, `hawkes`, `regime`, `alpha` (with symbolic regression) and option
   pricing, each with its settings, and the SVI surface of the bundled chain or `DATA/options/*.csv`.
   The alpha tool saves its models to `REPORTS/alpha-models`, which the Backtest tab runs as
