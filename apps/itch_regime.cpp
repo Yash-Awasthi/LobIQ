@@ -203,7 +203,8 @@ int main(int argc, char** argv) {
                 "filter, which uses nothing later. States ordered from the calmest. Method: docs/METHODS.md.\n\n",
                 S, T, D - T);
     std::printf("BIC on the train days (lower is better):");
-    for (const auto& [k, b] : bic) std::printf(" %zu states %.0f%s", k, b, k == K ? " (chosen)" : "");
+    for (std::size_t i = 0; i < bic.size(); ++i)
+        std::printf("%s %zu states %.0f%s", i ? "," : "", bic[i].first, bic[i].second, bic[i].first == K ? " (chosen)" : "");
     std::printf("\n\n## Regimes on the test days\n\n| State | share of minutes | P(same next minute) | train P(stay) |");
     for (const char* f : kFeature) std::printf(" %s |", f);
     std::printf(" next-minute RV (ticks²) | next-minute abs mid change (ticks) |\n|---|---|---|---|");
