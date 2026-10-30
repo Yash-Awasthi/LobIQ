@@ -87,3 +87,12 @@ TEST(PurgedKFold, NoTrainingLabelOverlapsATestSample) {
     }
     EXPECT_EQ(folds[0].train.front(), 25u);  // the last test label ends at 225; embargo to 245; sample 25 starts at 250
 }
+
+// An embargo too large to add to the last label time means nothing after the fold trains.
+TEST(PurgedKFold, HugeEmbargoDoesNotWrap) {
+    std::vector<std::uint64_t> start, end;
+    for (std::uint64_t t = 0; t < 40; ++t) start.push_back(t * 10), end.push_back(t * 10 + 5);
+    const auto folds = purged_kfold(start, end, 4, UINT64_MAX);
+    for (const std::size_t i : folds[0].train) EXPECT_LT(end[i], start[folds[0].test.front()]) << i;
+    EXPECT_TRUE(folds[0].train.empty());
+}

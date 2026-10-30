@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.7 (2026-10-31)
 
 Forecasting models and an options engine, all in the C++ codebase with no new dependency. Book,
 matching and feed hot paths untouched; the new strategies allocate nothing per event after warm-up
@@ -32,6 +32,14 @@ Project
 CI
 - Actions on their current Node 24 majors, a read-only token for ci, a newer push to a pull request
   cancels the older run, every job stops at 60 minutes, and vcpkg binaries are cached per compiler.
+
+Review fixes
+- The SVI butterfly check covers every expiry's quoted range, not the range seen so far; the regime
+  model's log-likelihood (and so BIC) is that of the parameters it returns; a failed Hawkes fit cannot
+  steer the decay search; a huge embargo no longer wraps; `alpha:` and `microprice` never post an ask
+  through a negative price; store names with a trailing slash still give their date; `itch_study` and
+  `itch_lobster` share `apps/days.hpp`. Tests: `Hmm.LoglikBelongsToTheReturnedParameters`,
+  `PurgedKFold.HugeEmbargoDoesNotWrap`, `Studio.Viz`.
 
 Robustness
 - The research tools use only the span the feed covers (a short or truncated day is missing data,

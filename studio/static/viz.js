@@ -33,10 +33,11 @@
     if (y1 === y0) y0 -= 1, y1 += 1;
     const pad = (y1 - y0) * 0.06; y0 -= pad; y1 += pad;
     const L = 64, R = 16, Tp = 30, B = 42, X = v => L + (v - x0) / ((x1 - x0) || 1) * (W - L - R), Y = v => H - B - (T(v) - y0) / (y1 - y0) * (H - Tp - B);
-    const yt = logY ? ticks(Math.ceil(y0), Math.floor(y1), 4).map(v => 10 ** v) : ticks(y0, y1);
+    const yt = !logY ? ticks(y0, y1) : Math.floor(y1) - Math.ceil(y0) >= 1 ? ticks(Math.ceil(y0), Math.floor(y1), 4).map(v => 10 ** v)
+      : ticks(10 ** y0, 10 ** y1, 4).filter(v => v > 0);  // under two decades: plain ticks within the data
     const xt = ticks(x0, x1, 6, wholeX);
     xfmt ??= v => tickFmt(v, xt.step);
-    const yl = v => logY ? fmt(v, v < 1 ? 3 : v < 10 ? 2 : 0) : tickFmt(v, yt.step);
+    const yl = v => logY && !yt.step ? fmt(v, v < 1 ? 3 : v < 10 ? 2 : 0) : tickFmt(v, yt.step || 1);
     let g = yt.map(v => `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" class="grid"/><text x="${L - 6}" y="${Y(v) + 4}" class="ax" text-anchor="end">${yl(v)}</text>`).join('');
     g += xt.map(v => `<text x="${X(v)}" y="${H - B + 16}" class="ax" text-anchor="middle">${esc(xfmt(v))}</text>`).join('');
     const body = series.map((s, i) => {

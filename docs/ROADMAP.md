@@ -20,3 +20,5 @@ in [CHANGELOG.md](../CHANGELOG.md) and the git history. Nothing is open.
   nothing to test a model against.
 - System zstd, LZ4, zlib-ng and OpenSSL instead of vcpkg: the vcpkg build works in CI.
 - Bloomberg, FRED, Tiingo, Quiver: daily research data with no use in this pipeline.
+- Discounted cash flow valuation (income statement, balance sheet, cash flow, WACC): needs company
+  fundamentals, which no source here provides; it would be a separate product.

@@ -82,3 +82,13 @@ TEST(Hmm, MoreStatesOnOneStateDataDoNotWinOnBic) {
     const double n = std::log(2000.0);
     EXPECT_LT(-2 * one.loglik + one.params() * n, -2 * three.loglik + three.params() * n);
 }
+
+// The reported log-likelihood is that of the returned parameters, so BIC compares fitted models.
+TEST(Hmm, LoglikBelongsToTheReturnedParameters) {
+    std::vector<Seq> seqs(2);
+    simulate(seqs[0], 400, 41);
+    simulate(seqs[1], 400, 42);
+    const Hmm h = fit_hmm(seqs, 2, 1, 3);  // three iterations: far from converged
+    ASSERT_TRUE(h.ok);
+    EXPECT_NEAR(h.loglik, loglik(h, seqs[0]) + loglik(h, seqs[1]), 1e-6 * std::abs(h.loglik));
+}

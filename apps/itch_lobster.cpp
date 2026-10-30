@@ -11,7 +11,6 @@
 #include <cstring>
 #include <filesystem>
 #include <mutex>
-#include <regex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -21,6 +20,7 @@
 #include "core/parallel.hpp"
 #include "data/lobster.hpp"
 #include "data/store.hpp"
+#include "days.hpp"
 #include "feed/itch.hpp"
 
 namespace {
@@ -29,14 +29,6 @@ using namespace lobiq;
 namespace lb = data::lobster;
 
 constexpr std::uint64_t kNsPerMin = 60'000'000'000ull, kEnd = 16 * 60 * kNsPerMin;
-
-// "store-S121025-v50" -> "2025-12-10"; otherwise the directory name.
-std::string date_of(const std::filesystem::path& dir) {
-    const std::string n = dir.filename().string();
-    std::smatch m;
-    if (std::regex_search(n, m, std::regex("S(\\d{2})(\\d{2})(\\d{2})"))) return "20" + m[3].str() + "-" + m[1].str() + "-" + m[2].str();
-    return n;
-}
 
 std::uint64_t write_symbol(const std::filesystem::path& dir, std::uint16_t loc, const std::string& stem, int levels, std::uint64_t start) {
     std::FILE* msg = std::fopen((stem + "_message_" + std::to_string(levels) + ".csv").c_str(), "w");
@@ -95,7 +87,7 @@ int main(int argc, char** argv) {
     for (const std::string& s : syms)
         if (!names.contains(s)) return std::fprintf(stderr, "symbol %s not in %s\n", s.c_str(), dir.c_str()), 2;
     std::filesystem::create_directories(out);
-    const std::string window = date_of(dir) + "_" + std::to_string(start / 1'000'000) + "_" + std::to_string(kEnd / 1'000'000);
+    const std::string window = app::day_of(dir) + "_" + std::to_string(start / 1'000'000) + "_" + std::to_string(kEnd / 1'000'000);
     std::vector<std::uint64_t> counts(syms.size());
     std::string error;
     std::mutex error_lock;

@@ -1,6 +1,6 @@
 # Status
 
-v1.6 (2026-10-22) plus the unreleased changes in CHANGELOG.md, on bare-metal Arch Linux. Nothing is open ([docs/ROADMAP.md](docs/ROADMAP.md));
+v1.7 (2026-10-31), on bare-metal Arch Linux. Nothing is open ([docs/ROADMAP.md](docs/ROADMAP.md));
 what is deliberately left out is listed there under "Not planned". Changes per version: [CHANGELOG.md](CHANGELOG.md).
 The research-phase log is in
 [STATUS-research.md](https://github.com/Yash-Awasthi/lobiq/blob/research-archive/archive/docs/STATUS-research.md) at the research-archive tag.

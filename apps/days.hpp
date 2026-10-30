@@ -35,9 +35,12 @@ inline std::vector<std::filesystem::path> paths(const std::string& v) {
 
 // store-S120825-v50 -> 2025-12-08; any other name as it is.
 inline std::string day_of(const std::filesystem::path& p) {
-    const std::string s = p.filename().string();
-    const auto at = s.find('S');
-    return at == std::string::npos || s.size() < at + 7 ? s : "20" + s.substr(at + 5, 2) + "-" + s.substr(at + 1, 2) + "-" + s.substr(at + 3, 2);
+    const std::string s = (p.filename().empty() ? p.parent_path().filename() : p.filename()).string();
+    const auto at = s.find("store-S");
+    if (at == std::string::npos || s.size() < at + 13) return s;
+    const std::string d = s.substr(at + 7, 6);  // MMDDYY
+    if (!std::all_of(d.begin(), d.end(), [](char c) { return c >= '0' && c <= '9'; })) return s;
+    return "20" + d.substr(4, 2) + "-" + d.substr(0, 2) + "-" + d.substr(2, 2);
 }
 
 struct Universe {

@@ -169,7 +169,7 @@ int main(int argc, char** argv) {
     std::vector<rg::Seq> train_seqs;
     std::size_t n_train = 0;
     for (std::size_t s = 0; s < S; ++s)
-        for (std::size_t d = 0; d < T; ++d) train_seqs.push_back(seqs[s * D + d]), n_train += seqs[s * D + d].size();
+        for (std::size_t d = 0; d < T; ++d) n_train += seqs[s * D + d].size(), train_seqs.push_back(std::move(seqs[s * D + d]));  // only test days are read later
     std::vector<std::pair<std::size_t, double>> bic;
     rg::Hmm h;
     double best_bic = INFINITY;

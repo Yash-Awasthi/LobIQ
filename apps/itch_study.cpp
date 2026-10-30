@@ -27,6 +27,7 @@
 #include "book/itch_apply.hpp"
 #include "book/tick_book.hpp"
 #include "data/store.hpp"
+#include "days.hpp"
 #include "core/parallel.hpp"
 #include "feed/itch.hpp"
 #include "strategy/microstructure.hpp"
@@ -447,22 +448,7 @@ DayResult run_day(const fs::path& dir, std::uint16_t loc, const std::array<doubl
     return out;
 }
 
-std::vector<fs::path> split_paths(const std::string& v) {
-    std::vector<fs::path> out;
-    std::size_t i = 0;
-    while (i <= v.size()) {
-        const std::size_t j = std::min(v.find(',', i), v.size());
-        if (j > i) out.emplace_back(v.substr(i, j - i));
-        i = j + 1;
-    }
-    return out;
-}
-
-std::string day_of(const fs::path& p) {
-    const std::string s = p.filename().string();  // store-S120825-v50
-    const auto at = s.find('S');
-    return at == std::string::npos || s.size() < at + 7 ? s : "20" + s.substr(at + 5, 2) + "-" + s.substr(at + 1, 2) + "-" + s.substr(at + 3, 2);
-}
+using app::day_of;
 
 // Median with a 95% bootstrap interval over symbols (fixed seed: the report is reproducible).
 std::string median_ci(const std::vector<double>& v, double scale = 1, const char* fmt = "%.2f") {
@@ -495,8 +481,8 @@ int main(int argc, char** argv) {
             std::fprintf(stderr, "missing value for %s\n", a.c_str());
             return 2;
         }
-        if (a == "--train") train = split_paths(argv[++i]);
-        else if (a == "--test") test = split_paths(argv[++i]);
+        if (a == "--train") train = app::paths(argv[++i]);
+        else if (a == "--test") test = app::paths(argv[++i]);
         else if (a == "--symbols") n_symbols = std::strtoul(argv[++i], nullptr, 10);
         else {
             std::fprintf(stderr, "unknown option %s\n", a.c_str());
@@ -516,31 +502,19 @@ int main(int argc, char** argv) {
         }
 
     // Universe: the most active symbols of the first train day that trade on every day.
-    std::vector<std::map<std::string, std::uint16_t>> by_name(days.size());
-    for (std::size_t d = 0; d < days.size(); ++d)
-        if ((by_name[d] = data::read_symbols(days[d])).empty()) {
-            std::fprintf(stderr, "no symbols.tsv in %s (written by ingest)\n", days[d].c_str());
-            return 2;
-        }
-    std::vector<std::pair<std::uint64_t, std::string>> active;
-    for (const auto& [name, loc] : by_name[0]) {
-        bool everywhere = true;
-        for (std::size_t d = 1; d < days.size(); ++d) everywhere &= by_name[d].contains(name);
-        if (!everywhere) continue;
-        data::SymbolReader rd(days[0], loc);
-        std::uint64_t n = 0;
-        for (const auto& e : rd.index()) n += e.n_msgs;
-        active.emplace_back(n, name);
+    const app::Universe u = app::universe(days, std::to_string(n_symbols));
+    if (!u.error.empty()) {
+        std::fprintf(stderr, "%s\n", u.error.c_str());
+        return 2;
     }
-    std::sort(active.rbegin(), active.rend());
-    if (active.size() > n_symbols) active.resize(n_symbols);
-    const std::size_t S = active.size(), D = days.size(), T = train.size();
+    const auto& by_name = u.locate;
+    const std::size_t S = u.names.size(), D = days.size(), T = train.size();
 
     // Pass 1: every symbol-day, counting micro-price transitions.
     std::vector<DayResult> res(S * D);
     parallel_for(S * D, [&](std::size_t i) {
         const std::size_t s = i / D, d = i % D;
-        res[i] = run_day(days[d], by_name[d].at(active[s].second), nullptr);
+        res[i] = run_day(days[d], by_name[d].at(u.names[s]), nullptr);
     });
     // Micro-price adjustment per symbol from the train days only.
     std::vector<std::array<double, kStates>> g(S);
@@ -553,7 +527,7 @@ int main(int argc, char** argv) {
     std::vector<Errors> err(S * D);
     parallel_for(S * D, [&](std::size_t i) {
         const std::size_t s = i / D, d = i % D;
-        err[i] = run_day(days[d], by_name[d].at(active[s].second), &g[s]).e;
+        err[i] = run_day(days[d], by_name[d].at(u.names[s]), &g[s]).e;
     });
 
     // OFI: per-symbol slope on train intervals; universal beta = c / depth^lambda from
@@ -621,7 +595,7 @@ int main(int argc, char** argv) {
         }
         const double ro = r2_of(p_own, yt), ru = r2_of(p_uni, yt);
         r2_own.push_back(ro), r2_uni.push_back(ru), r2_in.push_back(f.r2);
-        std::printf("| %s | %.0f | %.3f | %.2f | %.2f | %.2f |\n", active[s].second.c_str(),
+        std::printf("| %s | %.0f | %.3f | %.2f | %.2f | %.2f |\n", u.names[s].c_str(),
                     dep.empty() ? 0 : dsum / static_cast<double>(dep.size()), f.b * 1000, f.r2, ro, ru);
     }
     std::printf("\nMedian over symbols with 95%% bootstrap interval: R2 train %s, test with own beta %s, test with "
@@ -659,7 +633,7 @@ int main(int argc, char** argv) {
         w_1s.push_back(red(out, 1, 1)), m_1s.push_back(red(out, 1, 2));
         for (int b = 0; b < kBuckets; ++b) g_avg[static_cast<std::size_t>(b)] += g[s][static_cast<std::size_t>(b)];
         ++g_n;
-        std::printf("| %s | %.2f | %llu | %+.1f%% | %+.1f%% | %+.1f%% | %+.1f%% | %+.1f%% |\n", active[s].second.c_str(), share,
+        std::printf("| %s | %.2f | %llu | %+.1f%% | %+.1f%% | %+.1f%% | %+.1f%% | %+.1f%% |\n", u.names[s].c_str(), share,
                     static_cast<unsigned long long>(out.n[0]), 100 * red(out, 0, 1), 100 * red(out, 0, 2),
                     100 * red(out, 1, 1), 100 * red(out, 1, 2), 100 * red(in, 0, 2));
     }

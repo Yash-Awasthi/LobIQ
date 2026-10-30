@@ -236,6 +236,14 @@ inline Hmm fit_hmm(const std::vector<Seq>& seqs, std::size_t K, std::uint64_t se
         if (ll - prev < 1e-7 * (1 + std::abs(ll))) break;
         prev = ll;
     }
+    // The loop's likelihood belongs to the parameters before its last M-step; score the returned ones.
+    h.loglik = 0;
+    for (const Seq& s : seqs) {
+        if (s.empty()) continue;
+        std::vector<double> m, c;
+        std::vector<std::vector<double>> alpha;
+        h.loglik += detail::forward(h, detail::emissions(h, s, m), m, alpha, c);
+    }
     h.ok = std::isfinite(h.loglik);
     return h;
 }

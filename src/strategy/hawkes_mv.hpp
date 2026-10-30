@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 #include "core/philox.hpp"
@@ -167,7 +168,8 @@ inline Model fit(const std::vector<Realization>& data, std::size_t D,
     double x1 = hi - phi * (hi - lo), x2 = lo + phi * (hi - lo);
     Model m1 = at_log(x1), m2 = at_log(x2);
     for (int it = 0; it < 12 && hi - lo > 1e-3; ++it) {
-        if (m1.loglik > m2.loglik) hi = x2, x2 = x1, m2 = std::move(m1), x1 = hi - phi * (hi - lo), m1 = at_log(x1);
+        const auto ll = [](const Model& m) { return m.ok ? m.loglik : -std::numeric_limits<double>::infinity(); };
+        if (ll(m1) > ll(m2)) hi = x2, x2 = x1, m2 = std::move(m1), x1 = hi - phi * (hi - lo), m1 = at_log(x1);
         else lo = x1, x1 = x2, m1 = std::move(m2), x2 = lo + phi * (hi - lo), m2 = at_log(x2);
         for (Model* c : {&m1, &m2})
             if (c->ok && c->loglik > best.loglik) best = *c;

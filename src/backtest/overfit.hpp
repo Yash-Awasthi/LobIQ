@@ -232,7 +232,7 @@ inline std::vector<Fold> purged_kfold(const std::vector<std::uint64_t>& start, c
         for (std::size_t i = a; i < b; ++i) fold.test.push_back(i), last_end = std::max(last_end, end[i]);
         for (std::size_t i = 0; i < n; ++i) {
             if (i >= a && i < b) continue;
-            if (end[i] < start[a] || start[i] > last_end + embargo) fold.train.push_back(i);
+            if (end[i] < start[a] || (last_end <= UINT64_MAX - embargo && start[i] > last_end + embargo)) fold.train.push_back(i);
         }
         out.push_back(std::move(fold));
     }

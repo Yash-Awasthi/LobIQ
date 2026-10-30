@@ -30,7 +30,8 @@ struct MicroPriceMaker {
         const double ask = std::ceil((reservation + edge_ticks * tick) / tick - 1e-9) * tick;
         if (v.inventory < max_inventory && bid > 0)
             d.bid_px = std::min(b.bid_px, static_cast<std::uint32_t>(bid)), d.bid_qty = size;
-        if (v.inventory > -max_inventory) d.ask_px = std::max(b.ask_px, static_cast<std::uint32_t>(ask)), d.ask_qty = size;
+        if (v.inventory > -max_inventory)  // compared as doubles: a negative ask must not wrap through the cast
+            d.ask_px = static_cast<std::uint32_t>(std::max(static_cast<double>(b.ask_px), ask)), d.ask_qty = size;
     }
 };
 

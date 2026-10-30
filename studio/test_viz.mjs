@@ -31,4 +31,9 @@ assert.ok(/<table/.test(render(sections.price)) && /<table/.test(render(sections
 // A plain section is a plain table; text is escaped.
 assert.equal(svgs(render('## Other\n\n| a | b |\n|---|---|\n| 1 | <x> |')), 0);
 assert.ok(render('| a |\n|---|\n| <script> |').includes('&lt;script&gt;'));
+// A log axis whose data sits inside one decade keeps its ticks inside the data (here 1 to 5).
+{
+  const labels = [...render(sections.vol).matchAll(/text-anchor="end">([\d.]+)</g)].map(m => +m[1]);
+  assert.ok(labels.length >= 2 && labels.every(v => v >= 1 && v <= 5), `ticks ${labels}`);
+}
 console.log('viz ok');

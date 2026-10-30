@@ -135,10 +135,12 @@ int surface(int argc, char** argv) {
                 argv[2], r, bad);
     std::printf("| Expiry (y) | forward | quotes | ATM vol | ATM skew dvol/dk | a | b | rho | m | s | RMSE (vol) | min density g |\n"
                 "|---|---|---|---|---|---|---|---|---|---|---|---|\n");
-    double kmin = 0, kmax = 0;
+    double kmin = 0, kmax = 0;  // over every expiry, so each slice is checked on the same range
+    for (std::size_t i = 0; i < surf.slices.size(); ++i)
+        for (const Quote& q : used[i])
+            kmin = std::min(kmin, std::log(q.K / surf.slices[i].forward)), kmax = std::max(kmax, std::log(q.K / surf.slices[i].forward));
     for (std::size_t i = 0; i < surf.slices.size(); ++i) {
         const Svi& s = surf.slices[i];
-        for (const Quote& q : used[i]) kmin = std::min(kmin, std::log(q.K / s.forward)), kmax = std::max(kmax, std::log(q.K / s.forward));
         const double atm = s.vol(0), skew = s.w1(0) / (2 * atm * s.T);
         std::printf("| %.4f | %.4f | %zu | %.4f | %+.4f | %.5f | %.5f | %+.3f | %+.4f | %.4f | %.4f | %+.4f |\n", s.T, s.forward, used[i].size(),
                     atm, skew, s.a, s.b, s.rho, s.m, s.s, s.rmse_vol, min_density(s, kmin, kmax));
