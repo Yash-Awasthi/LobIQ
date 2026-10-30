@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Options tool on a chain priced from a known SVI surface (tests/data/options_chain.csv: S = 100,
+# Options tool on a chain priced from a known SVI surface (data/sample/options_chain.csv: S = 100,
 # r = 4%, q = 1%; ATM vol 0.2040 at T = 0.25): the fit must recover it with no calendar arbitrage.
 set -euo pipefail
 bin=$1/options

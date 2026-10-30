@@ -265,14 +265,28 @@ class Server(unittest.TestCase):
         self.assertEqual(server.lobiq_args({"kind": "vol", "train": "S010125", "test": "2025-01-02", "symbols": "QRSIM"}),
                          ["vol", "S010125", "2025-01-02", "QRSIM"])
         self.assertEqual(server.lobiq_args({"kind": "alpha", "train": "S010125", "test": "S010225", "symbols": "20"}),
-                         ["alpha", "S010125", "S010225", "20"])
+                         ["alpha", "S010125", "S010225", "20", "--model", server.MODELS])
+        self.assertEqual(server.lobiq_args({"kind": "alpha", "train": "S010125", "test": "S010225", "horizon": "10", "generations": "30"}),
+                         ["alpha", "S010125", "S010225", "--horizon", "10", "--symbolic", "30", "--model", server.MODELS])
+        self.assertEqual(server.lobiq_args({"kind": "hawkes", "train": "S010125", "test": "S010225", "window": "5"}),
+                         ["hawkes", "S010125", "S010225", "--window", "5"])
+        self.assertEqual(server.lobiq_args({"kind": "surface", "chain": "sample", "rate": "0.04"}),
+                         ["options", "surface", server.SAMPLE_CHAIN, "--rate", "0.04", "--greeks"])
+        self.assertEqual(server.lobiq_args({"kind": "surface", "chain": "spx.csv", "rate": "0.04"})[2], os.path.join(server.CHAINS, "spx.csv"))
+        # alpha:NAME is a model the alpha tool saved; the browser never names a path.
+        self.assertEqual(server.lobiq_args({"kind": "backtest", "day": "S010125", "symbols": "QRSIM", "strategy": "alpha:QRSIM.alpha"})[3],
+                         "alpha:" + os.path.join(server.MODELS, "QRSIM.alpha"))
         self.assertEqual(server.lobiq_args({"kind": "regime", "train": "S010125", "test": "S010225"}), ["regime", "S010125", "S010225"])
         self.assertEqual(server.lobiq_args({"kind": "options", "right": "put", "spot": "100", "strike": "105", "years": "0.5",
                                           "rate": "-0.01", "yield": "0", "vol": ".2"}),
                          ["options", "price", "put", "100", "105", "0.5", "-0.01", "0", ".2"])
         for bad in ({"kind": "hawkes", "train": "S010125", "test": "S010225", "symbols": "--window"},
                     {"kind": "options", "right": "call", "spot": "1e", "strike": "1", "years": "1", "rate": "0", "yield": "0", "vol": "1"},
-                    {"kind": "options", "right": "straddle", "spot": "1", "strike": "1", "years": "1", "rate": "0", "yield": "0", "vol": "1"}):
+                    {"kind": "options", "right": "straddle", "spot": "1", "strike": "1", "years": "1", "rate": "0", "yield": "0", "vol": "1"},
+                    {"kind": "surface", "chain": "../etc/passwd.csv", "rate": "0"}, {"kind": "surface", "chain": "a/b.csv", "rate": "0"},
+                    {"kind": "vol", "train": "S010125", "test": "S010225", "interval": "7"},
+                    {"kind": "regime", "train": "S010125", "test": "S010225", "states": "9"},
+                    {"kind": "backtest", "day": "S010125", "symbols": "QRSIM", "strategy": "alpha:../x"}):
             with self.assertRaises(server.BadRequest):
                 server.lobiq_args(bad)
 

@@ -2,6 +2,7 @@
 
 // Run outputs of itch_backtest: fills and per-minute PnL as TSV/CSV, and one HTML report.
 
+#include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <string>
@@ -35,8 +36,9 @@ inline void write_minutes(const std::string& path, const Summary& r, char sep = 
 
 // DIR/report.html, DIR/fills.csv, DIR/pnl_minutes.csv, DIR/summary.csv. `risk` carries the DSR when
 // the run is one of a sweep's trials.
+// mcs_p: the run's model confidence set p-value when it is one run of a sweep (written only then).
 inline void write_report(const std::string& dir, const std::string& symbol, const std::string& strategy, const Config& c,
-                         const Summary& s, const RiskStats& risk) {
+                         const Summary& s, const RiskStats& risk, double mcs_p = NAN) {
     std::filesystem::create_directories(dir);
     write_fills(dir + "/fills.csv", s, ',');
     write_minutes(dir + "/pnl_minutes.csv", s, ',');
@@ -66,6 +68,7 @@ inline void write_report(const std::string& dir, const std::string& symbol, cons
         {"max_drawdown_usd", report::num(risk.max_drawdown_usd)},
         {"longest_underwater_min", std::to_string(risk.longest_underwater)},
     };
+    if (std::isfinite(mcs_p)) rows.emplace_back("mcs_p", report::num(mcs_p, 4));
     std::string csv = "key,value\n";
     for (const auto& [k, v] : rows) csv += k + "," + v + "\n";
     report::write_file(dir + "/summary.csv", csv);

@@ -348,7 +348,7 @@ int main(int argc, char** argv) {
         }
     });
 
-    std::printf("# Alpha model\n\n%zu symbols; train %zu days, test %zu days. Target: mid change over the next %g s (ticks), sampled every %g s "
+    std::printf("# Alpha model\n\nSymbols: %zu; train days: %zu, test days: %zu. Target: mid change over the next %g s (ticks), sampled every %g s "
                 "from 09:35 to 15:55 ET. Ridge regression on the backtester's %zu streaming features, standardised on the train days; "
                 "penalty by %zu-fold purged cross-validation with a %g s embargo. Conformal half-width at %.0f%% coverage from the "
                 "out-of-fold residuals. Test days are out of sample. Method: docs/METHODS.md.\n\n",

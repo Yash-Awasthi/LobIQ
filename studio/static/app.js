@@ -172,18 +172,20 @@ $('#bt-form').onsubmit = async e => {
   if (!job?.report) return;
   const lb = await api('/api/leaderboard');
   const mine = lb.filter(r => r.group === job.report || r.path === job.report);
-  $('#bt-result').innerHTML = `<p><a href="${job.report}" target="_blank">Open HTML report</a></p>` + table(mine.sort((a, b) => b.dsr - a.dsr));
+  $('#bt-result').innerHTML = `<p><a href="${job.report}" target="_blank">Open HTML report</a></p><div class="scroll">${table(mine.sort((a, b) => b.dsr - a.dsr))}</div>`;
   bindRows($('#bt-result'), mine);
 };
 
 // Leaderboard.
 const COLS = [
-  ['strategy', 'Strategy', r => esc(r.strategy ?? '?')], ['symbol', 'Symbol', r => esc(r.symbol ?? '?')],
+  // A model's path (alpha:/data/reports/alpha-models/X.alpha) shows as its file name.
+  ['strategy', 'Strategy', r => esc((r.strategy ?? '?').replace(/:.*[\\/]/, ':'))], ['symbol', 'Symbol', r => esc(r.symbol ?? '?')],
   ['label', 'Run', r => esc(r.label)],
   ['total', 'PnL USD', r => `<span class="${sign(+r.summary.total_usd)}">${fmt(+r.summary.total_usd)}</span>`, r => +r.summary.total_usd],
   ['sharpe_annual', 'Sharpe (ann.)', r => fmt(r.sharpe_annual)], ['psr', 'PSR', r => fmt(r.psr, 3)],
   ['dsr', 'DSR', r => `<span class="${r.dsr > 0.95 ? 'pos' : r.dsr < 0.5 ? 'neg' : ''}">${fmt(r.dsr, 3)}</span>`],
   ['trials', 'Trials', r => r.trials],
+  ['mcs_p', 'MCS p', r => r.summary.mcs_p ? fmt(+r.summary.mcs_p, 3) : '–', r => +(r.summary.mcs_p ?? -1)],
   ['max_drawdown_usd', 'Max DD USD', r => fmt(r.max_drawdown_usd)], ['hit_rate', 'Hit rate', r => fmt(r.hit_rate * 100, 1) + '%', r => r.hit_rate],
   ['fills', 'Fills', r => (+r.summary.fills).toLocaleString(), r => +r.summary.fills],
   ['maker_share', 'Maker %', r => fmt(r.maker_share * 100, 0), r => r.maker_share],
@@ -354,7 +356,8 @@ $('#an-form').onsubmit = async e => {
   const spec = {kind, day: f.day.value.trim(), days: f.day.value.trim(), symbols: f.symbols.value.trim().toUpperCase(),
     pairs: f.pairs.value.trim().toUpperCase(), train: f.train.value.trim(), test: f.test.value.trim(),
     symbol: f.symbol.value.trim().toUpperCase(), right: f.right.value};
-  for (const k of ['spot', 'strike', 'years', 'rate', 'yield', 'vol']) spec[k] = f[k].value.trim();
+  for (const k of ['spot', 'strike', 'years', 'rate', 'yield', 'vol', 'chain', 'interval', 'window', 'states', 'horizon', 'generations'])
+    spec[k] = f[k].value.trim();
   $('#an-out').innerHTML = '';
   const job = await runJob(spec, null, $('#an-status'));
   if (job) $('#an-out').innerHTML = job.lines.some(l => /^[#|]/.test(l)) ? markdown(job.lines.join('\n')) : `<pre class="log">${esc(job.lines.join('\n'))}</pre>`;

@@ -29,7 +29,7 @@ add_test(NAME ItchStudy.SyntheticDays COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/study_
 add_test(NAME ItchLeadLag.SyntheticDay COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/leadlag_smoke.sh $<TARGET_FILE_DIR:itch_leadlag>)
 add_test(NAME Research.SyntheticDays COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/research_smoke.sh $<TARGET_FILE_DIR:itch_vol>)
 set_tests_properties(Research.SyntheticDays PROPERTIES TIMEOUT 900)
-add_test(NAME Options.SyntheticChain COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/options_smoke.sh $<TARGET_FILE_DIR:options> ${CMAKE_CURRENT_SOURCE_DIR}/data/options_chain.csv)
+add_test(NAME Options.SyntheticChain COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/options_smoke.sh $<TARGET_FILE_DIR:options> ${PROJECT_SOURCE_DIR}/data/sample/options_chain.csv)
 add_test(NAME ItchBook.CheckpointMatchesReplay COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/book_query.sh $<TARGET_FILE_DIR:itch_book>)
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_FOUND)

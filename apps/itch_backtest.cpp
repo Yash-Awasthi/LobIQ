@@ -156,7 +156,7 @@ int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, c
         lobiq::parallel_for(runs.size(), [&](std::size_t i) {
             try {
                 backtest::write_report(report_dir + "/" + runs[i].label(), runs[i].symbol.empty() ? symbols[0].first : runs[i].symbol,
-                                       strategy, configs[i], runs[i].summary, runs[i].risk);
+                                       strategy, configs[i], runs[i].summary, runs[i].risk, runs[i].mcs_p);
             } catch (const std::exception& e) {
                 const std::lock_guard g(error_lock);
                 error = e.what();
@@ -247,6 +247,8 @@ int main(int argc, char** argv) {
         return usage();
     }
     if (entry->takes_arg) p.arg = strategy.substr(entry->name.size() + 1);
+    // Reports name a file argument by its file name: alpha:QRSIM.alpha, not the directory it sits in.
+    const std::string shown = entry->takes_arg ? entry->name + ":" + std::filesystem::path(p.arg).filename().string() : strategy;
 
     configure(r, p);
 
@@ -257,7 +259,7 @@ int main(int argc, char** argv) {
             symbols.emplace_back(name, find_locate(r.store, name));
         }
         r.target = symbols[0].second;
-        if (!axes.empty() || symbols.size() > 1) return sweep(*entry, r, p, axes, symbols, strategy, report_dir);
+        if (!axes.empty() || symbols.size() > 1) return sweep(*entry, r, p, axes, symbols, shown, report_dir);
         const auto t0 = std::chrono::steady_clock::now();
         const backtest::Summary s = entry->run(r, p);
         const double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
@@ -279,7 +281,7 @@ int main(int argc, char** argv) {
         if (!fills_path.empty()) backtest::write_fills(fills_path, s);
         if (!minutes_path.empty()) backtest::write_minutes(minutes_path, s);
         if (!report_dir.empty()) {
-            backtest::write_report(report_dir, argv[2], strategy, r.config, s, risk);
+            backtest::write_report(report_dir, argv[2], shown, r.config, s, risk);
             std::fprintf(stderr, "report: %s/report.html\n", report_dir.c_str());
         }
     } catch (const std::exception& e) {

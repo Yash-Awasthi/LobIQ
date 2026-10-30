@@ -206,7 +206,7 @@ int main(int argc, char** argv) {
             }
         }
 
-    std::printf("# Market regimes\n\n%zu symbols; train %zu days, test %zu days. Per minute from 09:35 to 15:55 ET: log realized variance "
+    std::printf("# Market regimes\n\nSymbols: %zu; train days: %zu, test days: %zu. Per minute from 09:35 to 15:55 ET: log realized variance "
                 "of 1 s mid changes, log mean spread, log trade count, log absolute OFI over depth; standardised per symbol on the train days. "
                 "One Gaussian HMM (diagonal covariances) over every train symbol-day by Baum-Welch; test minutes labelled by the forward "
                 "filter, which uses nothing later. States ordered from the calmest. Method: docs/METHODS.md.\n\n",

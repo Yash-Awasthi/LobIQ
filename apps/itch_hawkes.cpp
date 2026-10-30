@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
     });
 
     std::printf("# Order flow as a multivariate Hawkes process\n\n");
-    std::printf("%zu train and %zu test days; per day %zu windows of %" PRIu64 " minutes starting on the hour from 10:00 ET. Six event types at "
+    std::printf("Train days: %zu, test days: %zu; per day %zu windows of %" PRIu64 " minutes starting on the hour from 10:00 ET. Six event types at "
                 "the best quotes; a kernel a_ij beta exp(-beta t) per pair with one decay beta, fitted by EM on the train windows "
                 "(docs/METHODS.md). Branching: spectral radius of the matrix a, the share of events triggered by earlier events. "
                 "Gain: test log-likelihood per event over a Poisson process with the train rates. KS: distance of the time-rescaled "

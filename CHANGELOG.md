@@ -39,9 +39,14 @@ Robustness
   and the Student-t degrees of freedom stay above 2.1. `Research.SyntheticDays` checks this on
   thirty-minute days; option chains with no usable quotes and bad model files fail with a message.
 
-Studio
-- **Analysis tab** runs `vol`, `hawkes`, `regime`, `alpha` and an option price; indented lines of
-  tool output (the GARCH keys) render as code. Tests: `test_model_arguments`, `test_option_price_job`.
+Studio and published reports
+- **Analysis tab** runs `vol`, `hawkes`, `regime`, `alpha` (with symbolic regression) and option
+  pricing, each with its settings, and the SVI surface of the bundled chain or `DATA/options/*.csv`.
+  The alpha tool saves its models to `REPORTS/alpha-models`, which the Backtest tab runs as
+  `alpha:NAME.alpha`. Sweep runs carry their model confidence set p-value into the leaderboard.
+  Tests: `test_model_arguments`, `test_option_price_job`.
+- **Published site** gains the forecasting models and options pages (`scripts/demo/models.sh`), and
+  the sweep card names its overfitting checks. The sample chain lives in `data/sample/`.
 
 Evaluation
 - **Overfitting checks on every sweep.** Hansen's SPA p-value against not trading, model confidence

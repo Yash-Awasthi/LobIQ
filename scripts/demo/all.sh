@@ -11,6 +11,8 @@ echo "== paper execution on the bundled 20-minute recording"
 scripts/demo/paper.sh "$out/paper" || fail=1
 scripts/demo/paper_sweep.sh "$out/paper-sweep" || fail=1
 if command -v python3 >/dev/null; then
+  echo "== forecasting models and options"
+  scripts/demo/models.sh "$out/models" || fail=1
   echo "== leaderboard snapshot"
   python3 studio/server.py --snapshot "$out" || fail=1
 fi

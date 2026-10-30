@@ -51,8 +51,17 @@ PATTERNS = {
     "universe": re.compile(rf"^(?:[1-9]\d?|{SYM}(?:,{SYM})*)$"),
     "number": re.compile(r"^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$"),
     "right": re.compile(r"^(?:call|put)$"),
+    "chain": re.compile(r"^(?:sample|[A-Za-z0-9_-][A-Za-z0-9_.-]*\.csv)$"),
+    "horizon": re.compile(r"^(?:[1-9]\d{0,2})$"),
+    "generations": re.compile(r"^(?:[1-9]\d{0,2})$"),
+    "interval": re.compile(r"^(?:1|2|3|4|5|6|10|12|15|20|30|60)$"),
+    "window": re.compile(r"^(?:[1-9]|[1-5]\d|60)$"),
+    "states": re.compile(r"^[2-6]$"),
 }
 SAMPLE = os.path.join(ROOT, "data", "sample", "pm-20261009T1600-20min")
+SAMPLE_CHAIN = os.path.join(ROOT, "data", "sample", "options_chain.csv")
+CHAINS = os.path.join(DATA, "options")  # option chains the studio may read: DATA/options/*.csv
+MODELS = os.path.join(REPORTS, "alpha-models")
 
 
 class BadRequest(Exception):
@@ -85,7 +94,10 @@ def lobiq_args(spec):
     kind = spec.get("kind")
     opt = lambda *xs: [x for x in xs if x]
     if kind == "backtest":
-        args = ["backtest", field(spec, "day", "day"), field(spec, "symbols", "symbols"), field(spec, "strategy", "strategy")]
+        strategy = field(spec, "strategy", "strategy")
+        if strategy.startswith("alpha:"):  # a model the alpha tool saved, by file name only
+            strategy = "alpha:" + os.path.join(MODELS, strategy[len("alpha:"):])
+        args = ["backtest", field(spec, "day", "day"), field(spec, "symbols", "symbols"), strategy]
         args += strings(spec, "params", "param")
         for s in strings(spec, "sweeps", "sweep"):
             args += ["--sweep", s]
@@ -103,7 +115,18 @@ def lobiq_args(spec):
     if kind == "study":
         return ["study", field(spec, "train", "days"), field(spec, "test", "days")]
     if kind in ("vol", "hawkes", "regime", "alpha"):
-        return opt(kind, field(spec, "train", "days"), field(spec, "test", "days"), field(spec, "symbols", "universe", False))
+        args = opt(kind, field(spec, "train", "days"), field(spec, "test", "days"), field(spec, "symbols", "universe", False))
+        # Each tool's own settings; the alpha model always saves its files where alpha: can find them.
+        flags = {"vol": [("interval", "--interval")], "hawkes": [("window", "--window")], "regime": [("states", "--states")],
+                 "alpha": [("horizon", "--horizon"), ("generations", "--symbolic")]}[kind]
+        for name, flag in flags:
+            v = field(spec, name, name, False)
+            if v:
+                args += [flag, v]
+        return args + (["--model", MODELS] if kind == "alpha" else [])
+    if kind == "surface":
+        c = field(spec, "chain", "chain")
+        return ["options", "surface", SAMPLE_CHAIN if c == "sample" else os.path.join(CHAINS, c), "--rate", field(spec, "rate", "number"), "--greeks"]
     if kind == "options":
         return ["options", "price", field(spec, "right", "right"),
                 *(field(spec, k, "number") for k in ("spot", "strike", "years", "rate", "yield", "vol"))]

@@ -85,7 +85,7 @@
       </div>
       <label>Strategy <select name="strategy" required></select></label>
       <p id="strat-help" class="muted"></p>
-      <label id="arg-label" hidden>Argument <input name="arg" placeholder="policy.bin"></label>
+      <label id="arg-label" hidden>Argument <input name="arg" placeholder="AAPL.alpha (saved by the alpha tool) or policy.bin"></label>
       <fieldset><legend>Strategy parameters</legend><div id="bt-params" class="params"></div></fieldset>
       <label>Venue and latency <select name="venue"></select></label>
       <details>
@@ -300,6 +300,7 @@
         <option value="regime">Market regimes (hidden Markov model)</option>
         <option value="alpha">Alpha model: ridge, purged cross-validation, conformal intervals</option>
         <option value="options">Option price and Greeks: Black-Scholes, binomial, Monte Carlo</option>
+        <option value="surface">Implied volatility surface (SVI) from an option chain</option>
       </select></label>
       <label data-for="surveil bestex replay leadlag mlofi lobster realism">Day(s) <input name="day" placeholder="2025-12-10"></label>
       <label data-for="surveil bestex mlofi lobster vol hawkes regime alpha">Symbols <input name="symbols" placeholder="optional: AAPL,MSFT"></label>
@@ -311,7 +312,13 @@
       <label data-for="options">Spot <input name="spot" type="number" step="any" value="100"></label>
       <label data-for="options">Strike <input name="strike" type="number" step="any" value="100"></label>
       <label data-for="options">Years <input name="years" type="number" step="any" min="0" value="0.5"></label>
-      <label data-for="options">Rate <input name="rate" type="number" step="any" value="0.04"></label>
+      <label data-for="options surface">Rate <input name="rate" type="number" step="any" value="0.04"></label>
+      <label data-for="surface">Chain <input name="chain" value="sample" placeholder="sample, or NAME.csv in DATA/options"></label>
+      <label data-for="vol">Interval s <input name="interval" placeholder="10"></label>
+      <label data-for="hawkes">Window min <input name="window" placeholder="10"></label>
+      <label data-for="regime">States <input name="states" placeholder="BIC"></label>
+      <label data-for="alpha">Horizon s <input name="horizon" placeholder="5"></label>
+      <label data-for="alpha">Symbolic generations <input name="generations" placeholder="off"></label>
       <label data-for="options">Dividend yield <input name="yield" type="number" step="any" value="0"></label>
       <label data-for="options">Volatility <input name="vol" type="number" step="any" min="0" value="0.2"></label>
       <button>Run</button>

@@ -19,3 +19,8 @@ apply to it.
 Nasdaq data is not included. `gen_day` writes a synthetic session from a queue-reactive model
 (`scripts/demo/backtest.sh`), and `scripts/ingest_day.sh` downloads a real day from Nasdaq's
 public sample files.
+
+`options_chain.csv` is a synthetic option chain (columns `expiry_years,strike,type,bid,ask`): calls
+and puts on four expiries priced by Black-Scholes from a known SVI surface (spot 100, rate 4%,
+dividend yield 1%), with a small bid-ask spread around each price. `lobiq options surface` should
+recover the surface from it (`tests/options_smoke.sh`); the studio offers it as the sample chain.
