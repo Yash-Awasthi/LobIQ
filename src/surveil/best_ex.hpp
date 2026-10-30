@@ -14,7 +14,7 @@
 #include "book/tick_book.hpp"
 #include "feed/itch.hpp"
 
-namespace hft::surveil {
+namespace lobiq::surveil {
 
 struct ExecBucket {
     double execs = 0, shares = 0;
@@ -112,4 +112,4 @@ class BestEx {
     std::array<ExecBucket, kSizes> buckets_{};
 };
 
-}  // namespace hft::surveil
+}  // namespace lobiq::surveil

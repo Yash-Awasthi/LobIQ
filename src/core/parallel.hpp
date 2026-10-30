@@ -10,7 +10,7 @@
 #include <thread>
 #include <vector>
 
-namespace hft {
+namespace lobiq {
 
 template <class F>
 void parallel_for(std::size_t n, F&& f) {
@@ -27,4 +27,4 @@ void parallel_for(std::size_t n, F&& f) {
     for (auto& t : pool) t.join();
 }
 
-}  // namespace hft
+}  // namespace lobiq

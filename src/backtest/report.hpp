@@ -11,7 +11,7 @@
 #include "backtest/overfit.hpp"
 #include "report/html.hpp"
 
-namespace hft::backtest {
+namespace lobiq::backtest {
 
 inline double usd(std::int64_t micro) { return static_cast<double>(micro) * 1e-6; }
 
@@ -206,4 +206,4 @@ inline void write_sweep_report(const std::string& dir, const std::string& symbol
                        report::page("Sweep: " + strategy + " on " + symbol, std::to_string(runs.size()) + " runs", body));
 }
 
-}  // namespace hft::backtest
+}  // namespace lobiq::backtest

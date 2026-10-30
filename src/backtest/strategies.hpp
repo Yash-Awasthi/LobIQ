@@ -12,7 +12,7 @@
 #include "core/philox.hpp"
 #include "strategy/garch.hpp"
 
-namespace hft::backtest {
+namespace lobiq::backtest {
 
 struct Zero {
     void decide(const View&, Desired&) {}
@@ -88,9 +88,9 @@ struct PerfectForesight {
     }
 };
 
-}  // namespace hft::backtest
+}  // namespace lobiq::backtest
 
-namespace hft::backtest {
+namespace lobiq::backtest {
 
 // Avellaneda-Stoikov in ticks (GLFT bounded-inventory quotes with `glft`); sigma^2 is an EWMA of
 // squared mid changes, or with `use_garch` a GARCH(1,1) forecast fitted offline (apps/itch_vol.cpp);
@@ -176,13 +176,13 @@ struct AvellanedaStoikov {
     }
 };
 
-}  // namespace hft::backtest
+}  // namespace lobiq::backtest
 
 #include <fstream>
 #include <stdexcept>
 #include <string>
 
-namespace hft::backtest {
+namespace lobiq::backtest {
 
 // Serves a quoting policy solved offline (research-archive tag): one table lookup per decision
 // over inventory, queue, imbalance, spread and signal buckets.
@@ -272,9 +272,9 @@ struct DpPolicy {
     }
 };
 
-}  // namespace hft::backtest
+}  // namespace lobiq::backtest
 
-namespace hft::backtest {
+namespace lobiq::backtest {
 
 // DP policy plus switchable extensions: no resting quotes while volatility is above its limit;
 // cross when the signal exceeds half the spread plus taker fee and margin.
@@ -300,4 +300,4 @@ struct Extended {
     }
 };
 
-}  // namespace hft::backtest
+}  // namespace lobiq::backtest

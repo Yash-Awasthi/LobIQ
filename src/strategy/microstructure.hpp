@@ -13,7 +13,7 @@
 
 #include "book/types.hpp"
 
-namespace hft::strategy::micro {
+namespace lobiq::strategy::micro {
 
 // Order flow at the best quotes between two consecutive books, in shares (the paper's e_n).
 inline std::int64_t ofi_event(const book::Bbo& prev, const book::Bbo& cur) {
@@ -301,4 +301,4 @@ inline std::vector<VolumeBucket> volume_buckets(const std::vector<SignedTrade>& 
     return out;
 }
 
-}  // namespace hft::strategy::micro
+}  // namespace lobiq::strategy::micro

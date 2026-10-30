@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace hft::strategy::realism {
+namespace lobiq::strategy::realism {
 
 // Keeps a uniform sample of at most `cap` values from a stream (reservoir sampling, fixed seed).
 struct Reservoir {
@@ -105,4 +105,4 @@ inline double kurtosis(const std::vector<double>& x) {
     return (s4 / n) / ((s2 / n) * (s2 / n));
 }
 
-}  // namespace hft::strategy::realism
+}  // namespace lobiq::strategy::realism

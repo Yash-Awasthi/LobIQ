@@ -7,7 +7,7 @@
 #include "book/map_book.hpp"
 #include "book/tick_book.hpp"
 
-using namespace hft::book;
+using namespace lobiq::book;
 
 namespace {
 
@@ -359,7 +359,7 @@ TEST(LinearMap, LoadRejectsSizeThatOverflowsWhenDoubled) {
     std::vector<std::uint8_t> img(16 + 64 * 8, 0xff);
     const std::uint64_t head[2] = {64, 1ull << 63};
     std::memcpy(img.data(), head, sizeof head);
-    hft::book::LinearMap m;
+    lobiq::book::LinearMap m;
     const std::uint8_t* p = img.data();
     EXPECT_FALSE(m.load(p, img.data() + img.size()));
 }

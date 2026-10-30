@@ -4,8 +4,8 @@
 
 #include <vector>
 
-using namespace hft::exec;
-using hft::pm::TokenBook;
+using namespace lobiq::exec;
+using lobiq::pm::TokenBook;
 
 namespace {
 
@@ -23,7 +23,7 @@ struct Rig {
 
     explicit Rig(SimConfig c = {}) : v(c, BookOf{&books}) {
         v.ensure(2);
-        hft::pm::MarketRules r;
+        lobiq::pm::MarketRules r;
         r.tick = 10;
         r.fee_rate_ppm = 0;  // fees checked in their own test
         v.set_rules(0, r), v.set_rules(1, r);
@@ -147,7 +147,7 @@ TEST(SimVenue, RuleRejects) {
 
 TEST(SimVenue, TakerFeesFollowTheMarketSchedule) {
     Rig g;
-    hft::pm::MarketRules r;
+    lobiq::pm::MarketRules r;
     r.tick = 10;
     r.fee_rate_ppm = 50'000;
     g.v.set_rules(0, r);
@@ -158,7 +158,7 @@ TEST(SimVenue, TakerFeesFollowTheMarketSchedule) {
 
 TEST(SimVenue, SportsDelayHoldsMarketableOrdersThenMatches) {
     Rig g;
-    hft::pm::MarketRules r;
+    lobiq::pm::MarketRules r;
     r.tick = 10, r.fee_rate_ppm = 0, r.delay_ms = 1000;
     g.v.set_rules(0, r);
     const auto a = g.send(Side::Buy, 4100, 10, Tif::Fak, 0), b = g.send(Side::Buy, 4100, 10, Tif::Fak, 0);

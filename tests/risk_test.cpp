@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-using namespace hft::exec;
+using namespace lobiq::exec;
 using R = Reject;
 
 namespace {
@@ -13,7 +13,7 @@ constexpr Ns kSec = 1'000'000'000;
 struct Fixture {
     Ledger ledger{kCap};
     Exposure exp;
-    hft::pm::MarketRules rules;
+    lobiq::pm::MarketRules rules;
     RiskLimits lim;
     Risk risk;
     MarketView mv;

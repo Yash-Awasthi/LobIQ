@@ -7,7 +7,7 @@
 #include <tuple>
 #include <vector>
 
-using namespace hft::engine;
+using namespace lobiq::engine;
 
 TEST(Scheduler, OrdersByTimeThenKindThenInsertion) {
     EventQueue q(16);

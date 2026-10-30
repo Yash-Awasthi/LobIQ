@@ -3,7 +3,7 @@
 # Checks the default setting's hash and the best PnL. Usage: paper_sweep.sh [report-dir]
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-B=${HFT_BIN:-build/native/apps}
+B=${LOBIQ_BIN:-build/native/apps}
 [ -x "$B/pm_exec" ] || B=build/release/apps
 out=$("$B/pm_exec" --replay data/sample/pm-20261009T1600-20min --config config/exec.cfg --set arb=1 \
       --sweep gamma=0.05,0.1,0.2 --sweep k=10,30,100 --report "${1:-out/paper-sweep}" 2>/dev/null)

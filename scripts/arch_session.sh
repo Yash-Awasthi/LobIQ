@@ -5,7 +5,7 @@
 # Usage: scripts/arch_session.sh [--bench]   --bench also re-measures peak timing (needs root, about 1 h)
 set -u
 cd "$(dirname "$0")/.."
-d=${HFT_DATA:-$HOME/data}
+d=${LOBIQ_DATA:-$HOME/data}
 B=build/native/apps
 train=${TRAIN:-S120825} test=${TEST:-S121025}
 syms=${SYMBOLS:-SPY,QQQ,AAPL,MSFT,NVDA,AMD,INTC,TSLA}
@@ -26,7 +26,7 @@ step build bash -c 'cmake --preset native && cmake --build build/native'
 step tests ctest --test-dir build/native --output-on-failure -j"$(nproc)"
 step cli scripts/check_cli.sh "$B"
 step security scripts/security_gates.sh
-step demos env HFT_BIN="$B" scripts/demo/all.sh out
+step demos env LOBIQ_BIN="$B" scripts/demo/all.sh out
 if compgen -G "$d/pm-live/2*/session.tsv" >/dev/null; then
     step parity bash -c "PM_LIVE=$B/pm_live scripts/check_parity.sh | tee $log/parity.txt && ! grep -q DIFF $log/parity.txt"
 else

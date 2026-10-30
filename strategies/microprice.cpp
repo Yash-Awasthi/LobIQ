@@ -7,7 +7,7 @@
 
 #include "backtest/registry.hpp"
 
-using namespace hft::backtest;
+using namespace lobiq::backtest;
 
 namespace {
 
@@ -19,7 +19,7 @@ struct MicroPriceMaker {
     double skew_ticks = 0.5;  // reservation shift per `size` shares of inventory
 
     void decide(const View& v, Desired& d) {
-        const hft::book::Bbo b = v.book.bbo();
+        const lobiq::book::Bbo b = v.book.bbo();
         if (!b.bid_px || !b.ask_px || b.ask_px <= b.bid_px) return;
         const double bq = static_cast<double>(b.bid_qty), aq = static_cast<double>(b.ask_qty);
         // A large bid queue makes the next move more likely up, so the fair value leans to the ask.
@@ -34,7 +34,7 @@ struct MicroPriceMaker {
     }
 };
 
-HFT_STRATEGY("microprice",
+LOBIQ_STRATEGY("microprice",
              "quotes around the micro-price, skewed against inventory, never inside the best; "
              "keys: size max_inventory edge_ticks skew_ticks",
              [](const Params& p, const RunSpec& r) {

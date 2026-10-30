@@ -6,7 +6,7 @@
 
 #include "data/lobster.hpp"
 
-using namespace hft;
+using namespace lobiq;
 namespace lb = data::lobster;
 
 TEST(Lobster, EachItchMessageBecomesItsLobsterEvents) {

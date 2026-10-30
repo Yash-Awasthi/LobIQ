@@ -5,7 +5,7 @@
 
 #include "backtest/intensity.hpp"
 
-using hft::backtest::IntensityEstimator;
+using lobiq::backtest::IntensityEstimator;
 
 namespace {
 

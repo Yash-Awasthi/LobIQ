@@ -9,7 +9,7 @@
 
 #include "core/endian.hpp"
 
-namespace hft::itch {
+namespace lobiq::itch {
 
 struct Header {
     char type;
@@ -338,4 +338,4 @@ inline std::size_t next_frame(const std::uint8_t* p, std::size_t avail, Frame& o
     return 2 + len;
 }
 
-}  // namespace hft::itch
+}  // namespace lobiq::itch

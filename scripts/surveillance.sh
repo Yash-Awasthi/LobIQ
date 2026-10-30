@@ -2,8 +2,8 @@
 # Surveillance over every stored day (docs/results/surveillance.md): candidate counts per day, then
 # the full report for one day (DAY, default S121025).
 set -euo pipefail
-d=${HFT_DATA:-$HOME/data}
-b=${HFT_BUILD:-$(dirname "$0")/../build/native}
+d=${LOBIQ_DATA:-$HOME/data}
+b=${LOBIQ_BUILD:-$(dirname "$0")/../build/native}
 days=${DAYS:-S101819 S112825 S120825 S120925 S121025 S121125 S121225 S061226}
 detail=${DAY:-S121025}
 echo "# Market surveillance"

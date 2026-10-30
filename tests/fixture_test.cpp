@@ -21,10 +21,10 @@
 
 namespace {
 
-using namespace hft;
+using namespace lobiq;
 
 std::vector<std::uint8_t> fixture() {
-    std::ifstream f(HFT_SOURCE_DIR "/tests/data/flow-7-4-20k.itch.zst", std::ios::binary);
+    std::ifstream f(LOBIQ_SOURCE_DIR "/tests/data/flow-7-4-20k.itch.zst", std::ios::binary);
     const std::vector<std::uint8_t> comp((std::istreambuf_iterator<char>(f)), {});
     std::vector<std::uint8_t> raw(ZSTD_getFrameContentSize(comp.data(), comp.size()));
     const std::size_t n = ZSTD_decompress(raw.data(), raw.size(), comp.data(), comp.size());

@@ -30,7 +30,7 @@
 
 namespace {
 
-using namespace hft;
+using namespace lobiq;
 namespace fs = std::filesystem;
 namespace rg = strategy::regime;
 

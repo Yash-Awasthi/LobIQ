@@ -14,7 +14,7 @@
 #include "core/philox.hpp"
 #include "options/black_scholes.hpp"
 
-namespace hft::options {
+namespace lobiq::options {
 
 // Standard normal pair from one philox draw by Box-Muller.
 inline std::pair<double, double> normal_pair(const rng::Stream& rng, std::uint32_t i) {
@@ -72,4 +72,4 @@ inline McResult monte_carlo(Kind kind, double S, double K, double T, double r, d
     return out;
 }
 
-}  // namespace hft::options
+}  // namespace lobiq::options

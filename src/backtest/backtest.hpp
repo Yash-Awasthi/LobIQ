@@ -24,7 +24,7 @@
 #include "feed/itch.hpp"
 #include "strategy/multi_features.hpp"
 
-namespace hft::backtest {
+namespace lobiq::backtest {
 
 using book::Side;
 
@@ -395,4 +395,4 @@ class Backtest {
     Summary sum_;
 };
 
-}  // namespace hft::backtest
+}  // namespace lobiq::backtest

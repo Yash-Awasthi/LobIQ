@@ -10,7 +10,7 @@
 #include <string>
 #include <string_view>
 
-namespace hft::net {
+namespace lobiq::net {
 
 class JsonTape {
    public:
@@ -377,4 +377,4 @@ class JsonTape {
     bool simd_ = __builtin_cpu_supports("avx2") && __builtin_cpu_supports("pclmul");
 };
 
-}  // namespace hft::net
+}  // namespace lobiq::net

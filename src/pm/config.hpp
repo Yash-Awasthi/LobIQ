@@ -12,7 +12,7 @@
 
 #include "pm/engine.hpp"
 
-namespace hft::pm {
+namespace lobiq::pm {
 
 namespace config_detail {
 
@@ -147,4 +147,4 @@ inline void apply_config(EngineParams& p, std::string_view text, const std::stri
     }
 }
 
-}  // namespace hft::pm
+}  // namespace lobiq::pm

@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 
-namespace hft::data {
+namespace lobiq::data {
 
 // Streaming gunzip (zlib-ng): CRC-32 and length verified, corrupt or truncated input throws,
 // concatenated members read as one stream; also hashes the compressed bytes.
@@ -28,4 +28,4 @@ class GzipReader {
     std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace hft::data
+}  // namespace lobiq::data

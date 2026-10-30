@@ -24,7 +24,7 @@
 #include "core/spsc.hpp"
 #include "pm/msg.hpp"
 
-namespace hft::pm {
+namespace lobiq::pm {
 
 struct ReadStats {
     std::size_t files = 0;
@@ -230,4 +230,4 @@ ReadStats read_records(const std::filesystem::path& root, Fn&& fn) {
     });
 }
 
-}  // namespace hft::pm
+}  // namespace lobiq::pm

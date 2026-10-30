@@ -11,12 +11,12 @@
 #include "data/prefetch.hpp"
 #include "temp_dir.hpp"
 
-using namespace hft::data;
+using namespace lobiq::data;
 
 namespace {
 
 std::string sha_of(const std::string& s) {
-    hft::Sha256 h;
+    lobiq::Sha256 h;
     h.update(reinterpret_cast<const std::uint8_t*>(s.data()), s.size());
     return h.hex();
 }
@@ -69,7 +69,7 @@ TEST(Sha256, KnownVectors) {
 
 TEST(Sha256, ChunkedUpdateMatchesOneShot) {
     const std::string s = payload(10007);
-    hft::Sha256 h;
+    lobiq::Sha256 h;
     for (std::size_t i = 0; i < s.size(); i += 37) {
         h.update(reinterpret_cast<const std::uint8_t*>(s.data()) + i,
                  std::min<std::size_t>(37, s.size() - i));

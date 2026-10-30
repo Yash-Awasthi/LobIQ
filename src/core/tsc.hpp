@@ -8,7 +8,7 @@
 
 #include <cstdint>
 
-namespace hft::tsc {
+namespace lobiq::tsc {
 
 inline std::uint64_t start() {
     __builtin_ia32_lfence();
@@ -63,4 +63,4 @@ inline std::uint64_t overhead(int reps = 10001) {
     return 4096;
 }
 
-}  // namespace hft::tsc
+}  // namespace lobiq::tsc

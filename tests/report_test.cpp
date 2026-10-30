@@ -7,7 +7,7 @@
 #include "report/html.hpp"
 #include "temp_dir.hpp"
 
-using namespace hft;
+using namespace lobiq;
 
 namespace {
 

@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-using namespace hft::rng;
+using namespace lobiq::rng;
 
 // Known answers from Random123 tests/kat_vectors (philox4x32, 10 rounds).
 TEST(Philox, KnownAnswers) {

@@ -23,6 +23,16 @@ Research
   CRR binomial (American), Monte Carlo with control variates, SVI surface with arbitrage checks.
   Tests: `BlackScholes.*`, `Binomial.*`, `MonteCarlo.*`, `Svi.*`, `Options.SyntheticChain`.
 
+Project
+- **One name.** The former name is gone from code and tooling: namespace `lobiq::`, `lobiq_*` build
+  targets (`lobiq_tests`, `lobiq_bench`), `LOBIQ_*` environment variables (`LOBIQ_DATA`, `LOBIQ_BIN`,
+  `LOBIQ_REPORTS`, ...), the `LOBIQ_STRATEGY` / `LOBIQ_QUOTER` macros, the `X-Lobiq-Kill` header, the
+  `/lobiq` container paths. Shell profiles or scripts that set the old variables need the new names.
+
+CI
+- Actions on their current Node 24 majors, a read-only token for ci, a newer push to a pull request
+  cancels the older run, every job stops at 60 minutes, and vcpkg binaries are cached per compiler.
+
 Robustness
 - The research tools use only the span the feed covers (a short or truncated day is missing data,
   not a calm market), decline symbols with too few mid changes or minutes, never print nan or inf,
@@ -109,7 +119,7 @@ Studio and backtests
 - **Published leaderboard.** The demos write a read-only studio snapshot next to the reports, so the
   CI-published site carries the leaderboard; pull-request runs attach the reports as an artifact.
 - **Paper replays.** `lobiq paper [RUN|sample] [pm_exec options]` replays a recorded live session
-  (the bundled 20 minutes or any live run) with any quote model, report in `$HFT_REPORTS/paper-*`;
+  (the bundled 20 minutes or any live run) with any quote model, report in `$LOBIQ_REPORTS/paper-*`;
   `lobiq quoters` lists the models. The studio has a Paper replay tab for it, and live runs take a quote
   model and the arbitrage switch too.
 - **A usable studio before and after a build.** Strategy and quoter lists fall back to
@@ -266,7 +276,7 @@ Bare metal, a faster book and replay, and a microstructure study tested out of s
 Usable by others: plug in strategies, run everything without setup, see results as reports.
 
 - **Strategy plug-ins.** Nasdaq backtester strategies register by name from `strategies/*.cpp`
-  (`HFT_STRATEGY`); prediction-market quote models from `strategies/pm/*.cpp` (`HFT_QUOTER`,
+  (`LOBIQ_STRATEGY`); prediction-market quote models from `strategies/pm/*.cpp` (`LOBIQ_QUOTER`,
   `pm_exec --quoter`). The built-in quote model re-implemented as a plug-in gives identical
   decision hashes. `scripts/new_strategy.sh` writes a working starting point. Guide:
   `docs/STRATEGIES.md`.

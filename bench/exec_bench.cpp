@@ -4,7 +4,7 @@
 
 #include "exec/oms.hpp"
 
-using namespace hft::exec;
+using namespace lobiq::exec;
 
 static void BM_RiskCheck(benchmark::State& state) {
     const auto tokens = static_cast<std::uint32_t>(state.range(0));
@@ -22,7 +22,7 @@ static void BM_RiskCheck(benchmark::State& state) {
         lg.fill(t + 1, t, Side::Buy, 4000, 10 * kShare, 0);
         lg.settled(t + 1);
     }
-    hft::pm::MarketRules rules;
+    lobiq::pm::MarketRules rules;
     rules.tick = 10;
     const MarketView mv{4000, 4010, true, false, &rules};
     OrderIntent o{5, Side::Buy, Tif::Gtc, false, 0, 4000, 10 * kShare, 0};
@@ -49,7 +49,7 @@ static void BM_OmsCycle(benchmark::State& state) {
     Oms oms(1, risk, exp, ledger, cfg);
     ledger.ensure(200), exp.ensure(200, 20), risk.ensure(200), oms.ensure(200);
     for (std::uint32_t t = 0; t < 200; ++t) ledger.set_group(t, t / 10), exp.set_group(t, t / 10), risk.set_group(t, t / 10);
-    hft::pm::MarketRules rules;
+    lobiq::pm::MarketRules rules;
     rules.tick = 10;
     const MarketView mv{4000, 4100, true, false, &rules};
     std::uint64_t sent = 0;

@@ -1,7 +1,7 @@
 // Nasdaq TotalView-ITCH 5.0 parser for a BinaryFILE stream (2-byte big-endian length, then the
 // message). Takes up to 8 bytes per clock and emits at most one message per clock, one clock
 // after the beat that carries its last byte. Decodes the fields an order book needs (A F E C X D
-// U P Q B); other types report the header only. Matches hft::itch::dispatch in src/feed/itch.hpp.
+// U P Q B); other types report the header only. Matches lobiq::itch::dispatch in src/feed/itch.hpp.
 module itch_parser (
     input  logic        clk,
     input  logic        rst,

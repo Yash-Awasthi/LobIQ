@@ -12,7 +12,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace hft::data {
+namespace lobiq::data {
 
 struct CheckpointEntry {
     std::uint64_t offset;
@@ -49,4 +49,4 @@ inline std::vector<std::uint8_t> read_state(std::ifstream& ckp, const Checkpoint
     return raw;
 }
 
-}  // namespace hft::data
+}  // namespace lobiq::data

@@ -12,7 +12,7 @@
 
 #include "pm/book.hpp"
 
-namespace hft::pm {
+namespace lobiq::pm {
 
 struct MakerParams {
     double gamma = 0.1, k = 30;
@@ -69,10 +69,10 @@ struct RegisterQuoter {
     }
 };
 
-}  // namespace hft::pm
+}  // namespace lobiq::pm
 
-#define HFT_QUOTER_CAT2(a, b) a##b
-#define HFT_QUOTER_CAT(a, b) HFT_QUOTER_CAT2(a, b)
-// HFT_QUOTER("name", "one-line help", [] { return new MyQuoter; });
-#define HFT_QUOTER(name, help, ...) \
-    static const ::hft::pm::RegisterQuoter HFT_QUOTER_CAT(hft_quoter_, __COUNTER__)(name, help, __VA_ARGS__)
+#define LOBIQ_QUOTER_CAT2(a, b) a##b
+#define LOBIQ_QUOTER_CAT(a, b) LOBIQ_QUOTER_CAT2(a, b)
+// LOBIQ_QUOTER("name", "one-line help", [] { return new MyQuoter; });
+#define LOBIQ_QUOTER(name, help, ...) \
+    static const ::lobiq::pm::RegisterQuoter LOBIQ_QUOTER_CAT(lobiq_quoter_, __COUNTER__)(name, help, __VA_ARGS__)

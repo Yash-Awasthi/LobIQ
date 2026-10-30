@@ -19,7 +19,7 @@
 
 namespace {
 
-using namespace hft;
+using namespace lobiq;
 
 std::string hms(std::uint64_t ns) {
     char b[32];

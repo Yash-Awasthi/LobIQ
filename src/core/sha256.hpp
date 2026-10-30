@@ -6,7 +6,7 @@
 #include <cstring>
 #include <string>
 
-namespace hft {
+namespace lobiq {
 
 class Sha256 {
    public:
@@ -103,4 +103,4 @@ class Sha256 {
     std::uint64_t total_ = 0;
 };
 
-}  // namespace hft
+}  // namespace lobiq

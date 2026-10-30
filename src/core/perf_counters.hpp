@@ -14,7 +14,7 @@
 #include <fstream>
 #include <string>
 
-namespace hft {
+namespace lobiq {
 
 class PerfCounters {
    public:
@@ -117,4 +117,4 @@ class PerfCounters {
     std::array<std::uint64_t, kEvents> begin_{}, total_{};
 };
 
-}  // namespace hft
+}  // namespace lobiq

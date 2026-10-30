@@ -1,7 +1,7 @@
 name: image
 
 # Builds the container (tests run inside the build) and runs its demos on every pull request; on
-# main it also publishes ghcr.io/<owner>/lobiq and the demo reports to GitHub Pages; on v* tags, the image.
+# master it also publishes ghcr.io/<owner>/lobiq and the demo reports to GitHub Pages; on v* tags, the image.
 on:
   push:
     branches: [master]
@@ -20,8 +20,9 @@ concurrency:
 jobs:
   image:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: build
         run: |
           IMG=ghcr.io/$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')/lobiq
@@ -30,7 +31,7 @@ jobs:
       - name: demos in the image
         run: |
           mkdir -p out && chmod 777 out
-          docker run --rm -e HFT_COMMIT="${GITHUB_SHA::7}" -v "$PWD/out:/lobiq/out" "$IMG:${GITHUB_SHA::12}"
+          docker run --rm -e LOBIQ_COMMIT="${GITHUB_SHA::7}" -v "$PWD/out:/lobiq/out" "$IMG:${GITHUB_SHA::12}"
           test -s out/index.html && test -s out/paper/report.html && test -s out/backtest/naive/report.html && test -s out/studio/snapshot.json
       - name: publish
         if: github.event_name == 'push'
@@ -41,13 +42,13 @@ jobs:
           docker tag "$IMG:${GITHUB_SHA::12}" "$IMG:$tag"
           docker push "$IMG:$tag"
       - if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: demo-reports
           path: out
           retention-days: 7
       - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: out
 
@@ -63,4 +64,4 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

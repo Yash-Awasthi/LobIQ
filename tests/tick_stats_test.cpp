@@ -4,7 +4,7 @@
 
 #include <cmath>
 
-using namespace hft::strategy;
+using namespace lobiq::strategy;
 
 TEST(TickStats, EtaCountsContinuationsAndAlternations) {
     EtaCounter e;

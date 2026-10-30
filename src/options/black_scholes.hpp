@@ -9,7 +9,7 @@
 #include <limits>
 #include <numbers>
 
-namespace hft::options {
+namespace lobiq::options {
 
 enum class Kind { Call, Put };
 
@@ -105,4 +105,4 @@ inline double implied_vol(Kind kind, double price, double S, double K, double T,
     return x;
 }
 
-}  // namespace hft::options
+}  // namespace lobiq::options

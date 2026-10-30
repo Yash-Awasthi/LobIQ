@@ -4,7 +4,7 @@
 #include <array>
 #include <cmath>
 
-namespace hft::backtest {
+namespace lobiq::backtest {
 
 // Online fill intensity A exp(-k d), Poisson ML over decayed exposure and fills per tick bin.
 // The prior is never forgotten, so the fit falls back to it without data.
@@ -61,4 +61,4 @@ class IntensityEstimator {
     double tau_ = 600, a_ = 0, k_ = 1;
 };
 
-}  // namespace hft::backtest
+}  // namespace lobiq::backtest

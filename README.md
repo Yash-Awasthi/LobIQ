@@ -132,7 +132,7 @@ struct MyMaker {
         if (b.bid_px && b.ask_px) d.bid_px = b.bid_px, d.bid_qty = 100, d.ask_px = b.ask_px, d.ask_qty = 100;
     }
 };
-HFT_STRATEGY("my_maker", "joins the best bid and ask", [](const Params&, const RunSpec&) { return MyMaker{}; });
+LOBIQ_STRATEGY("my_maker", "joins the best bid and ask", [](const Params&, const RunSpec&) { return MyMaker{}; });
 ```
 
 ```
@@ -141,7 +141,7 @@ itch_backtest <store> INTC my_maker --sweep size=100,200,500 --report out/sweep 
 itch_backtest <store> INTC,AAPL,MSFT my_maker --report out/multi            # several symbols
 ```
 
-The prediction-market maker takes a quoter the same way (`strategies/pm/`, `HFT_QUOTER`), used by
+The prediction-market maker takes a quoter the same way (`strategies/pm/`, `LOBIQ_QUOTER`), used by
 `pm_exec --quoter NAME` on recordings or live on paper. The engine supplies latency, queue position,
 fees, risk limits and accounting; the guide says what the simulation does and does not model.
 
@@ -365,7 +365,7 @@ exposes no hardware performance counters.
   and on a real sweep the backend's `summary.csv` must match the studio to five decimals
   (`Metrics.*`, `Studio.EndToEnd`). The studio's server is tested against stub tools for its
   refusals: foreign Host, cross-origin and non-JSON posts, malformed arguments, path traversal.
-- The SystemVerilog ITCH parser is compared field by field with `hft::itch::dispatch` on every
+- The SystemVerilog ITCH parser is compared field by field with `lobiq::itch::dispatch` on every
   frame, with random beat sizes and at full rate, including malformed lengths and unknown types:
   `cmake -S fpga -B build/fpga && cmake --build build/fpga && build/fpga/itch_rtl_test [file]`
   (needs Verilator 5). Shifting one field offset makes it fail.
@@ -562,7 +562,7 @@ touch runs/today/KILL                                              # or SIGUSR1:
   arbitrage set is left incomplete without being counted.
 - On the 2.0M-message reference recording, pinned to one vCPU: intent to venue request
   177 ns p50 / 712 ns p99, engine 555 ns p50 per message, 489k messages/s; in isolation the
-  risk check takes 25 ns and each order-manager operation 16 ns (`hft_bench`).
+  risk check takes 25 ns and each order-manager operation 16 ns (`lobiq_bench`).
 - Six recordings (6.6M messages) at the measured 182 ms round trip: 1,041 arbitrage windows,
   most on stale books or below fees; 61 attempts, of which 2 completed as planned, 5 filled
   nothing, 52 lost a leg and were completed at a loss, 1 was unwound and 1 has no counted

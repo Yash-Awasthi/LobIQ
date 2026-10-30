@@ -11,7 +11,7 @@
 
 #include "report/html.hpp"
 
-namespace hft::pm {
+namespace lobiq::pm {
 
 struct ReportSample {
     double minute = 0, pnl_usd = 0, fees_usd = 0;
@@ -136,4 +136,4 @@ inline void write_pm_sweep_report(const std::filesystem::path& dir, const std::s
                        report::page("Paper sweep on " + recording, std::to_string(runs.size()) + " runs", body));
 }
 
-}  // namespace hft::pm
+}  // namespace lobiq::pm

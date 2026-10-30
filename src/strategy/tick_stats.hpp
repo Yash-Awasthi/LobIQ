@@ -6,7 +6,7 @@
 #include <cmath>
 #include <cstdint>
 
-namespace hft::strategy {
+namespace lobiq::strategy {
 
 class EtaCounter {
    public:
@@ -53,4 +53,4 @@ class ClockVariance {
     std::uint64_t n_ = 0;
 };
 
-}  // namespace hft::strategy
+}  // namespace lobiq::strategy

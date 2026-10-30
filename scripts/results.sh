@@ -14,5 +14,5 @@ TEST=S101819 SYMBOLS=SPY,QQQ,IWM,SOXL,SQQQ,TQQQ,TNA,INTC,NVDA scripts/maker_walk
 scripts/leader_walkforward.sh > "$r/leader-walkforward.md"
 scripts/surveillance.sh > "$r/surveillance.md"
 scripts/book_models.sh > "$r/book-models.md"
-"${HFT_BUILD:-build/native}/apps/itch_bestex" "${HFT_DATA:-$HOME/data}/store-S121025-v50" > "$r/execution-quality.md"
+"${LOBIQ_BUILD:-build/native}/apps/itch_bestex" "${LOBIQ_DATA:-$HOME/data}/store-S121025-v50" > "$r/execution-quality.md"
 git diff --stat -- "$r"

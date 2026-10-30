@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-namespace hft::strategy::mlofi {
+namespace lobiq::strategy::mlofi {
 
 inline constexpr int kLevels = 10;
 
@@ -139,4 +139,4 @@ inline double predict(const std::vector<double>& b, const std::vector<double>& x
     return v;
 }
 
-}  // namespace hft::strategy::mlofi
+}  // namespace lobiq::strategy::mlofi

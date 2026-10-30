@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <cstring>
 
-namespace hft {
+namespace lobiq {
 
 // ITCH fields are big-endian on the wire.
 constexpr std::uint16_t be16_to_host(std::uint16_t v) {
@@ -46,4 +46,4 @@ inline std::uint64_t load_be48(const std::uint8_t* p) {
     return (std::uint64_t{load_be16(p)} << 32) | load_be32(p + 2);
 }
 
-}  // namespace hft
+}  // namespace lobiq

@@ -13,7 +13,7 @@
 #include "book/types.hpp"
 #include "core/pool.hpp"
 
-namespace hft::book {
+namespace lobiq::book {
 
 inline constexpr std::uint32_t kNoOrder = 0xffffffffu;
 
@@ -179,4 +179,4 @@ class LinearMap : public detail::Table {
     }
 };
 
-}  // namespace hft::book
+}  // namespace lobiq::book

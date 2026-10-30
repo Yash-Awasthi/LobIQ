@@ -8,8 +8,8 @@
 #include "options/monte_carlo.hpp"
 #include "options/svi.hpp"
 
-using namespace hft;
-using namespace hft::options;
+using namespace lobiq;
+using namespace lobiq::options;
 
 TEST(BlackScholes, PutCallParity) {
     for (const double K : {80.0, 100.0, 125.0}) {

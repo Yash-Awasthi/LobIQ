@@ -8,7 +8,7 @@
 
 #include "exec/oms.hpp"
 
-using namespace hft::exec;
+using namespace lobiq::exec;
 
 extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* d, std::size_t n) {
     constexpr Ns kSec = 1'000'000'000;
@@ -17,7 +17,7 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* d, std::size_t n) {
     Risk risk;
     Oms oms(1, risk, exp, ledger);
     ledger.ensure(2), exp.ensure(2, 1), risk.ensure(2), oms.ensure(2);
-    hft::pm::MarketRules rules;
+    lobiq::pm::MarketRules rules;
     rules.tick = 10;
     const MarketView mv{4000, 4100, true, false, &rules};
     std::vector<std::uint64_t> ids;

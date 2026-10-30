@@ -6,7 +6,7 @@
 #include <functional>
 #include <map>
 
-namespace hft::pm::test {
+namespace lobiq::pm::test {
 
 class RefTokenBook {
    public:
@@ -60,4 +60,4 @@ class RefTokenBook {
     std::map<std::int32_t, double> asks_;
 };
 
-}  // namespace hft::pm::test
+}  // namespace lobiq::pm::test

@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-namespace hft::net {
+namespace lobiq::net {
 
 struct Json {
     enum class Type { Null, Bool, Num, Str, Arr, Obj };
@@ -220,4 +220,4 @@ class JsonReader {
 
 inline Json parse_json(std::string_view text) { return detail::JsonReader(text).parse(); }
 
-}  // namespace hft::net
+}  // namespace lobiq::net

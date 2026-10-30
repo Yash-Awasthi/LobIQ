@@ -24,13 +24,13 @@
 #include "pm/reader.hpp"
 
 namespace fs = std::filesystem;
-using hft::pm::kWsHost;
-using hft::pm::kWsPath;
-using hft::pm::Market;
+using lobiq::pm::kWsHost;
+using lobiq::pm::kWsPath;
+using lobiq::pm::Market;
 
 namespace {
 
-std::string utc(std::time_t t, const char* fmt) { return hft::pm::utc_time(t, fmt); }
+std::string utc(std::time_t t, const char* fmt) { return lobiq::pm::utc_time(t, fmt); }
 
 std::atomic<bool> g_stop{false};
 std::atomic<int> g_signal{0};
@@ -97,7 +97,7 @@ class HourlyWriter {
     void rotate(const std::string& next) {
         if (f_.is_open()) {
             f_.close();
-            hft::pm::compress_record_file(path_);
+            lobiq::pm::compress_record_file(path_);
         }
         hour_ = next;
         if (next.empty()) return;
@@ -155,7 +155,7 @@ void conn_loop(int idx, std::vector<std::string> tokens, const fs::path& root, s
     double backoff = 1;
     while (!stop && !g_stop && !cap_hit) {
         try {
-            hft::net::WsClient ws;
+            lobiq::net::WsClient ws;
             ws.connect(kWsHost, kWsPath);
             ws.send_text(sub);
             log.write(who, "connected tokens=" + std::to_string(tokens.size()));
@@ -165,11 +165,11 @@ void conn_loop(int idx, std::vector<std::string> tokens, const fs::path& root, s
             while (!stop && !g_stop && !cap_hit) {
                 const auto s = ws.read(msg, 1000);
                 const auto now = Clock::now();
-                if (s == hft::net::WsClient::Status::Closed) {
+                if (s == lobiq::net::WsClient::Status::Closed) {
                     log.write(who, "closed by server");
                     break;
                 }
-                if (s == hft::net::WsClient::Status::Message) {
+                if (s == lobiq::net::WsClient::Status::Message) {
                     last_rx = now;
                     if (msg != "PONG") {
                         w.write(now_ns(), msg);
@@ -246,7 +246,7 @@ int main(int argc, char** argv) {
 
     // A crash can leave an uncompressed hour behind.
     for (const auto& e : fs::recursive_directory_iterator(root))
-        if (e.is_regular_file() && e.path().extension() == ".jsonl") hft::pm::compress_record_file(e.path());
+        if (e.is_regular_file() && e.path().extension() == ".jsonl") lobiq::pm::compress_record_file(e.path());
 
     std::atomic<bool> cap_hit{false};
     const auto t_start = std::chrono::steady_clock::now();
@@ -265,7 +265,7 @@ int main(int argc, char** argv) {
     while (!g_stop && !cap_hit) {
         std::vector<Market> markets;
         try {
-            markets = hft::pm::discover_markets(tags, per_tag, min_days);
+            markets = lobiq::pm::discover_markets(tags, per_tag, min_days);
         } catch (const std::exception& e) {
             log.write("main", std::string("discovery failed: ") + e.what());
             if (current.empty()) {

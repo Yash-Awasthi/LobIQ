@@ -11,7 +11,7 @@
 
 #include "core/pool.hpp"
 
-namespace hft::book {
+namespace lobiq::book {
 
 namespace detail {
 
@@ -84,4 +84,4 @@ class HotCold {
     Pool<Cold> cold_;
 };
 
-}  // namespace hft::book
+}  // namespace lobiq::book

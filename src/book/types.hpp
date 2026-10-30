@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace hft::book {
+namespace lobiq::book {
 
 // Order references must be below this (ITCH assigns about 10^9 a day); the ID maps pack them
 // into 40 bits.
@@ -31,4 +31,4 @@ struct OrderView {
     Side side;
 };
 
-}  // namespace hft::book
+}  // namespace lobiq::book

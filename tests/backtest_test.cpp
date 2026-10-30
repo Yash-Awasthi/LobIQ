@@ -13,8 +13,8 @@
 #include "sources/queue_reactive.hpp"
 #include "temp_dir.hpp"
 
-using namespace hft;
-using namespace hft::backtest;
+using namespace lobiq;
+using namespace lobiq::backtest;
 
 namespace {
 
@@ -23,7 +23,7 @@ namespace {
 struct FixtureStore {
     TempDir dir{"bt_store"};
     FixtureStore() {
-        std::ifstream f(HFT_SOURCE_DIR "/tests/data/flow-7-4-20k.itch.zst", std::ios::binary);
+        std::ifstream f(LOBIQ_SOURCE_DIR "/tests/data/flow-7-4-20k.itch.zst", std::ios::binary);
         const std::vector<std::uint8_t> comp((std::istreambuf_iterator<char>(f)), {});
         std::vector<std::uint8_t> raw(ZSTD_getFrameContentSize(comp.data(), comp.size()));
         ZSTD_decompress(raw.data(), raw.size(), comp.data(), comp.size());
@@ -546,6 +546,6 @@ TEST(Report, SweepReportCarriesSharpeAndDsr) {
     std::ifstream page(out.path / "index.html");
     const std::string html((std::istreambuf_iterator<char>(page)), {});
     EXPECT_NE(html.find("<th>DSR</th>"), std::string::npos);
-    EXPECT_NE(html.find("<td>" + hft::report::num(b.risk.dsr, 3) + "</td><td>0.250</td></tr>"), std::string::npos);
+    EXPECT_NE(html.find("<td>" + lobiq::report::num(b.risk.dsr, 3) + "</td><td>0.250</td></tr>"), std::string::npos);
     EXPECT_NE(html.find("<h2>Overfitting checks</h2>"), std::string::npos);
 }

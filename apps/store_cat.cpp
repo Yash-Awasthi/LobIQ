@@ -13,7 +13,7 @@
 int main(int argc, char** argv) {
     constexpr const char* usage = "usage: store_cat <store-dir> [read-threads]";
     if (argc != 2 && argc != 3) return std::fprintf(stderr, "%s\n", usage), 2;
-    if (!hft::app::known_options(argc, argv, {}, usage) || !hft::app::is_dir(argv[1], usage)) return 2;
+    if (!lobiq::app::known_options(argc, argv, {}, usage) || !lobiq::app::is_dir(argv[1], usage)) return 2;
     const std::filesystem::path dir = argv[1];
     std::vector<std::uint16_t> locates;
     for (const auto& e : std::filesystem::directory_iterator(dir))
@@ -21,13 +21,13 @@ int main(int argc, char** argv) {
             locates.push_back(static_cast<std::uint16_t>(std::stoul(e.path().stem().string())));
 
     const unsigned threads = argc == 3 ? static_cast<unsigned>(std::stoul(argv[2])) : 1;
-    hft::data::MergedReader reader(dir, locates, 256, threads);
-    hft::data::Record r{};
+    lobiq::data::MergedReader reader(dir, locates, 256, threads);
+    lobiq::data::Record r{};
     std::uint16_t locate = 0;
     static char buf[1 << 20];  // outlives main, when stdout is flushed
     std::setvbuf(stdout, buf, _IOFBF, sizeof buf);
     while (reader.next(r, locate)) {
-        const std::uint16_t be = hft::be16_to_host(r.len);
+        const std::uint16_t be = lobiq::be16_to_host(r.len);
         std::fwrite(&be, 2, 1, stdout);
         std::fwrite(r.data, 1, r.len, stdout);
     }

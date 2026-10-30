@@ -13,7 +13,7 @@
 
 #include "book/types.hpp"
 
-namespace hft::strategy {
+namespace lobiq::strategy {
 
 class MarkovBook {
    public:
@@ -82,4 +82,4 @@ class MarkovBook {
     std::uint64_t test_moves_ = 0, test_up_ = 0, test_hits_ = 0;
 };
 
-}  // namespace hft::strategy
+}  // namespace lobiq::strategy

@@ -14,7 +14,7 @@
 #include "core/optimize.hpp"
 #include "strategy/mlofi.hpp"
 
-namespace hft::strategy::vol {
+namespace lobiq::strategy::vol {
 
 // h_{t+1} = omega + alpha r_t^2 + beta h_t; nu = 0 means normal innovations.
 struct GarchFit {
@@ -190,4 +190,4 @@ inline double diebold_mariano(const std::vector<double>& a, const std::vector<do
     return lrv > 0 ? m / std::sqrt(lrv / static_cast<double>(n)) : NAN;
 }
 
-}  // namespace hft::strategy::vol
+}  // namespace lobiq::strategy::vol

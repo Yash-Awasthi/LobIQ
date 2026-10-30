@@ -14,7 +14,7 @@
 
 #include "core/philox.hpp"
 
-namespace hft::strategy::hawkes {
+namespace lobiq::strategy::hawkes {
 
 // Events on [0, horizon] in seconds, sorted by time; type[k] in [0, D).
 struct Realization {
@@ -246,4 +246,4 @@ inline double rescaling_ks(const std::vector<Realization>& data, const Model& m)
     return ks;
 }
 
-}  // namespace hft::strategy::hawkes
+}  // namespace lobiq::strategy::hawkes

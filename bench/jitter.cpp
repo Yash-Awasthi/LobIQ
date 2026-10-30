@@ -13,11 +13,11 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "usage: jitter [seconds]\n");
         return 2;
     }
-    const double tpn = hft::tsc::ticks_per_ns();
+    const double tpn = lobiq::tsc::ticks_per_ns();
     constexpr double kEdge[] = {1e3, 2e3, 5e3, 1e4, 2e4, 5e4};  // ns
     std::uint64_t n[6] = {}, max = 0;
-    const std::uint64_t end = hft::tsc::start() + static_cast<std::uint64_t>(secs * 1e9 * tpn);
-    for (std::uint64_t prev = hft::tsc::start(), now; (now = hft::tsc::start()) < end; prev = now) {
+    const std::uint64_t end = lobiq::tsc::start() + static_cast<std::uint64_t>(secs * 1e9 * tpn);
+    for (std::uint64_t prev = lobiq::tsc::start(), now; (now = lobiq::tsc::start()) < end; prev = now) {
         const std::uint64_t g = now - prev;
         max = g > max ? g : max;
         for (int k = 5; k >= 0; --k)

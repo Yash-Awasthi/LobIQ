@@ -11,7 +11,7 @@
 
 #include "pm/book.hpp"
 
-namespace hft::pm {
+namespace lobiq::pm {
 
 struct ArbWindow {
     std::uint32_t group = 0;
@@ -124,4 +124,4 @@ class ArbScanner {
     std::vector<std::vector<std::uint32_t>> by_token_;
 };
 
-}  // namespace hft::pm
+}  // namespace lobiq::pm

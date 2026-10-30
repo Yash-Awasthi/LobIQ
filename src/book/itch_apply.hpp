@@ -8,7 +8,7 @@
 #include "book/types.hpp"
 #include "feed/itch.hpp"
 
-namespace hft::book {
+namespace lobiq::book {
 
 struct ApplyStats {
     std::uint64_t book_msgs = 0;  // messages that changed the book
@@ -50,4 +50,4 @@ struct ItchApply {
     void operator()(const T&) {}
 };
 
-}  // namespace hft::book
+}  // namespace lobiq::book

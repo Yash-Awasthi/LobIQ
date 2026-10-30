@@ -15,13 +15,13 @@
 #include "pm/book.hpp"
 #include "pm/reader.hpp"
 
-using hft::pm::Event;
-using hft::pm::Kind;
+using lobiq::pm::Event;
+using lobiq::pm::Kind;
 
 namespace {
 
 struct Token {
-    hft::pm::TokenBook book;
+    lobiq::pm::TokenBook book;
     std::uint64_t snapshots = 0, deltas = 0, trades = 0, crossed = 0, mismatches = 0;
     double shares = 0, notional = 0;
     double tw_time = 0, tw_spread = 0, tw_depth = 0;  // seconds, spread-seconds, depth-seconds
@@ -35,7 +35,7 @@ struct Meta {
 
 class Stats {
    public:
-    hft::pm::TokenIndex ids;
+    lobiq::pm::TokenIndex ids;
     std::vector<std::unique_ptr<Token>> tokens;
     std::uint64_t other = 0;
 
@@ -57,7 +57,7 @@ class Stats {
                 Token& t = token(e.asset);
                 ++t.trades;
                 t.shares += e.size;
-                t.notional += e.size * hft::pm::parse_size(e.price);
+                t.notional += e.size * lobiq::pm::parse_size(e.price);
                 break;
             }
             case Kind::TickChange:
@@ -87,9 +87,9 @@ class Stats {
         t.last_ns = ns;
     }
 
-    static void check(Token& t, const hft::pm::Change& c) {
+    static void check(Token& t, const lobiq::pm::Change& c) {
         if (c.best_bid.empty() || c.best_ask.empty() || !t.book.two_sided()) return;
-        if (hft::pm::parse_price(c.best_bid) != t.book.best_bid() || hft::pm::parse_price(c.best_ask) != t.book.best_ask())
+        if (lobiq::pm::parse_price(c.best_bid) != t.book.best_bid() || lobiq::pm::parse_price(c.best_ask) != t.book.best_ask())
             ++t.mismatches;
     }
 
@@ -127,7 +127,7 @@ class Stats {
 int main(int argc, char** argv) {
     constexpr const char* usage = "usage: pm_stats <record-dir>";
     if (argc != 2) return std::fprintf(stderr, "%s\n", usage), 2;
-    if (!hft::app::known_options(argc, argv, {}, usage) || !hft::app::is_dir(argv[1], usage)) return 2;
+    if (!lobiq::app::known_options(argc, argv, {}, usage) || !lobiq::app::is_dir(argv[1], usage)) return 2;
     const std::filesystem::path root = argv[1];
     std::unordered_map<std::string, Meta> meta;
     {
@@ -141,7 +141,7 @@ int main(int argc, char** argv) {
     }
 
     Stats st;
-    const auto rs = hft::pm::read_records(root, [&](std::int64_t ns, const Event& e) { st.event(e, ns); });
+    const auto rs = lobiq::pm::read_records(root, [&](std::int64_t ns, const Event& e) { st.event(e, ns); });
 
     std::printf("token\ttag\tslug\toutcome\tsnapshots\tdeltas\ttrades\tshares\tnotional\tspread_cents\tdepth5c\t"
                 "crossed\tbba_mismatch\tobserved_h\n");

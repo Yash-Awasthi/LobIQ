@@ -3,7 +3,7 @@
 # HTML reports for each. Totals are fixed by the seed; exit 1 if one differs. Usage: backtest.sh [out-dir]
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-B=${HFT_BIN:-build/release/apps}
+B=${LOBIQ_BIN:-build/release/apps}
 out=${1:-out/backtest-demo}
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT

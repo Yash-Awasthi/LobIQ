@@ -30,27 +30,27 @@ struct SymbolMap {
     std::map<std::uint16_t, std::string> names;
     template <class T>
     void operator()(const T&) {}
-    void operator()(const hft::itch::StockDirectory& m) {
+    void operator()(const lobiq::itch::StockDirectory& m) {
         std::string s(m.stock, 8);
         s.erase(s.find_last_not_of(' ') + 1);
         names[m.h.locate] = s;
     }
 };
 
-int run(const std::filesystem::path& out, const char* gz_path, hft::data::Codec codec) {
-    using namespace hft::itch;
+int run(const std::filesystem::path& out, const char* gz_path, lobiq::data::Codec codec) {
+    using namespace lobiq::itch;
     std::filesystem::create_directories(out);
     if (!std::filesystem::is_empty(out)) {
         std::fprintf(stderr, "output dir not empty\n");
         return 2;
     }
 
-    std::unique_ptr<hft::data::GzipReader> gz;
-    std::unique_ptr<hft::data::Prefetch<hft::data::GzipReader>> prefetch;
+    std::unique_ptr<lobiq::data::GzipReader> gz;
+    std::unique_ptr<lobiq::data::Prefetch<lobiq::data::GzipReader>> prefetch;
     std::function<std::size_t(std::uint8_t*, std::size_t)> read_chunk;
     if (gz_path) {
-        gz = std::make_unique<hft::data::GzipReader>(gz_path);
-        prefetch = std::make_unique<hft::data::Prefetch<hft::data::GzipReader>>(*gz);
+        gz = std::make_unique<lobiq::data::GzipReader>(gz_path);
+        prefetch = std::make_unique<lobiq::data::Prefetch<lobiq::data::GzipReader>>(*gz);
         read_chunk = [&](std::uint8_t* p, std::size_t n) { return prefetch->read(p, n); };
     } else {
         read_chunk = [](std::uint8_t* p, std::size_t n) { return std::fread(p, 1, n, stdin); };
@@ -58,7 +58,7 @@ int run(const std::filesystem::path& out, const char* gz_path, hft::data::Codec 
 
     const char* cm = std::getenv("CHUNK_MSGS");  // small chunks let tests exercise checkpoints
     const std::uint32_t chunk_msgs = cm ? static_cast<std::uint32_t>(std::strtoul(cm, nullptr, 10)) : kChunkMsgs;
-    hft::data::StoreWriter writer(out, kBudget, chunk_msgs ? chunk_msgs : kChunkMsgs, codec);
+    lobiq::data::StoreWriter writer(out, kBudget, chunk_msgs ? chunk_msgs : kChunkMsgs, codec);
     SymbolMap symbols;
     std::vector<std::uint8_t> buf(kChunk + 2 + 65535);
     std::size_t have = 0;
@@ -74,7 +74,7 @@ int run(const std::filesystem::path& out, const char* gz_path, hft::data::Codec 
             if (dispatch(f.data, f.size, symbols) != Status::Ok) {
                 ++bad;
             } else {
-                writer.append(hft::load_be16(f.data + 1), seq, hft::load_be48(f.data + 5), f.data,
+                writer.append(lobiq::load_be16(f.data + 1), seq, lobiq::load_be48(f.data + 5), f.data,
                               f.size);
             }
             ++seq;
@@ -105,19 +105,19 @@ int run(const std::filesystem::path& out, const char* gz_path, hft::data::Codec 
 }  // namespace
 
 int main(int argc, char** argv) {
-    hft::data::Codec codec = hft::data::Codec::Lz4;
+    lobiq::data::Codec codec = lobiq::data::Codec::Lz4;
     std::vector<const char*> args;
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--codec") == 0 && i + 1 < argc) {
             const char* c = argv[++i];
-            if (std::strcmp(c, "zstd") == 0) codec = hft::data::Codec::Zstd;
-            else if (std::strcmp(c, "lz4") == 0) codec = hft::data::Codec::Lz4;
+            if (std::strcmp(c, "zstd") == 0) codec = lobiq::data::Codec::Zstd;
+            else if (std::strcmp(c, "lz4") == 0) codec = lobiq::data::Codec::Lz4;
             else args.push_back(nullptr);  // rejected below
         } else {
             args.push_back(argv[i]);
         }
     }
-    if (!hft::app::known_options(argc, argv, {"--codec"}, "usage: ingest <output-dir> [day.gz] [--codec lz4|zstd]")) return 2;
+    if (!lobiq::app::known_options(argc, argv, {"--codec"}, "usage: ingest <output-dir> [day.gz] [--codec lz4|zstd]")) return 2;
     if (args.empty() || args.size() > 2 || std::find(args.begin(), args.end(), nullptr) != args.end()) {
         std::fprintf(stderr, "usage: ingest <output-dir> [day.gz] [--codec lz4|zstd]\n");
         return 2;

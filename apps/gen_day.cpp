@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "minutes must be 1 to 390\n");
         return 2;
     }
-    hft::sources::QrParams p;
+    lobiq::sources::QrParams p;
     p.K = 3, p.N = 20, p.theta = 0.6;
     const auto cells = static_cast<std::size_t>(p.K * (p.N + 1));
     p.L.assign(cells, 0), p.C.assign(cells, 0), p.M.assign(cells, 0), p.init.assign(cells, 0);
@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
         }
     p.end_ns = p.start_ns + minutes * 60'000'000'000ull;
     std::vector<std::uint8_t> out;
-    hft::sources::QueueReactive sim(p, std::strtoull(argv[1], nullptr, 10));
+    lobiq::sources::QueueReactive sim(p, std::strtoull(argv[1], nullptr, 10));
     sim.day(out);
     if (std::fwrite(out.data(), 1, out.size(), stdout) != out.size()) return 1;
     std::fprintf(stderr, "%llu events, %zu bytes\n", static_cast<unsigned long long>(sim.events()), out.size());

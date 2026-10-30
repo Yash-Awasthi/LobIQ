@@ -4,7 +4,7 @@
 #include <rapidcheck.h>
 #include <rapidcheck/gtest.h>
 
-using namespace hft::exec;
+using namespace lobiq::exec;
 
 TEST(ExecTypes, NotionalIsExact) {
     EXPECT_EQ(notional(1, 1), 1);  // 0.0001 USD/share * 0.000001 share = 1e-10 USD
@@ -13,7 +13,7 @@ TEST(ExecTypes, NotionalIsExact) {
 }
 
 TEST(ExecTypes, TakerFeeFollowsTheScheduleAndRoundsToFiveDecimals) {
-    hft::pm::MarketRules r;
+    lobiq::pm::MarketRules r;
     r.fee_rate_ppm = 50'000;
     r.fee_exp = 1;
     EXPECT_EQ(taker_fee(100 * kShare, 5000, r), 125 * kDollar / 100);  // 100 * 0.05 * 0.25 = 1.25
@@ -30,7 +30,7 @@ TEST(ExecTypes, TakerFeeFollowsTheScheduleAndRoundsToFiveDecimals) {
 }
 
 RC_GTEST_PROP(ExecTypes, TakerFeeIsTheNearestFiveDecimalAmount, ()) {
-    hft::pm::MarketRules r;
+    lobiq::pm::MarketRules r;
     r.fee_rate_ppm = *rc::gen::inRange<std::uint32_t>(0, 100'001);
     r.fee_exp = *rc::gen::inRange<std::uint8_t>(0, 3);
     const Qty q = *rc::gen::inRange<Qty>(1, 1'000'000 * kShare);

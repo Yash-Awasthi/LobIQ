@@ -8,7 +8,7 @@
 
 #include "ref_engine.hpp"
 
-using namespace hft::engine;
+using namespace lobiq::engine;
 
 namespace {
 
@@ -61,7 +61,7 @@ TEST(Matching, SweepsLevelsInPriceTimeOrderWithFees) {
         EXPECT_EQ(tk.fee, 3000 * static_cast<std::int64_t>(q[k]));
         EXPECT_EQ(tk.match, mk.match);
     }
-    EXPECT_EQ(m.book().bbo(), (hft::book::Bbo{0, 10'0100, 0, 20}));
+    EXPECT_EQ(m.book().bbo(), (lobiq::book::Bbo{0, 10'0100, 0, 20}));
 }
 
 TEST(Matching, IocAndMarketRemaindersCancel) {
@@ -100,10 +100,10 @@ TEST(Matching, PostOnlyPolicies) {
         } else if (p == LockPolicy::Reprice) {
             EXPECT_EQ(l.ev[0].price, 9'9900u);
             EXPECT_EQ(l.ev[1].price, 9'9900u);
-            EXPECT_EQ(m.book().bbo(), (hft::book::Bbo{9'9900, 10'0000, 20, 100}));
+            EXPECT_EQ(m.book().bbo(), (lobiq::book::Bbo{9'9900, 10'0000, 20, 100}));
         } else {
             EXPECT_EQ(l.ev[1].price, 10'0000u);
-            EXPECT_EQ(m.book().bbo(), (hft::book::Bbo{10'0000, 10'0000, 20, 100}));
+            EXPECT_EQ(m.book().bbo(), (lobiq::book::Bbo{10'0000, 10'0000, 20, 100}));
         }
     }
 }
@@ -122,17 +122,17 @@ TEST(Matching, SelfTradePrevention) {
         if (s == Stp::CancelNewest) {
             EXPECT_EQ(l.ev.back().reason, Reason::SelfTrade);
             EXPECT_EQ(l.ev.back().ref, R0 + 2);
-            EXPECT_EQ(bbo, (hft::book::Bbo{0, 10'0000, 0, 100}));
+            EXPECT_EQ(bbo, (lobiq::book::Bbo{0, 10'0000, 0, 100}));
         } else if (s == Stp::CancelOldest) {
             EXPECT_EQ(l.ev[1].ref, R0);  // resting order cancelled, then trades with owner 8
             EXPECT_EQ(l.ev[2].owner, 8u);
-            EXPECT_EQ(bbo, (hft::book::Bbo{10'0100, 0, 50, 0}));
+            EXPECT_EQ(bbo, (lobiq::book::Bbo{10'0100, 0, 50, 0}));
         } else if (s == Stp::CancelBoth) {
             EXPECT_EQ(l.ev.size(), 3u);
-            EXPECT_EQ(bbo, (hft::book::Bbo{0, 10'0100, 0, 100}));
+            EXPECT_EQ(bbo, (lobiq::book::Bbo{0, 10'0100, 0, 100}));
         } else {
             EXPECT_EQ(l.ev[1].owner, 7u);  // trades with itself
-            EXPECT_EQ(bbo, (hft::book::Bbo{0, 10'0100, 0, 50}));
+            EXPECT_EQ(bbo, (lobiq::book::Bbo{0, 10'0100, 0, 50}));
         }
     }
 }

@@ -6,8 +6,8 @@
 #include <thread>
 #include <vector>
 
-using hft::Pool;
-using hft::PoolStats;
+using lobiq::Pool;
+using lobiq::PoolStats;
 
 TEST(Pool, GrowthKeepsContents) {
     Pool<std::uint64_t> p(4);

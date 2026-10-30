@@ -1,5 +1,5 @@
 // Runs the Verilated itch_parser on a BinaryFILE stream and checks every message it emits
-// against hft::itch::dispatch. Usage: itch_rtl_test [file]; without a file, a random stream.
+// against lobiq::itch::dispatch. Usage: itch_rtl_test [file]; without a file, a random stream.
 
 #include <cstdint>
 #include <cstdio>
@@ -12,7 +12,7 @@
 #include "Vitch_parser.h"
 #include "feed/itch.hpp"
 
-namespace itch = hft::itch;
+namespace itch = lobiq::itch;
 
 struct Msg {
     int status = 0;

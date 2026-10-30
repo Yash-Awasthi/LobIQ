@@ -10,7 +10,7 @@
 
 #include "data/store.hpp"
 
-namespace hft::data {
+namespace lobiq::data {
 
 template <std::size_t N = 16>
 class Lookahead {
@@ -91,4 +91,4 @@ inline ItchRefs itch_refs(const std::uint8_t* m, std::size_t len) {
     return r;
 }
 
-}  // namespace hft::data
+}  // namespace lobiq::data

@@ -81,7 +81,7 @@ def write_stubs():
 
 
 if REAL_BIN:
-    os.environ["HFT_BIN"] = REAL_BIN
+    os.environ["LOBIQ_BIN"] = REAL_BIN
     store = DATA + "/store-S010125-v50"
     gen = subprocess.Popen([REAL_BIN + "/gen_day", "7", "390"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     subprocess.run([REAL_BIN + "/ingest", store], stdin=gen.stdout, check=True, capture_output=True)
@@ -89,9 +89,9 @@ if REAL_BIN:
     subprocess.run([REAL_BIN + "/checkpoint", store], check=True, capture_output=True)
 else:
     write_stubs()
-    os.environ["HFT_BIN"] = STUB
-os.environ["HFT_DATA"] = DATA
-os.environ.pop("HFT_REPORTS", None)
+    os.environ["LOBIQ_BIN"] = STUB
+os.environ["LOBIQ_DATA"] = DATA
+os.environ.pop("LOBIQ_REPORTS", None)
 
 sys.path.insert(0, HERE)
 import metrics  # noqa: E402
@@ -253,28 +253,28 @@ class Server(unittest.TestCase):
             self.assertIn(b"--quoter skew --set arb=1 --set gamma=0.2", html)
 
     def test_live_and_paper_arguments(self):
-        self.assertEqual(server.hft_args({"kind": "live", "minutes": "5", "quoter": "skew", "arb": True}),
+        self.assertEqual(server.lobiq_args({"kind": "live", "minutes": "5", "quoter": "skew", "arb": True}),
                          ["live", "5", "--quoter", "skew", "--set", "arb=1"])
-        self.assertEqual(server.hft_args({"kind": "paper", "recording": "20261012T172311"}), ["paper", "20261012T172311"])
+        self.assertEqual(server.lobiq_args({"kind": "paper", "recording": "20261012T172311"}), ["paper", "20261012T172311"])
         for bad in ({"kind": "paper", "recording": "../x"}, {"kind": "paper", "recording": "sample", "quoter": "skew;id"},
                     {"kind": "live", "minutes": "5", "params": ["--run=/tmp"]}):
             with self.assertRaises(server.BadRequest):
-                server.hft_args(bad)
+                server.lobiq_args(bad)
 
     def test_model_arguments(self):
-        self.assertEqual(server.hft_args({"kind": "vol", "train": "S010125", "test": "2025-01-02", "symbols": "QRSIM"}),
+        self.assertEqual(server.lobiq_args({"kind": "vol", "train": "S010125", "test": "2025-01-02", "symbols": "QRSIM"}),
                          ["vol", "S010125", "2025-01-02", "QRSIM"])
-        self.assertEqual(server.hft_args({"kind": "alpha", "train": "S010125", "test": "S010225", "symbols": "20"}),
+        self.assertEqual(server.lobiq_args({"kind": "alpha", "train": "S010125", "test": "S010225", "symbols": "20"}),
                          ["alpha", "S010125", "S010225", "20"])
-        self.assertEqual(server.hft_args({"kind": "regime", "train": "S010125", "test": "S010225"}), ["regime", "S010125", "S010225"])
-        self.assertEqual(server.hft_args({"kind": "options", "right": "put", "spot": "100", "strike": "105", "years": "0.5",
+        self.assertEqual(server.lobiq_args({"kind": "regime", "train": "S010125", "test": "S010225"}), ["regime", "S010125", "S010225"])
+        self.assertEqual(server.lobiq_args({"kind": "options", "right": "put", "spot": "100", "strike": "105", "years": "0.5",
                                           "rate": "-0.01", "yield": "0", "vol": ".2"}),
                          ["options", "price", "put", "100", "105", "0.5", "-0.01", "0", ".2"])
         for bad in ({"kind": "hawkes", "train": "S010125", "test": "S010225", "symbols": "--window"},
                     {"kind": "options", "right": "call", "spot": "1e", "strike": "1", "years": "1", "rate": "0", "yield": "0", "vol": "1"},
                     {"kind": "options", "right": "straddle", "spot": "1", "strike": "1", "years": "1", "rate": "0", "yield": "0", "vol": "1"}):
             with self.assertRaises(server.BadRequest):
-                server.hft_args(bad)
+                server.lobiq_args(bad)
 
     def test_option_price_job(self):
         v = run_job({"kind": "options", "right": "call", "spot": "42", "strike": "40", "years": "0.5", "rate": "0.1",

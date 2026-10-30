@@ -7,8 +7,8 @@
 #include "core/philox.hpp"
 #include "strategy/regime.hpp"
 
-using namespace hft;
-using namespace hft::strategy::regime;
+using namespace lobiq;
+using namespace lobiq::strategy::regime;
 
 namespace {
 

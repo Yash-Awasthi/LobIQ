@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace hft::pm {
+namespace lobiq::pm {
 
 // "0.366" -> 3660. Returns -1 on a malformed price.
 inline std::int32_t parse_price(std::string_view s) {
@@ -166,4 +166,4 @@ class TokenBook {
     Side bids_, asks_;
 };
 
-}  // namespace hft::pm
+}  // namespace lobiq::pm

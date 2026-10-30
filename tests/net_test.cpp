@@ -14,7 +14,7 @@
 #include "net/tls.hpp"
 #include "net/ws_frames.hpp"
 
-using namespace hft::net;
+using namespace lobiq::net;
 
 namespace {
 
@@ -153,17 +153,17 @@ TEST(Net, ReadsCarryTheKernelReceiveTime) {
     const int c = ::socket(AF_INET, SOCK_STREAM, 0);
     ASSERT_EQ(::connect(c, reinterpret_cast<sockaddr*>(&a), sizeof a), 0);
     const int sv = ::accept(ls, nullptr, nullptr);
-    ASSERT_TRUE(hft::net::enable_rx_timestamps(c));
+    ASSERT_TRUE(lobiq::net::enable_rx_timestamps(c));
     // The kernel turns receive stamping on asynchronously after the first request, so the first
     // packets may come unstamped; production falls back to the reader's clock for those.
     std::int64_t before = 0, after = 0, ns = 0;
     char buf[16];
     for (int i = 0; i < 1000 && ns == 0; ++i) {
         if (i) ::usleep(1000);
-        before = hft::net::realtime_ns();
+        before = lobiq::net::realtime_ns();
         ASSERT_EQ(::write(sv, "hello", 5), 5);
-        ASSERT_EQ(hft::net::recv_stamped(c, buf, sizeof buf, &ns), 5);
-        after = hft::net::realtime_ns();
+        ASSERT_EQ(lobiq::net::recv_stamped(c, buf, sizeof buf, &ns), 5);
+        after = lobiq::net::realtime_ns();
     }
     ASSERT_NE(ns, 0) << "no receive stamp within 1 s";
     EXPECT_EQ(std::string_view(buf, 5), "hello");
@@ -240,12 +240,12 @@ TEST(Http, RequestPath) {
 // A page on another site can POST to loopback, but cannot add a custom header without a CORS
 // preflight this server never answers: the header is what proves the dashboard sent it.
 TEST(Http, KillNeedsPostAndTheDashboardHeader) {
-    EXPECT_TRUE(kill_request("POST /kill HTTP/1.1\r\nHost: x\r\nX-Hft-Kill: 1\r\n\r\n"));
-    EXPECT_TRUE(kill_request("POST /kill HTTP/1.1\r\nx-hft-kill: 1\r\n\r\n"));
+    EXPECT_TRUE(kill_request("POST /kill HTTP/1.1\r\nHost: x\r\nX-Lobiq-Kill: 1\r\n\r\n"));
+    EXPECT_TRUE(kill_request("POST /kill HTTP/1.1\r\nx-lobiq-kill: 1\r\n\r\n"));
     EXPECT_FALSE(kill_request("POST /kill HTTP/1.1\r\nHost: x\r\n\r\n"));
-    EXPECT_FALSE(kill_request("GET /kill HTTP/1.1\r\nX-Hft-Kill: 1\r\n\r\n"));
-    EXPECT_FALSE(kill_request("POST /killer HTTP/1.1\r\nX-Hft-Kill: 1\r\n\r\n"));
-    EXPECT_FALSE(kill_request("POST /kill HTTP/1.1\r\nX-Other: X-Hft-Kill: 1\r\n\r\n"));
+    EXPECT_FALSE(kill_request("GET /kill HTTP/1.1\r\nX-Lobiq-Kill: 1\r\n\r\n"));
+    EXPECT_FALSE(kill_request("POST /killer HTTP/1.1\r\nX-Lobiq-Kill: 1\r\n\r\n"));
+    EXPECT_FALSE(kill_request("POST /kill HTTP/1.1\r\nX-Other: X-Lobiq-Kill: 1\r\n\r\n"));
 }
 
 // DNS rebinding: a site whose name resolves to 127.0.0.1 is same-origin to the browser, so it
@@ -270,7 +270,7 @@ TEST(Http, OnlyLoopbackHostNames) {
     });
     const std::string evil = "Host: evil.example:" + std::to_string(srv.port()) + "\r\n";
     const std::string read = http_fetch(srv.port(), "GET /metrics.json HTTP/1.1\r\n" + evil + "\r\n");
-    const std::string kill = http_fetch(srv.port(), "POST /kill HTTP/1.1\r\n" + evil + "X-Hft-Kill: 1\r\n\r\n");
+    const std::string kill = http_fetch(srv.port(), "POST /kill HTTP/1.1\r\n" + evil + "X-Lobiq-Kill: 1\r\n\r\n");
     stop = true;
     t.join();
     EXPECT_TRUE(read.starts_with("HTTP/1.1 403 ")) << read;

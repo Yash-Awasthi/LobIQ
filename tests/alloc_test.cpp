@@ -40,7 +40,7 @@ void operator delete[](void* p, std::size_t) noexcept { std::free(p); }
 void operator delete(void* p, const std::nothrow_t&) noexcept { std::free(p); }
 void operator delete[](void* p, const std::nothrow_t&) noexcept { std::free(p); }
 
-using namespace hft;
+using namespace lobiq;
 
 namespace {
 
@@ -129,7 +129,7 @@ TEST(Alloc, SteadyStateReplayDoesNotAllocate) {
 // Order life cycles through risk, the order manager and the ledger: after a warm-up that grows
 // every pool, submit / ack / fill / settle / cancel / free must not allocate.
 TEST(Alloc, SteadyStateOrderFlowDoesNotAllocate) {
-    using namespace hft::exec;
+    using namespace lobiq::exec;
     constexpr Ns kSec = 1'000'000'000;
     Ledger ledger(1'000'000 * kDollar);
     Exposure exp;

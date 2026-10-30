@@ -22,8 +22,8 @@ std::string burst() {
 void BM_WsCopyPath(benchmark::State& state) {
     const std::string b = burst();
     std::vector<char> ring(1 << 20);
-    hft::net::WsParser p;
-    hft::net::WsMessage m;
+    lobiq::net::WsParser p;
+    lobiq::net::WsMessage m;
     char tls[16384];
     std::size_t at = 0, n = 0;
     for (auto _ : state) {
@@ -46,8 +46,8 @@ BENCHMARK(BM_WsCopyPath);
 void BM_WsViewPath(benchmark::State& state) {
     const std::string b = burst();
     std::vector<char> ring(1 << 20);
-    hft::net::WsParser p;
-    hft::net::WsView v;
+    lobiq::net::WsParser p;
+    lobiq::net::WsView v;
     std::size_t at = 0, n = 0;
     for (auto _ : state) {
         for (std::size_t i = 0; i < b.size(); i += 16384) {

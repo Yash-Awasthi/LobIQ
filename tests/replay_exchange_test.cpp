@@ -6,7 +6,7 @@
 
 #include "itch_writer.hpp"
 
-using namespace hft::engine;
+using namespace lobiq::engine;
 
 namespace {
 
@@ -120,7 +120,7 @@ TEST(ReplayExchange, HiddenPrintsIgnoreTheSideField) {
     Log l;
     Itch m;
     const auto bid = x.submit({1, kB, 10'0000, 40}, l);
-    const auto ask = x.submit({1, hft::book::Side::Sell, 10'0100, 40}, l);
+    const auto ask = x.submit({1, lobiq::book::Side::Sell, 10'0100, 40}, l);
     feed(x, m.hidden('B', 10, 10'0100), l);  // at our ask
     EXPECT_EQ(l.filled(ask), 10u);
     EXPECT_EQ(l.filled(bid), 0u);
@@ -166,7 +166,7 @@ TEST(ReplayExchange, QueueAheadMatchesTheBookWalk) {
     Log l;
     Itch m;
     for (std::uint64_t r = 1; r <= 20; ++r) feed(x, m.add(r, 'S', 10 * r, 10'0100), l);
-    const auto v = x.submit({1, hft::book::Side::Sell, 10'0100, 50}, l);
+    const auto v = x.submit({1, lobiq::book::Side::Sell, 10'0100, 50}, l);
     for (std::uint64_t r = 21; r <= 30; ++r) feed(x, m.add(r, 'S', 5, 10'0100), l);
     for (std::uint64_t r = 1; r <= 30; r += 3) feed(x, r % 2 ? m.cancel(r, 3) : m.del(r), l);
     feed(x, m.exec(2, 20), l);
@@ -191,7 +191,7 @@ TEST(ReplayExchange, RealBboIgnoresVirtualOrders) {
     feed(x, m.add(1, 'B', 100, 10'0000), l);
     feed(x, m.add(2, 'S', 100, 10'0300), l);
     x.submit({1, kB, 10'0100, 50}, l);                     // improves the bid alone
-    x.submit({1, hft::book::Side::Sell, 10'0300, 50}, l);  // joins the ask
-    EXPECT_EQ(x.book().bbo(), (hft::book::Bbo{10'0100, 10'0300, 50, 150}));
-    EXPECT_EQ(x.real_bbo(), (hft::book::Bbo{10'0000, 10'0300, 100, 100}));
+    x.submit({1, lobiq::book::Side::Sell, 10'0300, 50}, l);  // joins the ask
+    EXPECT_EQ(x.book().bbo(), (lobiq::book::Bbo{10'0100, 10'0300, 50, 150}));
+    EXPECT_EQ(x.real_bbo(), (lobiq::book::Bbo{10'0000, 10'0300, 100, 100}));
 }

@@ -31,6 +31,6 @@ COPY --from=build /src/studio/ studio/
 COPY --from=build /src/data/sample/ data/sample/
 COPY --from=build /src/docs/STRATEGIES.md /src/README.md ./
 RUN find build/release/apps -mindepth 1 -maxdepth 1 ! -type f -exec rm -rf {} +
-ENV PATH=/lobiq/scripts:/lobiq/build/release/apps:$PATH HFT_BIN=/lobiq/build/release/apps
+ENV PATH=/lobiq/scripts:/lobiq/build/release/apps:$PATH LOBIQ_BIN=/lobiq/build/release/apps
 EXPOSE 8000
 CMD ["scripts/demo/all.sh", "/lobiq/out"]

@@ -9,7 +9,7 @@
 #include "book/tick_book.hpp"
 #include "book/types.hpp"
 
-namespace hft::engine {
+namespace lobiq::engine {
 
 using book::Side;
 
@@ -209,4 +209,4 @@ class MatchingEngine {
     std::uint64_t seq_ = 0;
 };
 
-}  // namespace hft::engine
+}  // namespace lobiq::engine

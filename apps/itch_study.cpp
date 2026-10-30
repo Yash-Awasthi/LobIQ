@@ -33,7 +33,7 @@
 
 namespace {
 
-using namespace hft;
+using namespace lobiq;
 namespace fs = std::filesystem;
 
 constexpr std::uint64_t kSec = 1'000'000'000;

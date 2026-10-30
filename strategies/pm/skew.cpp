@@ -7,10 +7,10 @@
 
 namespace {
 
-struct Skew final : hft::pm::Quoter {
+struct Skew final : lobiq::pm::Quoter {
     static constexpr int kHalfSpreadTicks = 2;
 
-    hft::pm::Quote quote(const hft::pm::QuoteInput& in) override {
+    lobiq::pm::Quote quote(const lobiq::pm::QuoteInput& in) override {
         const double mid = in.mid * 1e4;  // price units
         const double shift = std::round(in.inventory / in.params.size) * in.tick;
         const double half = kHalfSpreadTicks * in.tick;
@@ -18,6 +18,6 @@ struct Skew final : hft::pm::Quoter {
     }
 };
 
-HFT_QUOTER("skew", "example: mid +/- 2 ticks, shifted one tick per quote size of inventory", [] { return new Skew; });
+LOBIQ_QUOTER("skew", "example: mid +/- 2 ticks, shifted one tick per quote size of inventory", [] { return new Skew; });
 
 }  // namespace

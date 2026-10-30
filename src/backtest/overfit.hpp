@@ -19,7 +19,7 @@
 
 #include "core/philox.hpp"
 
-namespace hft::backtest {
+namespace lobiq::backtest {
 
 // One resample of 0..n-1: blocks of geometric length with mean `block`, starting anywhere, wrapping.
 inline std::vector<std::size_t> stationary_bootstrap(std::size_t n, double block, const rng::Stream& rng, std::uint32_t draw) {
@@ -239,4 +239,4 @@ inline std::vector<Fold> purged_kfold(const std::vector<std::uint64_t>& start, c
     return out;
 }
 
-}  // namespace hft::backtest
+}  // namespace lobiq::backtest

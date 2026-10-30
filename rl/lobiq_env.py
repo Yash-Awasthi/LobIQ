@@ -25,7 +25,7 @@ import subprocess
 
 def find_bin():
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for d in (os.environ.get("HFT_BIN"), os.path.join(here, "bin"), os.path.join(here, "build/native/apps"),
+    for d in (os.environ.get("LOBIQ_BIN"), os.path.join(here, "bin"), os.path.join(here, "build/native/apps"),
               os.path.join(here, "build/release/apps")):
         if d and os.path.isfile(os.path.join(d, "itch_backtest")):
             return d
@@ -38,7 +38,7 @@ class LobiqEnv:
         self.store, self.symbol, self.step_ms, self.params = os.path.expanduser(store), symbol, step_ms, list(params)
         self.bin_dir = bin_dir or find_bin()
         if not self.bin_dir:
-            raise FileNotFoundError("itch_backtest not found: build LobIQ or set HFT_BIN")
+            raise FileNotFoundError("itch_backtest not found: build LobIQ or set LOBIQ_BIN")
         self.proc, self.last_obs, self.last_pnl = None, None, 0.0
 
     def _read_obs(self):

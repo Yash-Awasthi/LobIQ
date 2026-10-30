@@ -40,8 +40,8 @@
 #include "pm/report.hpp"
 
 namespace fs = std::filesystem;
-using namespace hft;
-using namespace hft::pm;
+using namespace lobiq;
+using namespace lobiq::pm;
 
 namespace {
 
@@ -328,48 +328,48 @@ std::pair<std::string, std::string> render(const State& x, const Lat& lat, const
 
     std::string t;
     auto line = [&](const std::string& k, double v) { t += k + " " + fmt("%.6g", v) + "\n"; };
-    line("hft_uptime_seconds", x.uptime_s);
-    line("hft_messages_total", static_cast<double>(msgs));
-    line("hft_bytes_total", static_cast<double>(bytes));
-    line("hft_records_total", static_cast<double>(x.records));
-    line("hft_events_total", static_cast<double>(x.events));
-    line("hft_trades_total", static_cast<double>(x.trades));
-    line("hft_paper_fills_total", static_cast<double>(x.fills));
-    line("hft_reconnects_total", static_cast<double>(recon));
-    line("hft_ring_drops_total", static_cast<double>(drops));
-    line("hft_decoder_fallbacks_total", static_cast<double>(x.fallbacks));
-    line("hft_pnl_usd", x.pnl);
-    line("hft_gross_shares", x.gross);
-    line("hft_halted", x.halted);
-    line("hft_arb_open_windows", static_cast<double>(x.arb_open));
-    line("hft_arb_windows_total", static_cast<double>(x.arb_windows));
+    line("lobiq_uptime_seconds", x.uptime_s);
+    line("lobiq_messages_total", static_cast<double>(msgs));
+    line("lobiq_bytes_total", static_cast<double>(bytes));
+    line("lobiq_records_total", static_cast<double>(x.records));
+    line("lobiq_events_total", static_cast<double>(x.events));
+    line("lobiq_trades_total", static_cast<double>(x.trades));
+    line("lobiq_paper_fills_total", static_cast<double>(x.fills));
+    line("lobiq_reconnects_total", static_cast<double>(recon));
+    line("lobiq_ring_drops_total", static_cast<double>(drops));
+    line("lobiq_decoder_fallbacks_total", static_cast<double>(x.fallbacks));
+    line("lobiq_pnl_usd", x.pnl);
+    line("lobiq_gross_shares", x.gross);
+    line("lobiq_halted", x.halted);
+    line("lobiq_arb_open_windows", static_cast<double>(x.arb_open));
+    line("lobiq_arb_windows_total", static_cast<double>(x.arb_windows));
     if (x.venue) {  // A5
-        line("hft_orders_total", static_cast<double>(x.orders));
-        line("hft_rejects_total{reason=\"venue\"}", static_cast<double>(x.venue_rejects));
+        line("lobiq_orders_total", static_cast<double>(x.orders));
+        line("lobiq_rejects_total{reason=\"venue\"}", static_cast<double>(x.venue_rejects));
         for (std::size_t r = 1; r < static_cast<std::size_t>(exec::Reject::kCount); ++r)
-            line(std::string("hft_rejects_total{reason=\"") + kRejectNames[r] + "\"}", static_cast<double>(x.risk_rejects[r]));
-        line("hft_fills_total", static_cast<double>(x.venue_fills));
-        line("hft_open_orders", x.open_orders);
-        line("hft_unknown_orders", x.unknown_orders);
-        line("hft_cancel_races_total", static_cast<double>(x.cancel_races));
-        line("hft_arb_attempts_total", static_cast<double>(x.arb_attempts));
-        line("hft_leg_incomplete_total{action=\"none\"}", static_cast<double>(x.arb_complete));
-        line("hft_leg_incomplete_total{action=\"completed\"}", static_cast<double>(x.arb_completed));
-        line("hft_leg_incomplete_total{action=\"unwound\"}", static_cast<double>(x.arb_unwound));
-        line("hft_leg_incomplete_total{action=\"frozen\"}", static_cast<double>(x.arb_frozen));
-        line("hft_leg_exposure_usd", x.leg_exposure);
-        line("hft_settle_failures_total", static_cast<double>(x.settle_failed));
-        line("hft_position_mismatches_total", static_cast<double>(x.mismatches));
-        line("hft_illegal_reports_total", static_cast<double>(x.illegal));
-        line("hft_kill_state", x.kill);
-        line("hft_ledger_pnl_usd", x.exec_pnl);
-        line("hft_fees_usd", x.fees);
-        line("hft_capital_locked_usd", x.capital_locked);
-        line("hft_capital_days", x.capital_days);
+            line(std::string("lobiq_rejects_total{reason=\"") + kRejectNames[r] + "\"}", static_cast<double>(x.risk_rejects[r]));
+        line("lobiq_fills_total", static_cast<double>(x.venue_fills));
+        line("lobiq_open_orders", x.open_orders);
+        line("lobiq_unknown_orders", x.unknown_orders);
+        line("lobiq_cancel_races_total", static_cast<double>(x.cancel_races));
+        line("lobiq_arb_attempts_total", static_cast<double>(x.arb_attempts));
+        line("lobiq_leg_incomplete_total{action=\"none\"}", static_cast<double>(x.arb_complete));
+        line("lobiq_leg_incomplete_total{action=\"completed\"}", static_cast<double>(x.arb_completed));
+        line("lobiq_leg_incomplete_total{action=\"unwound\"}", static_cast<double>(x.arb_unwound));
+        line("lobiq_leg_incomplete_total{action=\"frozen\"}", static_cast<double>(x.arb_frozen));
+        line("lobiq_leg_exposure_usd", x.leg_exposure);
+        line("lobiq_settle_failures_total", static_cast<double>(x.settle_failed));
+        line("lobiq_position_mismatches_total", static_cast<double>(x.mismatches));
+        line("lobiq_illegal_reports_total", static_cast<double>(x.illegal));
+        line("lobiq_kill_state", x.kill);
+        line("lobiq_ledger_pnl_usd", x.exec_pnl);
+        line("lobiq_fees_usd", x.fees);
+        line("lobiq_capital_locked_usd", x.capital_locked);
+        line("lobiq_capital_days", x.capital_days);
     }
     const char* stages[] = {"queue", "parse", "engine", "wire_to_decision"};
     for (int i = 0; i < 4; ++i) {
-        const std::string k = std::string("hft_latency_ns{stage=\"") + stages[i] + "\",quantile=\"";
+        const std::string k = std::string("lobiq_latency_ns{stage=\"") + stages[i] + "\",quantile=\"";
         line(k + "0.5\"}", lat.tot[i].p50), line(k + "0.99\"}", lat.tot[i].p99), line(k + "0.999\"}", lat.tot[i].p999);
     }
 

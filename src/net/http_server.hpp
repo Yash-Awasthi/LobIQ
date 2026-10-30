@@ -15,7 +15,7 @@
 #include <string>
 #include <string_view>
 
-namespace hft::net {
+namespace lobiq::net {
 
 struct HttpResponse {
     int status = 200;
@@ -49,10 +49,10 @@ inline bool header_line(std::string_view req, std::string_view want) {
     return false;
 }
 
-// "POST /kill" carrying the header "X-Hft-Kill: 1". Other sites can make a browser POST to
+// "POST /kill" carrying the header "X-Lobiq-Kill: 1". Other sites can make a browser POST to
 // loopback but not add a custom header without a CORS preflight, which is never answered.
 inline bool kill_request(std::string_view req) {
-    return req.starts_with("POST /kill ") && header_line(req, "x-hft-kill: 1");
+    return req.starts_with("POST /kill ") && header_line(req, "x-lobiq-kill: 1");
 }
 
 // Host names this server answers to. A rebound DNS name reaching 127.0.0.1 is same-origin to
@@ -129,4 +129,4 @@ class HttpServer {
     std::uint16_t port_ = 0;
 };
 
-}  // namespace hft::net
+}  // namespace lobiq::net

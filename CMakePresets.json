@@ -62,7 +62,7 @@
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined",
-        "HFT_FUZZ": "ON"
+        "LOBIQ_FUZZ": "ON"
       }
     },
     {

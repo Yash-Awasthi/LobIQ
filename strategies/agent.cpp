@@ -13,7 +13,7 @@
 
 #include "backtest/registry.hpp"
 
-using namespace hft::backtest;
+using namespace lobiq::backtest;
 
 namespace {
 
@@ -24,7 +24,7 @@ struct Agent {
     long bid_off = -1, ask_off = -1;
     std::uint32_t size = 0;
 
-    void ask_agent(const View& v, const hft::book::Bbo& b) {
+    void ask_agent(const View& v, const lobiq::book::Bbo& b) {
         std::string f;
         for (std::size_t i = 0; i < v.n_features; ++i) {
             char x[32];
@@ -47,7 +47,7 @@ struct Agent {
     }
 
     void decide(const View& v, Desired& d) {
-        const hft::book::Bbo b = v.book.bbo();
+        const lobiq::book::Bbo b = v.book.bbo();
         if (v.now >= next) {
             ask_agent(v, b);
             next = v.now + step_ns;
@@ -58,7 +58,7 @@ struct Agent {
     }
 };
 
-HFT_STRATEGY("agent", "an external agent over stdin and stdout, for reinforcement learning (rl/lobiq_env.py); keys: step_ms",
+LOBIQ_STRATEGY("agent", "an external agent over stdin and stdout, for reinforcement learning (rl/lobiq_env.py); keys: step_ms",
              [](const Params& p, const RunSpec& r) {
                  Agent a;
                  a.step_ns = static_cast<std::uint64_t>(p.get("step_ms", 1000) * 1e6);

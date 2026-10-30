@@ -8,7 +8,7 @@
 #include <filesystem>
 #include <initializer_list>
 
-namespace hft::app {
+namespace lobiq::app {
 
 // An argument that looks like an option ("-x", "--x") must be one of `options`.
 inline bool known_options(int argc, char** argv, std::initializer_list<const char*> options, const char* usage) {
@@ -27,4 +27,4 @@ inline bool is_dir(const char* p, const char* usage) {
     return std::fprintf(stderr, "not a directory: %s\n%s\n", p, usage), false;
 }
 
-}  // namespace hft::app
+}  // namespace lobiq::app

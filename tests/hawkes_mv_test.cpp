@@ -6,7 +6,7 @@
 #include "strategy/hawkes_mv.hpp"
 #include "strategy/microstructure.hpp"
 
-using namespace hft::strategy;
+using namespace lobiq::strategy;
 
 namespace {
 

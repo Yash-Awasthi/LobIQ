@@ -12,7 +12,7 @@
 #include "pm/book.hpp"
 #include "pm/quoter.hpp"
 
-namespace hft::pm {
+namespace lobiq::pm {
 
 // One fill of the maker's own order, for parity checks between fill models.
 struct MakerFill {
@@ -190,4 +190,4 @@ class TokenMaker {
     bool enabled_ = true, venue_ = false;
 };
 
-}  // namespace hft::pm
+}  // namespace lobiq::pm

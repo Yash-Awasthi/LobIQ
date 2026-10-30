@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <ctime>
 
-namespace hft {
+namespace lobiq {
 
 class Doorbell {
    public:
@@ -39,4 +39,4 @@ class Doorbell {
     std::atomic<bool> waiting_{false};
 };
 
-}  // namespace hft
+}  // namespace lobiq

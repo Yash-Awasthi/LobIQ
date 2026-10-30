@@ -17,7 +17,7 @@
 #include <thread>
 #include <vector>
 
-namespace hft::data {
+namespace lobiq::data {
 
 enum class Codec : std::uint8_t { Zstd, Lz4 };
 
@@ -189,4 +189,4 @@ class MergedReader {
 // Ticker -> locate from the symbols.tsv that ingest writes; empty when the store has none.
 std::map<std::string, std::uint16_t> read_symbols(const std::filesystem::path& dir);
 
-}  // namespace hft::data
+}  // namespace lobiq::data

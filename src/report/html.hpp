@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-namespace hft::report {
+namespace lobiq::report {
 
 inline std::string esc(const std::string& s) {
     std::string o;
@@ -163,4 +163,4 @@ inline void write_file(const std::string& path, const std::string& text) {
     if (!(f << text)) throw std::runtime_error("cannot write " + path);
 }
 
-}  // namespace hft::report
+}  // namespace lobiq::report

@@ -11,7 +11,7 @@
 #include "core/pool.hpp"
 #include "exec/risk.hpp"
 
-namespace hft::exec {
+namespace lobiq::exec {
 
 enum class OrdState : std::uint8_t { PendingNew, Live, Partial, PendingCancel, Filled, Cancelled, Rejected, Expired, Unknown };
 constexpr bool terminal(OrdState s) {
@@ -329,4 +329,4 @@ class Oms {
     std::uint64_t illegal_ = 0, duplicates_ = 0, timeouts_ = 0, mismatches_ = 0, settle_failed_ = 0, orphan_settlements_ = 0, cancel_races_ = 0, late_fills_ = 0;
 };
 
-}  // namespace hft::exec
+}  // namespace lobiq::exec

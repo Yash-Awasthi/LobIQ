@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <deque>
 
-namespace hft::backtest {
+namespace lobiq::backtest {
 
 class Accounting {
    public:
@@ -73,4 +73,4 @@ class Accounting {
     std::deque<Pending> pending_;
 };
 
-}  // namespace hft::backtest
+}  // namespace lobiq::backtest

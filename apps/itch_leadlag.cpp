@@ -25,7 +25,7 @@
 
 namespace {
 
-using namespace hft;
+using namespace lobiq;
 using namespace strategy::micro;
 namespace fs = std::filesystem;
 

@@ -15,16 +15,16 @@
 #include "pm/maker.hpp"
 #include "pm/reader.hpp"
 
-using hft::pm::Event;
-using hft::pm::Kind;
+using lobiq::pm::Event;
+using lobiq::pm::Kind;
 
 int main(int argc, char** argv) {
     constexpr const char* usage = "usage: pm_mm <record-dir> [--gamma G] [--k K] [--size S] [--max-inv N] [--horizon-s T]";
     if (argc < 2) return std::fprintf(stderr, "%s\n", usage), 2;
-    if (!hft::app::known_options(argc, argv, {"--gamma", "--k", "--size", "--max-inv", "--horizon-s"}, usage) ||
-        !hft::app::is_dir(argv[1], usage))
+    if (!lobiq::app::known_options(argc, argv, {"--gamma", "--k", "--size", "--max-inv", "--horizon-s"}, usage) ||
+        !lobiq::app::is_dir(argv[1], usage))
         return 2;
-    hft::pm::MakerParams p;
+    lobiq::pm::MakerParams p;
     for (int i = 2; i + 1 < argc; i += 2) {
         const std::string a = argv[i];
         const double v = std::atof(argv[i + 1]);
@@ -50,21 +50,21 @@ int main(int argc, char** argv) {
         }
     }
 
-    hft::pm::TokenIndex ids;
-    std::vector<std::unique_ptr<hft::pm::TokenMaker>> makers;
+    lobiq::pm::TokenIndex ids;
+    std::vector<std::unique_ptr<lobiq::pm::TokenMaker>> makers;
     std::vector<bool> seeded;
     auto index = [&](std::string_view id) {
         const std::uint32_t i = ids.get(id);
-        if (i == makers.size()) makers.push_back(std::make_unique<hft::pm::TokenMaker>(p)), seeded.push_back(false);
+        if (i == makers.size()) makers.push_back(std::make_unique<lobiq::pm::TokenMaker>(p)), seeded.push_back(false);
         return i;
     };
     std::vector<std::uint32_t> touched;
 
-    hft::pm::read_records(root, [&](std::int64_t ns, const Event& e) {
+    lobiq::pm::read_records(root, [&](std::int64_t ns, const Event& e) {
         switch (e.kind) {
             case Kind::Book: {
                 const std::uint32_t i = index(e.asset);
-                hft::pm::TokenMaker& m = *makers[i];
+                lobiq::pm::TokenMaker& m = *makers[i];
                 m.book.clear();
                 for (const auto& l : e.bids) m.book.set(true, l.px, l.size);
                 for (const auto& l : e.asks) m.book.set(false, l.px, l.size);
@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
 
     std::printf("token\tslug\toutcome\tquotes\tbuys\tsells\tshares\tpnl_usd\tend_inventory\tmax_inventory\n");
     double total = 0;
-    std::vector<std::pair<std::string, hft::pm::TokenMaker*>> rows;
+    std::vector<std::pair<std::string, lobiq::pm::TokenMaker*>> rows;
     for (std::uint32_t i = 0; i < makers.size(); ++i) rows.emplace_back(ids.key(i), makers[i].get());
     std::sort(rows.begin(), rows.end(), [](auto& a, auto& b) {
         const double x = a.second->shares_traded(), y = b.second->shares_traded();

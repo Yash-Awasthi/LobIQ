@@ -15,7 +15,7 @@
 #include "book/tick_book.hpp"
 #include "feed/itch.hpp"
 
-namespace hft::data::lobster {
+namespace lobiq::data::lobster {
 
 struct Event {
     int type;
@@ -121,4 +121,4 @@ inline std::string book_line(const book::TickBook& b, int levels) {
     return out + "\n";
 }
 
-}  // namespace hft::data::lobster
+}  // namespace lobiq::data::lobster

@@ -59,7 +59,7 @@ top-of-book size imbalance points against:
 ```cpp
 #include "backtest/registry.hpp"
 
-using namespace hft::backtest;
+using namespace lobiq::backtest;
 
 namespace {
 
@@ -69,7 +69,7 @@ struct ImbalanceJoin {
     double threshold = 0.6;
 
     void decide(const View& v, Desired& d) {
-        const hft::book::Bbo b = v.book.bbo();
+        const lobiq::book::Bbo b = v.book.bbo();
         if (!b.bid_px || !b.ask_px || b.ask_px <= b.bid_px) return;
         const double imb = (double(b.bid_qty) - double(b.ask_qty)) / double(b.bid_qty + b.ask_qty);
         if (v.inventory < max_inventory && imb > -threshold) d.bid_px = b.bid_px, d.bid_qty = size;
@@ -77,7 +77,7 @@ struct ImbalanceJoin {
     }
 };
 
-HFT_STRATEGY("imbalance", "example: joins the best, steps back on imbalance; keys: size max_inventory threshold",
+LOBIQ_STRATEGY("imbalance", "example: joins the best, steps back on imbalance; keys: size max_inventory threshold",
              [](const Params& p, const RunSpec&) {
                  ImbalanceJoin s;
                  s.size = static_cast<std::uint32_t>(p.get("size", 100));
@@ -129,7 +129,7 @@ maker's total moves with its inventory as much as with its edge.
 
 Cross-asset inputs: `--index SYMBOL[,SYMBOL...]` replays those symbols alongside and appends, for
 each, its momentum (mid against its EMA over 0.1 s and 1 s, in bp) to `features`, after the
-symbol's own features (`hft::strategy::SymbolFeatures::kCount` of them). `strategies/leader.cpp`
+symbol's own features (`lobiq::strategy::SymbolFeatures::kCount` of them). `strategies/leader.cpp`
 uses the first one to step back when a leading product moves against a quote:
 
 ```
@@ -216,15 +216,15 @@ most every `requote_s`, after a `warmup_s`). Put it under `strategies/pm/`.
 ```cpp
 #include "pm/quoter.hpp"
 
-struct Skew final : hft::pm::Quoter {
-    hft::pm::Quote quote(const hft::pm::QuoteInput& in) override {
+struct Skew final : lobiq::pm::Quoter {
+    lobiq::pm::Quote quote(const lobiq::pm::QuoteInput& in) override {
         const double mid = in.mid * 1e4;                                         // price units, 1e-4
         const double shift = std::round(in.inventory / in.params.size) * in.tick;  // lean against inventory
         return {int(mid - 2 * in.tick - shift), int(mid + 2 * in.tick - shift)};
     }
 };
 
-HFT_QUOTER("skew", "example: mid +/- 2 ticks, shifted one tick per quote size of inventory",
+LOBIQ_QUOTER("skew", "example: mid +/- 2 ticks, shifted one tick per quote size of inventory",
            [] { return new Skew; });
 ```
 

@@ -1,6 +1,6 @@
 // Markov chain of one symbol's top of book over a stored day (src/strategy/markov.hpp): states,
 // moves between them, and how well each state's direction counts from the morning predict the
-// afternoon's mid moves. Markdown by default, JSON with --json (hft studio draws it).
+// afternoon's mid moves. Markdown by default, JSON with --json (lobiq studio draws it).
 // Usage: itch_markov <store> <symbol> [--buckets N] [--split HH:MM] [--json]
 
 #include <cinttypes>
@@ -20,7 +20,7 @@
 
 namespace {
 
-using namespace hft;
+using namespace lobiq;
 
 constexpr std::uint64_t kNsPerMin = 60'000'000'000ull;
 constexpr std::uint64_t kOpen = (9 * 60 + 35) * kNsPerMin, kClose = (15 * 60 + 55) * kNsPerMin;  // auctions left out

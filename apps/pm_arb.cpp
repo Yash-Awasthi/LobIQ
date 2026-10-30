@@ -14,7 +14,7 @@
 #include "pm/session.hpp"
 
 namespace fs = std::filesystem;
-using namespace hft::pm;
+using namespace lobiq::pm;
 
 namespace {
 
@@ -42,13 +42,13 @@ void runs_under(const fs::path& p, std::vector<fs::path>& out) {
 int main(int argc, char** argv) {
     constexpr const char* usage = "usage: pm_arb [--min-ms M] <run-dir | dir of run dirs> ...";
     if (argc < 2) return std::fprintf(stderr, "%s\n", usage), 2;
-    if (!hft::app::known_options(argc, argv, {"--min-ms"}, usage)) return 2;
+    if (!lobiq::app::known_options(argc, argv, {"--min-ms"}, usage)) return 2;
     std::vector<fs::path> runs;
     double min_ms = 1;
     std::uint64_t dropped = 0;
     for (int i = 1; i < argc; ++i) {
         if (std::string(argv[i]) == "--min-ms" && i + 1 < argc) min_ms = std::atof(argv[++i]);
-        else if (!hft::app::is_dir(argv[i], usage)) return 2;
+        else if (!lobiq::app::is_dir(argv[i], usage)) return 2;
         else runs_under(argv[i], runs);
     }
     std::map<std::string, Totals> totals;

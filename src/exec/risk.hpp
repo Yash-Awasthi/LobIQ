@@ -9,7 +9,7 @@
 #include "exec/ledger.hpp"
 #include "exec/types.hpp"
 
-namespace hft::exec {
+namespace lobiq::exec {
 
 enum class Reject : std::uint8_t {
     None, Killed, Frozen, Tick, Size, NoBook, Collar, SelfCross, Position, Group, Gross, Cash, Throttle, TooMany, kCount
@@ -219,4 +219,4 @@ class Risk {
     std::uint64_t counts_[static_cast<std::size_t>(Reject::kCount)] = {};
 };
 
-}  // namespace hft::exec
+}  // namespace lobiq::exec

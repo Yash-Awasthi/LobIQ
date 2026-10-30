@@ -12,7 +12,7 @@
 
 namespace {
 
-using namespace hft::itch;
+using namespace lobiq::itch;
 
 struct Dump {
     std::string s;
@@ -153,7 +153,7 @@ int main(int argc, char** argv) {
     std::uint64_t n = 0, bad = 0;
     std::uint8_t len_be[2];
     while (n < skip + count && std::fread(len_be, 1, 2, stdin) == 2) {
-        const std::size_t len = hft::load_be16(len_be);
+        const std::size_t len = lobiq::load_be16(len_be);
         if (std::fread(msg.data(), 1, len, stdin) != len) break;
         if (n++ < skip) continue;
         std::fwrite(len_be, 1, 2, slice);

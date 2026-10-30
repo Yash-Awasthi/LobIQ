@@ -10,7 +10,7 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_compile_options(-Wall -Wextra -Werror)
 
-option(HFT_FUZZ "Build libFuzzer targets (clang only)" OFF)
+option(LOBIQ_FUZZ "Build libFuzzer targets (clang only)" OFF)
 
 find_program(CCACHE ccache)
 if(CCACHE)
@@ -27,20 +27,20 @@ find_package(zlib-ng CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
 
-add_library(hft_core INTERFACE)
-target_include_directories(hft_core INTERFACE src)
+add_library(lobiq_core INTERFACE)
+target_include_directories(lobiq_core INTERFACE src)
 
-add_library(hft_data STATIC src/data/store.cpp src/data/gzip.cpp)
-target_link_libraries(hft_data PUBLIC hft_core zstd::libzstd lz4::lz4 zlib-ng::zlib Threads::Threads)
+add_library(lobiq_data STATIC src/data/store.cpp src/data/gzip.cpp)
+target_link_libraries(lobiq_data PUBLIC lobiq_core zstd::libzstd lz4::lz4 zlib-ng::zlib Threads::Threads)
 
 enable_testing()
 # Strategies register themselves by name; a new file under strategies/ is picked up on reconfigure.
-file(GLOB HFT_STRATEGY_SOURCES CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/strategies/*.cpp)
-file(GLOB HFT_QUOTER_SOURCES CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/strategies/pm/*.cpp)
+file(GLOB LOBIQ_STRATEGY_SOURCES CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/strategies/*.cpp)
+file(GLOB LOBIQ_QUOTER_SOURCES CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/strategies/pm/*.cpp)
 
 add_subdirectory(tests)
 add_subdirectory(bench)
 add_subdirectory(apps)
-if(HFT_FUZZ)
+if(LOBIQ_FUZZ)
   add_subdirectory(fuzz)
 endif()

@@ -16,7 +16,7 @@ if [ $kind = strategy ]; then
 
 #include "backtest/registry.hpp"
 
-using namespace hft::backtest;
+using namespace lobiq::backtest;
 
 namespace {
 
@@ -25,14 +25,14 @@ struct $type {
     std::int64_t max_inventory = 500;
 
     void decide(const View& v, Desired& d) {
-        const hft::book::Bbo b = v.book.bbo();
+        const lobiq::book::Bbo b = v.book.bbo();
         if (!b.bid_px || !b.ask_px || b.ask_px <= b.bid_px) return;
         if (v.inventory < max_inventory) d.bid_px = b.bid_px, d.bid_qty = size;
         if (v.inventory > -max_inventory) d.ask_px = b.ask_px, d.ask_qty = size;
     }
 };
 
-HFT_STRATEGY("$name", "keys: size max_inventory", [](const Params& p, const RunSpec&) {
+LOBIQ_STRATEGY("$name", "keys: size max_inventory", [](const Params& p, const RunSpec&) {
     $type s;
     s.size = static_cast<std::uint32_t>(p.get("size", 100));
     s.max_inventory = static_cast<std::int64_t>(p.get("max_inventory", 500));
@@ -52,13 +52,13 @@ else
 
 namespace {
 
-struct $type final : hft::pm::Quoter {
-    hft::pm::Quote quote(const hft::pm::QuoteInput& in) override {
+struct $type final : lobiq::pm::Quoter {
+    lobiq::pm::Quote quote(const lobiq::pm::QuoteInput& in) override {
         return {in.book.best_bid(), in.book.best_ask()};  // join the best on both sides
     }
 };
 
-HFT_QUOTER("$name", "describe it", [] { return new $type; });
+LOBIQ_QUOTER("$name", "describe it", [] { return new $type; });
 
 }  // namespace
 EOF

@@ -13,7 +13,7 @@
 #include "core/philox.hpp"
 #include "sources/itch_out.hpp"
 
-namespace hft::sources {
+namespace lobiq::sources {
 
 struct QrParams {
     int K = 3, N = 30;  // levels per side; queue sizes 0..N orders
@@ -183,4 +183,4 @@ class QueueReactive {
     std::uint64_t ts_ = 0, next_ref_ = 1, next_match_ = 1, events_ = 0, moves_ = 0;
 };
 
-}  // namespace hft::sources
+}  // namespace lobiq::sources

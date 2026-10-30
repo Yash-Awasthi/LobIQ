@@ -39,12 +39,12 @@ int main(int argc, char** argv) {
     const bool spin = std::strcmp(argv[3], "spin") == 0;
     const long samples = argc > 4 ? std::atol(argv[4]) : 100'000;
     const long gap_us = argc > 5 ? std::atol(argv[5]) : 100;
-    const double tpn = hft::tsc::ticks_per_ns();
+    const double tpn = lobiq::tsc::ticks_per_ns();
 
-    hft::Doorbell bell;
+    lobiq::Doorbell bell;
     std::atomic<std::uint64_t> stamp{0};
     std::atomic<long> done{0};
-    hft::Histogram h;
+    lobiq::Histogram h;
 
     std::thread consumer([&] {
         pin(ccpu);
@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
             } else {
                 while (bell.snapshot() == seen) bell.wait(seen, 1'000'000);
             }
-            const std::uint64_t now = hft::tsc::stop();
+            const std::uint64_t now = lobiq::tsc::stop();
             h.record(now - stamp.load());
         }
     });
@@ -68,9 +68,9 @@ int main(int argc, char** argv) {
         while (done.load() != i + 1) __builtin_ia32_pause();
         // Gap varies 50-150% so the consumer cannot settle into a rhythm.
         x ^= x << 13, x ^= x >> 7, x ^= x << 17;
-        const std::uint64_t until = hft::tsc::start() + gap / 2 + x % (gap + 1);
-        while (hft::tsc::start() < until) __builtin_ia32_pause();
-        stamp.store(hft::tsc::start());
+        const std::uint64_t until = lobiq::tsc::start() + gap / 2 + x % (gap + 1);
+        while (lobiq::tsc::start() < until) __builtin_ia32_pause();
+        stamp.store(lobiq::tsc::start());
         bell.ring();
     }
     consumer.join();

@@ -23,9 +23,9 @@ import metrics  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 STATIC = os.path.join(HERE, "static")
-HFT = os.path.join(ROOT, "scripts", "lobiq")
-DATA = os.environ.get("HFT_DATA") or os.path.join(os.path.expanduser("~"), "data")
-REPORTS = os.environ.get("HFT_REPORTS") or os.path.join(DATA, "reports")
+LOBIQ = os.path.join(ROOT, "scripts", "lobiq")
+DATA = os.environ.get("LOBIQ_DATA") or os.path.join(os.path.expanduser("~"), "data")
+REPORTS = os.environ.get("LOBIQ_REPORTS") or os.path.join(DATA, "reports")
 OUT = os.path.join(ROOT, "out")
 TREES = {"reports": REPORTS, "out": OUT, "live": os.path.join(DATA, "live")}
 LOOPBACK = {"127.0.0.1", "localhost", "[::1]"}
@@ -80,7 +80,7 @@ def strings(spec, name, kind):
     return vs
 
 
-def hft_args(spec):
+def lobiq_args(spec):
     """Validated job spec -> arguments to scripts/lobiq. Every value matches a fixed pattern."""
     kind = spec.get("kind")
     opt = lambda *xs: [x for x in xs if x]
@@ -146,7 +146,7 @@ BASH = find_bash()
 
 
 def run_hft(args, timeout=None):
-    return subprocess.run([BASH, HFT, *args], cwd=ROOT, capture_output=True, text=True,
+    return subprocess.run([BASH, LOBIQ, *args], cwd=ROOT, capture_output=True, text=True,
                           timeout=timeout)
 
 
@@ -156,7 +156,7 @@ class Job:
         self.lines, self.rc, self.report = [], None, None
         self.started, self.ended = time.time(), None
         self.cond = threading.Condition()
-        self.proc = subprocess.Popen([BASH, HFT, *args], cwd=ROOT, stdout=subprocess.PIPE,
+        self.proc = subprocess.Popen([BASH, LOBIQ, *args], cwd=ROOT, stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, text=True, bufsize=1)
         threading.Thread(target=self._pump, daemon=True).start()
 
@@ -187,7 +187,7 @@ MAX_JOBS = 100
 
 
 def start_job(spec):
-    args = hft_args(spec)
+    args = lobiq_args(spec)
     with JOBS_LOCK:
         jid = NEXT_ID[0]
         NEXT_ID[0] += 1
@@ -373,8 +373,8 @@ def parse_book(text):
 
 
 def bin_dir():
-    if os.environ.get("HFT_BIN"):
-        return os.environ["HFT_BIN"]
+    if os.environ.get("LOBIQ_BIN"):
+        return os.environ["LOBIQ_BIN"]
     for c in ("bin", "build/native/apps", "build/release/apps"):
         if os.path.isfile(os.path.join(ROOT, c, "itch_backtest")):
             return os.path.join(ROOT, c)
@@ -395,7 +395,7 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "lobiq-studio"
 
     def log_message(self, fmt, *a):
-        if os.environ.get("HFT_STUDIO_LOG"):
+        if os.environ.get("LOBIQ_STUDIO_LOG"):
             super().log_message(fmt, *a)
 
     def _host_ok(self):
@@ -452,13 +452,13 @@ class Handler(BaseHTTPRequestHandler):
                 e = report_entry(d, bootstrap=True) if d and os.path.isdir(d) else None
                 return self._json(200, e) if e else self._send(404, {"error": "no report there"})
             if p == "/api/markov":
-                r = run_hft(hft_args(dict(q, kind="markov")), timeout=600)
+                r = run_hft(lobiq_args(dict(q, kind="markov")), timeout=600)
                 if r.returncode != 0:
                     return self._json(400, {"error": (r.stderr or r.stdout).strip()[-500:]})
                 return self._json(200, json.loads(r.stdout))
             if p == "/api/book":
                 spec = dict(q, kind="book")
-                r = run_hft(hft_args(spec), timeout=120)
+                r = run_hft(lobiq_args(spec), timeout=120)
                 if r.returncode != 0:
                     return self._json(400, {"error": (r.stderr or r.stdout).strip()[-500:]})
                 return self._json(200, parse_book(r.stdout))
@@ -586,7 +586,7 @@ def snapshot(out):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="lobiq studio", description="Local web UI for the lobiq toolkit.")
-    ap.add_argument("--port", type=int, default=int(os.environ.get("HFT_STUDIO_PORT", 8000)))
+    ap.add_argument("--port", type=int, default=int(os.environ.get("LOBIQ_STUDIO_PORT", 8000)))
     ap.add_argument("--bind", default="127.0.0.1", help="address to listen on (0.0.0.0 inside a container)")
     ap.add_argument("--snapshot", metavar="OUT", help="write a read-only copy of the UI over the reports in OUT and exit")
     a = ap.parse_args(argv)

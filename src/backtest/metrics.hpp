@@ -11,7 +11,7 @@
 #include <limits>
 #include <vector>
 
-namespace hft::backtest {
+namespace lobiq::backtest {
 
 struct RiskStats {
     std::size_t minutes = 0;
@@ -125,4 +125,4 @@ inline void deflate(std::vector<RiskStats>& runs) {
     }
 }
 
-}  // namespace hft::backtest
+}  // namespace lobiq::backtest

@@ -14,7 +14,7 @@
 
 #include "core/pool.hpp"
 
-namespace hft {
+namespace lobiq {
 
 template <class T, std::size_t N>
 class SpscRing {
@@ -153,4 +153,4 @@ class SpscBytes {
     std::size_t head_cache_ = 0;
 };
 
-}  // namespace hft
+}  // namespace lobiq

@@ -3,7 +3,7 @@
 
 #include "backtest/registry.hpp"
 
-using namespace hft::backtest;
+using namespace lobiq::backtest;
 
 namespace {
 
@@ -13,7 +13,7 @@ struct ImbalanceJoin {
     double threshold = 0.6;  // |imbalance| above this pulls the quote on the threatened side
 
     void decide(const View& v, Desired& d) {
-        const hft::book::Bbo b = v.book.bbo();
+        const lobiq::book::Bbo b = v.book.bbo();
         if (!b.bid_px || !b.ask_px || b.ask_px <= b.bid_px) return;
         // +1: all size on the bid (price likely to rise), -1: all on the ask.
         const double imb = (static_cast<double>(b.bid_qty) - static_cast<double>(b.ask_qty)) /
@@ -23,7 +23,7 @@ struct ImbalanceJoin {
     }
 };
 
-HFT_STRATEGY("imbalance", "example: joins the best, steps back on top-of-book imbalance; keys: size max_inventory threshold",
+LOBIQ_STRATEGY("imbalance", "example: joins the best, steps back on top-of-book imbalance; keys: size max_inventory threshold",
              [](const Params& p, const RunSpec&) {
                  ImbalanceJoin s;
                  s.size = static_cast<std::uint32_t>(p.get("size", 100));

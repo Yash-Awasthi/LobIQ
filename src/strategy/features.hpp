@@ -13,7 +13,7 @@
 #include "book/tick_book.hpp"
 #include "strategy/event.hpp"
 
-namespace hft::strategy {
+namespace lobiq::strategy {
 
 struct FeatureParams {
     double event_halflife = 50;  // events
@@ -267,4 +267,4 @@ class SymbolFeatures {
     double auction_ = 0;
 };
 
-}  // namespace hft::strategy
+}  // namespace lobiq::strategy

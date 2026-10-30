@@ -11,7 +11,7 @@
 #include <thread>
 #include <vector>
 
-namespace hft::data {
+namespace lobiq::data {
 
 // Runs `src.read(dst, n)` on its own thread, a few blocks ahead of the consumer, so
 // decompression overlaps with parsing. Errors from the source rethrow in read().
@@ -103,4 +103,4 @@ class Prefetch {
     std::thread thread_;
 };
 
-}  // namespace hft::data
+}  // namespace lobiq::data

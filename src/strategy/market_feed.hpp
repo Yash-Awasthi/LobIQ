@@ -8,7 +8,7 @@
 #include "feed/itch.hpp"
 #include "strategy/event.hpp"
 
-namespace hft::strategy {
+namespace lobiq::strategy {
 
 template <class Book = book::TickBook>
 class MarketFeed {
@@ -102,4 +102,4 @@ class MarketFeed {
     Book& book_;
 };
 
-}  // namespace hft::strategy
+}  // namespace lobiq::strategy

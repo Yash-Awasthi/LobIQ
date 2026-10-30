@@ -36,7 +36,7 @@ clock record (100 ms) ---------------------+         |
 | A2.8 | apps/pm_exec.cpp, apps/pm_app.hpp | replay/paper modes, run config (src/pm/config.hpp), metrics, kill; pm_app.hpp is shared with pm_live (D28) | all above, pm/reader, pm/session |
 | A2.9 | tests/{exec,ledger,risk,oms,sim_venue,arb_exec,engine,config}_test.cpp; scripts/fault_campaign.sh, arb_fault_campaign.sh | per module, property tests, fault campaigns | |
 | A2.10 | fuzz/oms_fuzz.cpp | arbitrary report sequences into Oms | oms |
-| A2.11 | bench: exec cases in hft_bench | latency budgets R-budget, S-budget | |
+| A2.11 | bench: exec cases in lobiq_bench | latency budgets R-budget, S-budget | |
 
 - A2.12 `pm_live` stays as the no-orders path and the recorder (E4.6, D28).
 
@@ -58,4 +58,4 @@ clock record (100 ms) ---------------------+         |
 
 orders_total, rejects_total{reason}, fills_total, open_orders, unknown_orders, cancel_races_total, leg_incomplete_total{action}, leg_exposure_usd, kill_state, oms_op_ns{p50,p99}, risk_ns{p50,p99}, sim_latency_ns, pnl_usd, capital_locked_usd, capital_days.
 
-Implemented as `hft_*` on /metrics, plus settle failures, position mismatches, illegal reports, fees. Per-operation latency (oms_op_ns, risk_ns, sim_latency_ns) is measured by `pm_exec --profile` and hft_bench rather than on every live operation (E6.1).
+Implemented as `lobiq_*` on /metrics, plus settle failures, position mismatches, illegal reports, fees. Per-operation latency (oms_op_ns, risk_ns, sim_latency_ns) is measured by `pm_exec --profile` and lobiq_bench rather than on every live operation (E6.1).

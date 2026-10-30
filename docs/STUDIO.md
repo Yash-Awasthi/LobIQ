@@ -4,7 +4,7 @@ A local web UI over the `lobiq` command: one page that runs every tool, shows wh
 ranks the results. Python standard library and plain JavaScript, no build step and no packages.
 
 ```
-lobiq studio                       # http://127.0.0.1:8000/  (--port N, or HFT_STUDIO_PORT)
+lobiq studio                       # http://127.0.0.1:8000/  (--port N, or LOBIQ_STUDIO_PORT)
 lobiq studio --bind 0.0.0.0        # inside a container; publish the port with -p 8000:8000
 ```
 
@@ -16,8 +16,8 @@ them: GitHub Codespaces, WSL on Windows, the container image or a Linux build.
 
 The header's theme button cycles auto (the system setting), light and dark.
 
-It reads the same places as `lobiq`: stores and live runs under `HFT_DATA` (default `~/data`),
-backtest reports under `HFT_REPORTS` (default `$HFT_DATA/reports`), demo output under `out/`.
+It reads the same places as `lobiq`: stores and live runs under `LOBIQ_DATA` (default `~/data`),
+backtest reports under `LOBIQ_REPORTS` (default `$LOBIQ_DATA/reports`), demo output under `out/`.
 
 ## Pages
 

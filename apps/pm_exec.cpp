@@ -64,7 +64,7 @@ int sweep(const Options& base, const std::vector<std::pair<std::string, std::vec
     }
     std::string error;
     std::mutex error_lock;
-    hft::parallel_for(runs.size(), [&](std::size_t i) {
+    lobiq::parallel_for(runs.size(), [&](std::size_t i) {
         try {
             replay(opts[i]);
         } catch (const std::exception& e) {

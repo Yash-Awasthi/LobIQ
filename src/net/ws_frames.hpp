@@ -12,7 +12,7 @@
 #include <string>
 #include <string_view>
 
-namespace hft::net {
+namespace lobiq::net {
 
 inline std::array<std::uint8_t, 20> sha1(std::string_view data) {
     std::uint32_t h[5] = {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0};
@@ -202,4 +202,4 @@ class WsParser {
     bool in_frag_ = false;
 };
 
-}  // namespace hft::net
+}  // namespace lobiq::net

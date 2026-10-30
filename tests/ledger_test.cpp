@@ -6,7 +6,7 @@
 
 #include <vector>
 
-using namespace hft::exec;
+using namespace lobiq::exec;
 
 namespace {
 constexpr Usd kCap = 1'000'000 * kDollar;

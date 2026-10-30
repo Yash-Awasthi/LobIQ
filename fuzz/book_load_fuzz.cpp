@@ -7,8 +7,8 @@
 
 #include "book/tick_book.hpp"
 
-using hft::book::Side;
-using hft::book::TickBook;
+using lobiq::book::Side;
+using lobiq::book::TickBook;
 
 namespace {
 

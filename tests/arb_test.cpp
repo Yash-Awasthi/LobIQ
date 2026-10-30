@@ -4,7 +4,7 @@
 
 #include <vector>
 
-using namespace hft::pm;
+using namespace lobiq::pm;
 
 namespace {
 

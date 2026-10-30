@@ -13,10 +13,10 @@
 #include "pm/reader.hpp"
 #include "temp_dir.hpp"
 
-using namespace hft::pm;
+using namespace lobiq::pm;
 
 TEST(PmDecoder, DecodesEachKindAndBatches) {
-    hft::pm::Decoder d;
+    lobiq::pm::Decoder d;
     std::vector<std::string> seen;
     auto rec = [&](const Event& e) {
         switch (e.kind) {
@@ -199,7 +199,7 @@ RC_GTEST_PROP(PmDecoder, SinglePassMatchesTheTape, ()) {
 // Found by SinglePassMatchesTheTape under UBSan: a connection number outside int32 went
 // through the tape fallback into an undefined double-to-int conversion.
 TEST(PmDecoder, OutOfRangeConnectionNumbersAreIgnored) {
-    hft::pm::Decoder d;
+    lobiq::pm::Decoder d;
     std::vector<std::int32_t> conns;
     auto rec = [&](const Event& e) { conns.push_back(e.conn); };
     ASSERT_TRUE(d.decode(R"({"event_type":"_heartbeat","conn":1791561630336})", rec));
@@ -232,7 +232,7 @@ TEST(PmReader, ReadsConnectionsAcrossBlockBoundaries) {
 
     std::uint64_t trades = 0;
     double shares = 0;
-    const auto st = hft::pm::read_records(dir.path, [&](std::int64_t, const Event& e) {
+    const auto st = lobiq::pm::read_records(dir.path, [&](std::int64_t, const Event& e) {
         if (e.kind == Kind::Trade) ++trades, shares += e.size;
     });
     EXPECT_EQ(st.files, 3u);
@@ -292,7 +292,7 @@ TEST(PmReader, ExtremeTimestampsDoNotOverflowTheGap) {
     std::ofstream(dir.path / "c0" / "h1.jsonl", std::ios::binary)
         << "9223372036854775807 {\"event_type\":\"_heartbeat\"}\n-9223372036854775807 {\"event_type\":\"_heartbeat\"}\n"
         << "9223372036854775807 {\"event_type\":\"_heartbeat\"}\n";
-    const auto st = hft::pm::read_records(dir.path, [](std::int64_t, const Event&) {});
+    const auto st = lobiq::pm::read_records(dir.path, [](std::int64_t, const Event&) {});
     EXPECT_EQ(st.messages, 3u);
     EXPECT_NEAR(st.max_gap_s, 1.8446744e10, 1e4);
 }

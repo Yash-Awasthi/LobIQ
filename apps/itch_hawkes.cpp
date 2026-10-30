@@ -25,7 +25,7 @@
 
 namespace {
 
-using namespace hft;
+using namespace lobiq;
 namespace fs = std::filesystem;
 namespace hk = strategy::hawkes;
 using strategy::EventKind;

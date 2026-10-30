@@ -4,7 +4,7 @@
 
 namespace {
 
-using namespace hft::rng;
+using namespace lobiq::rng;
 
 // 8 blocks (32 words) per iteration.
 void BM_PhiloxScalar(benchmark::State& state) {

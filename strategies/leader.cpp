@@ -5,7 +5,7 @@
 #include "backtest/registry.hpp"
 #include "strategy/features.hpp"
 
-using namespace hft::backtest;
+using namespace lobiq::backtest;
 
 namespace {
 
@@ -17,18 +17,18 @@ struct LeaderJoin {
     double sign = 1;         // -1 for an inverse product (SQQQ against QQQ)
 
     void decide(const View& v, Desired& d) {
-        const hft::book::Bbo b = v.book.bbo();
+        const lobiq::book::Bbo b = v.book.bbo();
         if (!b.bid_px || !b.ask_px || b.ask_px <= b.bid_px) return;
         const double imb = (static_cast<double>(b.bid_qty) - static_cast<double>(b.ask_qty)) /
                            static_cast<double>(b.bid_qty + b.ask_qty);
-        constexpr std::size_t kLead = hft::strategy::SymbolFeatures::kCount;  // first index, 0.1 s
+        constexpr std::size_t kLead = lobiq::strategy::SymbolFeatures::kCount;  // first index, 0.1 s
         const double lead = v.n_features > kLead && std::isfinite(v.features[kLead]) ? sign * v.features[kLead] : 0;
         if (v.inventory < max_inventory && imb > -threshold && lead > -lead_bp) d.bid_px = b.bid_px, d.bid_qty = size;
         if (v.inventory > -max_inventory && imb < threshold && lead < lead_bp) d.ask_px = b.ask_px, d.ask_qty = size;
     }
 };
 
-HFT_STRATEGY("leader", "imbalance join that also steps back on a leading product's move (--index LEADER); "
+LOBIQ_STRATEGY("leader", "imbalance join that also steps back on a leading product's move (--index LEADER); "
              "keys: size max_inventory threshold lead_bp sign",
              [](const Params& p, const RunSpec&) {
                  LeaderJoin s;

@@ -9,7 +9,7 @@
 
 #include "book/types.hpp"
 
-namespace hft::backtest {
+namespace lobiq::backtest {
 
 struct RiskLimits {
     std::int64_t max_position = 1000;        // shares, either side, open orders included
@@ -72,4 +72,4 @@ class Risk {
     std::array<std::uint64_t, 6> counts_{};
 };
 
-}  // namespace hft::backtest
+}  // namespace lobiq::backtest

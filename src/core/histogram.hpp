@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <vector>
 
-namespace hft {
+namespace lobiq {
 
 class Histogram {
    public:
@@ -93,4 +93,4 @@ class Histogram {
     std::uint64_t n_ = 0, sum_ = 0, max_ = 0, min_ = ~0ull;
 };
 
-}  // namespace hft
+}  // namespace lobiq

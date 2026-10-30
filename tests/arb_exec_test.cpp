@@ -4,8 +4,8 @@
 
 #include <vector>
 
-using namespace hft;
-using namespace hft::exec;
+using namespace lobiq;
+using namespace lobiq::exec;
 
 namespace {
 

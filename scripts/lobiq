@@ -5,10 +5,10 @@ set -euo pipefail
 
 here=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
 root=$(cd "$here/.." && pwd)  # repository, or the unpacked release (bin/, scripts/, config/)
-data=${HFT_DATA:-$HOME/data}
-reports=${HFT_REPORTS:-$data/reports}
+data=${LOBIQ_DATA:-$HOME/data}
+reports=${LOBIQ_REPORTS:-$data/reports}
 
-bin=${HFT_BIN:-}
+bin=${LOBIQ_BIN:-}
 if [ -z "$bin" ]; then
     for c in "$root/bin" "$root/build/native/apps" "$root/build/release/apps"; do
         [ -x "$c/itch_backtest" ] && { bin=$c; break; }
@@ -16,7 +16,7 @@ if [ -z "$bin" ]; then
 fi
 
 die() { echo "lobiq: $*" >&2; exit 1; }
-need() { [ -n "$bin" ] || die "no built tools: run 'cmake --preset native && cmake --build build/native' or set HFT_BIN"; }
+need() { [ -n "$bin" ] || die "no built tools: run 'cmake --preset native && cmake --build build/native' or set LOBIQ_BIN"; }
 store() {  # S121025, 2025-12-10 or a path -> store directory
     local a=$1
     [ -d "$a" ] && { echo "$a"; return; }
@@ -31,7 +31,7 @@ stamp() { date +%Y%m%dT%H%M%S; }
 
 usage() {
     cat <<EOF
-LobIQ (lobiq): low-latency trading toolkit. Data: $data (HFT_DATA). Tools: ${bin:-not built}.
+LobIQ (lobiq): low-latency trading toolkit. Data: $data (LOBIQ_DATA). Tools: ${bin:-not built}.
 
 Nasdaq ITCH days (DAY is S121025, 2025-12-10 or a store path):
   lobiq get DAY...                 download from Nasdaq, verify, build the store
@@ -103,7 +103,7 @@ get)
     need
     for d in "$@"; do
         [[ $d =~ ^([0-9]{4})-([0-9]{2})-([0-9]{2})$ ]] && d="S${BASH_REMATCH[2]}${BASH_REMATCH[3]}${BASH_REMATCH[1]:2:2}"
-        HFT_DATA=$data HFT_INGEST=$bin/ingest HFT_CHECKPOINT=$bin/checkpoint "$root/scripts/ingest_day.sh" "$d-v50.txt.gz"
+        LOBIQ_DATA=$data LOBIQ_INGEST=$bin/ingest LOBIQ_CHECKPOINT=$bin/checkpoint "$root/scripts/ingest_day.sh" "$d-v50.txt.gz"
     done
     ;;
 
@@ -286,12 +286,12 @@ quoters)
 
 demo)
     need
-    HFT_BIN=$bin "$root/scripts/demo/all.sh" "${1:-out}"
+    LOBIQ_BIN=$bin "$root/scripts/demo/all.sh" "${1:-out}"
     ;;
 
 studio)
     command -v python3 >/dev/null || die "lobiq studio needs python3"
-    HFT_BIN=$bin HFT_DATA=$data HFT_REPORTS=$reports exec python3 "$root/studio/server.py" "$@"
+    LOBIQ_BIN=$bin LOBIQ_DATA=$data LOBIQ_REPORTS=$reports exec python3 "$root/studio/server.py" "$@"
     ;;
 
 doctor)

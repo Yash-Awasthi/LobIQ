@@ -8,7 +8,7 @@
 
 #include "pm/rules.hpp"
 
-namespace hft::exec {
+namespace lobiq::exec {
 
 using Px = std::int32_t;   // 1e-4 USD per share, 0..kPxOne
 using Qty = std::int64_t;  // 1e-6 share
@@ -108,4 +108,4 @@ class ClientIds {
     std::uint64_t base_, seq_ = 0;
 };
 
-}  // namespace hft::exec
+}  // namespace lobiq::exec

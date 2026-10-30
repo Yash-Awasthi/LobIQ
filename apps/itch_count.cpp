@@ -21,7 +21,7 @@ constexpr std::size_t kChunk = 1 << 20;
 
 int main(int argc, char**) {
     if (argc > 1) return std::fprintf(stderr, "usage: itch_count < stream\n"), 2;
-    using namespace hft::itch;
+    using namespace lobiq::itch;
     std::array<unsigned long long, 256> counts{};
     unsigned long long bad = 0, frames = 0;
     std::vector<std::uint8_t> buf(kChunk + 2 + 65535);

@@ -12,7 +12,7 @@
 #include "backtest/registry.hpp"
 #include "strategy/features.hpp"
 
-using namespace hft::backtest;
+using namespace lobiq::backtest;
 
 namespace {
 
@@ -37,7 +37,7 @@ struct AlphaModel {
             if (key == "intercept") intercept = v;
             if (key == "half_width") half_width = v;
         }
-        const auto& names = hft::strategy::SymbolFeatures::kNames;
+        const auto& names = lobiq::strategy::SymbolFeatures::kNames;
         if (n != names.size()) throw std::runtime_error("alpha model has " + std::to_string(n) + " features, the backtester " + std::to_string(names.size()));
         for (std::size_t j = 0; j < n; ++j) {
             std::string name;
@@ -65,7 +65,7 @@ struct AlphaMaker {
     double fee_ticks = 0.3, take_margin = 0.2;
 
     void decide(const View& v, Desired& d) {
-        const hft::book::Bbo b = v.book.bbo();
+        const lobiq::book::Bbo b = v.book.bbo();
         if (!b.bid_px || !b.ask_px || b.ask_px <= b.bid_px || !std::isfinite(v.mid)) return;
         const double pred = model.predict(v.features, v.n_features);
         const double half = (static_cast<double>(b.ask_px) - b.bid_px) / (2 * tick);
@@ -86,7 +86,7 @@ struct AlphaMaker {
     }
 };
 
-HFT_STRATEGY("alpha:",
+LOBIQ_STRATEGY("alpha:",
              "linear alpha from itch_alpha: alpha:<SYMBOL.alpha>; keys: size max_inventory shade edge_ticks skew_ticks taking "
              "fee_ticks take_margin",
              [](const Params& p, const RunSpec& r) {

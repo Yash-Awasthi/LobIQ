@@ -4,33 +4,33 @@
 #include "backtest/strategies.hpp"
 #include "book/itch_apply.hpp"
 
-using namespace hft;
-using namespace hft::backtest;
+using namespace lobiq;
+using namespace lobiq::backtest;
 
 namespace {
 
 std::uint32_t size_of(const Params& p) { return static_cast<std::uint32_t>(p.get("size", 100)); }
 std::int64_t max_inv(const Params& p) { return static_cast<std::int64_t>(p.get("max_inventory", 500)); }
 
-HFT_STRATEGY("zero", "never trades (PnL must be exactly zero)", [](const Params&, const RunSpec&) { return Zero{}; });
+LOBIQ_STRATEGY("zero", "never trades (PnL must be exactly zero)", [](const Params&, const RunSpec&) { return Zero{}; });
 
-HFT_STRATEGY("naive", "joins the best bid and ask; keys: size max_inventory",
+LOBIQ_STRATEGY("naive", "joins the best bid and ask; keys: size max_inventory",
              [](const Params& p, const RunSpec&) { return NaiveJoin{size_of(p), max_inv(p)}; });
 
-HFT_STRATEGY("random_taker", "takes on a random side; keys: rate size", [](const Params& p, const RunSpec&) {
+LOBIQ_STRATEGY("random_taker", "takes on a random side; keys: rate size", [](const Params& p, const RunSpec&) {
     RandomTaker s;
     s.rate = p.get("rate", 0.001);
     s.size = size_of(p);
     return s;
 });
 
-HFT_STRATEGY("random_passive", "quotes at random distances; keys: size", [](const Params& p, const RunSpec&) {
+LOBIQ_STRATEGY("random_passive", "quotes at random distances; keys: size", [](const Params& p, const RunSpec&) {
     RandomPassive s;
     s.size = size_of(p);
     return s;
 });
 
-HFT_STRATEGY("perfect_foresight", "sees the future mid (upper bound); keys: horizon_ns cost_ticks size",
+LOBIQ_STRATEGY("perfect_foresight", "sees the future mid (upper bound); keys: horizon_ns cost_ticks size",
              [](const Params& p, const RunSpec& r) {
                  PerfectForesight s;
                  // The mid series is read ahead: this strategy alone may see the future.
@@ -51,7 +51,7 @@ HFT_STRATEGY("perfect_foresight", "sees the future mid (upper bound); keys: hori
                  return s;
              });
 
-HFT_STRATEGY("avellaneda_stoikov",
+LOBIQ_STRATEGY("avellaneda_stoikov",
              "inventory-skewed market maker; keys: gamma A k glft online max_dist_ticks online_tau_s online_prior_s "
              "size max_inventory garch garch_omega garch_alpha garch_beta garch_dt_s",
              [](const Params& p, const RunSpec& r) {
@@ -80,14 +80,14 @@ HFT_STRATEGY("avellaneda_stoikov",
                  return s;
              });
 
-HFT_STRATEGY("dp:", "offline-solved policy table: dp:<policy.bin>", [](const Params& p, const RunSpec& r) {
+LOBIQ_STRATEGY("dp:", "offline-solved policy table: dp:<policy.bin>", [](const Params& p, const RunSpec& r) {
     DpPolicy s;
     s.load(p.arg);
     s.tick = r.config.exchange.tick;
     return s;
 });
 
-HFT_STRATEGY("ext:", "policy table with guards: ext:<policy.bin>; keys: toxicity taking vol_limit take_margin",
+LOBIQ_STRATEGY("ext:", "policy table with guards: ext:<policy.bin>; keys: toxicity taking vol_limit take_margin",
              [](const Params& p, const RunSpec& r) {
                  Extended s;
                  s.dp.load(p.arg);

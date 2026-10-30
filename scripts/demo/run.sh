@@ -4,7 +4,7 @@
 cd "$(dirname "$0")/../.."
 want=$1 fields=$2
 shift 2
-B=${HFT_BIN:-build/native/apps}
+B=${LOBIQ_BIN:-build/native/apps}
 [ -x "$B/pm_exec" ] || B=build/release/apps
 out=$("$B/pm_exec" "$@" 2>&1 >/dev/null)
 line=$(echo "$out" | grep "^exec")

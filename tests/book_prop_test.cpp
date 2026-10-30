@@ -16,7 +16,7 @@
 #include "book/map_book.hpp"
 #include "book/tick_book.hpp"
 
-using namespace hft::book;
+using namespace lobiq::book;
 
 namespace {
 

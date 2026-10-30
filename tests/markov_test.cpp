@@ -2,8 +2,8 @@
 
 #include "strategy/markov.hpp"
 
-using hft::book::Bbo;
-using hft::strategy::MarkovBook;
+using lobiq::book::Bbo;
+using lobiq::strategy::MarkovBook;
 
 namespace {
 

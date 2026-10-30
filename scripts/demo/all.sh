@@ -14,6 +14,6 @@ if command -v python3 >/dev/null; then
   echo "== leaderboard snapshot"
   python3 studio/server.py --snapshot "$out" || fail=1
 fi
-sed "s/@COMMIT@/${HFT_COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo unknown)}/" scripts/demo/index.html > "$out/index.html"
+sed "s/@COMMIT@/${LOBIQ_COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo unknown)}/" scripts/demo/index.html > "$out/index.html"
 echo "reports: $out/index.html"
 exit $fail

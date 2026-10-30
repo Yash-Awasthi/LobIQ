@@ -20,7 +20,7 @@
 
 namespace {
 
-using namespace hft;
+using namespace lobiq;
 
 // "HH:MM:SS" or "HH:MM:SS.fraction" -> nanoseconds since midnight; -1 when malformed.
 std::int64_t parse_time(const char* s) {

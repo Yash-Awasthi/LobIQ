@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-using namespace hft::exec;
+using namespace lobiq::exec;
 using S = OrdState;
 
 namespace {
@@ -22,7 +22,7 @@ struct Rig {
     Exposure exp;
     Risk risk;
     Oms oms{3, risk, exp, ledger};
-    hft::pm::MarketRules rules;
+    lobiq::pm::MarketRules rules;
     MarketView mv;
     std::vector<VenueReq> sent;
     std::uint64_t fill_id = 1;
@@ -299,9 +299,9 @@ TEST(Oms, TimeoutFreezesTheTokenAndAsksForStatus) {
     ASSERT_EQ(g.sent.size(), 1u);
     EXPECT_EQ(g.sent[0].kind, VenueReq::Status);
     EXPECT_TRUE(g.oms.frozen(0));
-    hft::exec::Reject why;
+    lobiq::exec::Reject why;
     EXPECT_EQ(g.oms.submit({0, Side::Buy, Tif::Gtc, false, 0, 4000, 10 * kShare, 0}, g.mv, 7 * kSec, g.sink(), &why), 0u);
-    EXPECT_EQ(why, hft::exec::Reject::Frozen);
+    EXPECT_EQ(why, lobiq::exec::Reject::Frozen);
     g.status(cl, VenueRpt::Live);
     EXPECT_FALSE(g.oms.frozen(0));
 }

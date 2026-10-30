@@ -4,7 +4,7 @@
 
 #include "pm/maker.hpp"
 
-using namespace hft::pm;
+using namespace lobiq::pm;
 
 namespace {
 

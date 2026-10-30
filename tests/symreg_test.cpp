@@ -7,8 +7,8 @@
 #include "core/philox.hpp"
 #include "strategy/symreg.hpp"
 
-using namespace hft;
-using namespace hft::strategy::symreg;
+using namespace lobiq;
+using namespace lobiq::strategy::symreg;
 
 TEST(SymReg, PostfixSubtreesAndText) {
     // (x0 * x1) + tanh(x2) in postfix.

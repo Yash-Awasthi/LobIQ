@@ -4,8 +4,8 @@
 # then scored unchanged on the test days against the same maker without it (lead_bp=1000).
 # Prints Markdown (docs/results/leader-walkforward.md).
 set -euo pipefail
-d=${HFT_DATA:-$HOME/data}
-b=${HFT_BUILD:-$(dirname "$0")/../build/native}
+d=${LOBIQ_DATA:-$HOME/data}
+b=${LOBIQ_BUILD:-$(dirname "$0")/../build/native}
 pairs=${PAIRS:-TQQQ:QQQ SQQQ:QQQ:-1 QQQM:QQQ IVV:SPY VOO:SPY UPRO:SPY TNA:IWM NVDL:NVDA TSLL:TSLA SOXL:SMH GOOG:GOOGL FBTC:IBIT}
 train=(S120825 S120925)
 read -ra test <<< "${TEST:-S121025 S121125 S121225 S061226}"

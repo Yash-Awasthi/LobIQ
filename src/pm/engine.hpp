@@ -20,7 +20,7 @@
 #include "pm/maker.hpp"
 #include "pm/msg.hpp"
 
-namespace hft::pm {
+namespace lobiq::pm {
 
 struct EngineParams {
     MakerParams maker;
@@ -570,4 +570,4 @@ class Engine {
     bool halted_ = false;
 };
 
-}  // namespace hft::pm
+}  // namespace lobiq::pm

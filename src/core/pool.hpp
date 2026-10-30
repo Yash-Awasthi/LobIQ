@@ -17,7 +17,7 @@
 #define MADV_POPULATE_WRITE 23
 #endif
 
-namespace hft {
+namespace lobiq {
 
 struct PoolStats {
     static inline bool huge_pages = true;
@@ -161,4 +161,4 @@ class Pool {
     bool split_ = false;  // first 2 MB is a separate 4 KB-page VMA
 };
 
-}  // namespace hft
+}  // namespace lobiq

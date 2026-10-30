@@ -14,13 +14,13 @@ Ctrl-C or SIGTERM):
     scripts/pm_supervise.sh ~/data/pm --cap-gb 50 --per-tag 8
     scripts/pm_live_supervise.sh ~/data/pm-live --record-cap-gb 20 --port 8088 --seconds 21600
 
-On GitHub, CI builds and tests every pull request; on main it also publishes the container image
+On GitHub, CI builds and tests every pull request; on master it also publishes the container image
 (`ghcr.io/yash-awasthi/lobiq`) and the demo reports (https://yash-awasthi.github.io/LobIQ/); a `v*`
 tag publishes a release with Linux binaries.
 
 ## Verification (2026-10-22, CI, main after lobiq studio and the risk statistics)
 
-GitHub Actions on every pull request and on main: 348 tests under GCC and Clang in the debug,
+GitHub Actions on every pull request and on master: 348 tests under GCC and Clang in the debug,
 release, ASan, UBSan and TSan presets (344 under the sanitizers), including `Studio.EndToEnd` with
 the built tools; perf gate, security gates, FPGA simulation, fuzzers 60 s each; the container image
 builds, runs the demos with their pinned totals and writes the studio snapshot. Not re-run on bare

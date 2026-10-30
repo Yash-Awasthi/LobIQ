@@ -12,7 +12,7 @@
 
 #include "core/optimize.hpp"
 
-namespace hft::options {
+namespace lobiq::options {
 
 struct Svi {
     double a = 0, b = 0, rho = 0, m = 0, s = 0.1;
@@ -111,4 +111,4 @@ struct Surface {
     }
 };
 
-}  // namespace hft::options
+}  // namespace lobiq::options

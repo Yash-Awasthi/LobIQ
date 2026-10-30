@@ -12,7 +12,7 @@
 #include "book/order_store.hpp"
 #include "core/pool.hpp"
 
-namespace hft::book {
+namespace lobiq::book {
 
 template <class Level>
 class LevelRadix {
@@ -294,4 +294,4 @@ class LevelRadix {
     std::size_t count_;
 };
 
-}  // namespace hft::book
+}  // namespace lobiq::book

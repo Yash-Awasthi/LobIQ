@@ -14,7 +14,7 @@
 
 #include "data/store.hpp"
 
-namespace hft::app {
+namespace lobiq::app {
 
 inline std::vector<std::string> split_list(const std::string& v) {
     std::vector<std::string> out;
@@ -79,4 +79,4 @@ inline Universe universe(const std::vector<std::filesystem::path>& days, const s
     return u;
 }
 
-}  // namespace hft::app
+}  // namespace lobiq::app

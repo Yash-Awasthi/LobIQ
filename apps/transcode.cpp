@@ -16,7 +16,7 @@
 namespace fs = std::filesystem;
 
 int main(int argc, char** argv) {
-    using hft::data::Codec;
+    using lobiq::data::Codec;
     Codec codec = Codec::Lz4;
     std::vector<const char*> args;
     for (int i = 1; i < argc; ++i) {
@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
     std::sort(locates.begin(), locates.end());
 
     std::atomic<std::uint64_t> bytes{0};
-    hft::parallel_for(locates.size(), [&](std::size_t i) { bytes += hft::data::transcode_symbol(src, dst, locates[i], codec); });
+    lobiq::parallel_for(locates.size(), [&](std::size_t i) { bytes += lobiq::data::transcode_symbol(src, dst, locates[i], codec); });
     std::printf("symbols %zu\ncompressed_bytes %llu\n", locates.size(),
                 static_cast<unsigned long long>(bytes.load()));
     return 0;

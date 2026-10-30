@@ -7,8 +7,8 @@
 #include "backtest/overfit.hpp"
 #include "core/philox.hpp"
 
-using namespace hft;
-using namespace hft::backtest;
+using namespace lobiq;
+using namespace lobiq::backtest;
 
 namespace {
 

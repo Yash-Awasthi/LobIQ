@@ -21,7 +21,7 @@
 #include "feed/itch.hpp"
 #include "core/parallel.hpp"
 
-using namespace hft;
+using namespace lobiq;
 
 namespace {
 
@@ -103,7 +103,7 @@ int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, c
     std::string error;
     std::mutex error_lock;
     std::vector<backtest::Config> configs(runs.size());
-    hft::parallel_for(runs.size(), [&](std::size_t i) {
+    lobiq::parallel_for(runs.size(), [&](std::size_t i) {
         {
             backtest::Params q = p;
             for (const auto& [k, v] : runs[i].params) q.kv[k] = v;
@@ -153,7 +153,7 @@ int sweep(const backtest::StrategyEntry& entry, const backtest::RunSpec& base, c
         trials.push_back(st);
     }
     if (!report_dir.empty())
-        hft::parallel_for(runs.size(), [&](std::size_t i) {
+        lobiq::parallel_for(runs.size(), [&](std::size_t i) {
             try {
                 backtest::write_report(report_dir + "/" + runs[i].label(), runs[i].symbol.empty() ? symbols[0].first : runs[i].symbol,
                                        strategy, configs[i], runs[i].summary, runs[i].risk);

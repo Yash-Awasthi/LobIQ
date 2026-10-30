@@ -7,7 +7,7 @@
 
 #include "book/types.hpp"
 
-namespace hft::strategy {
+namespace lobiq::strategy {
 
 enum class EventKind : std::uint8_t {
     Add,
@@ -34,4 +34,4 @@ struct MarketEvent {
     std::uint64_t paired = 0;
 };
 
-}  // namespace hft::strategy
+}  // namespace lobiq::strategy

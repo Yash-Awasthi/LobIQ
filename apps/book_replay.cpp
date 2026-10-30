@@ -23,7 +23,7 @@
 
 namespace {
 
-using namespace hft;
+using namespace lobiq;
 
 // Order-sensitive digest of the BBO stream, a word at a time: byte-wise FNV was a fifth of the
 // replay's instructions (one dependent multiply per byte).
@@ -191,7 +191,7 @@ int main(int argc, char** argv) {
 
     // Symbols are independent, so they replay on a pool; rows still print in locate order.
     std::vector<Result> results(locates.size());
-    hft::parallel_for(locates.size(), [&](std::size_t i) { results[i] = run_one(locates[i]); });
+    lobiq::parallel_for(locates.size(), [&](std::size_t i) { results[i] = run_one(locates[i]); });
 
     int rc = 0;
     for (std::size_t i = 0; i < locates.size(); ++i) {

@@ -6,7 +6,7 @@
 #include <array>
 #include <cstdint>
 
-namespace hft::rng {
+namespace lobiq::rng {
 
 using Ctr = std::array<std::uint32_t, 4>;
 using Key = std::array<std::uint32_t, 2>;
@@ -46,4 +46,4 @@ class Stream {
     std::uint32_t pair_, rollout_;
 };
 
-}  // namespace hft::rng
+}  // namespace lobiq::rng

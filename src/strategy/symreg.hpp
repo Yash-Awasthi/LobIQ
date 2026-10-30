@@ -19,7 +19,7 @@
 
 #include "core/philox.hpp"
 
-namespace hft::strategy::symreg {
+namespace lobiq::strategy::symreg {
 
 enum class Op : std::uint8_t { Var, Const, Add, Sub, Mul, Div, Neg, Tanh };
 
@@ -234,4 +234,4 @@ inline std::string to_string(const Program& p, const std::vector<std::string>& n
     return st.empty() ? "" : st.back();
 }
 
-}  // namespace hft::strategy::symreg
+}  // namespace lobiq::strategy::symreg

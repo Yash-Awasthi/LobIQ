@@ -14,7 +14,7 @@
 #include "net/tape.hpp"
 #include "pm/book.hpp"
 
-namespace hft::pm {
+namespace lobiq::pm {
 
 // Leading decimal number of `s`, 0 if there is none (strtod without its exotic forms).
 inline double parse_size(std::string_view s) {
@@ -722,4 +722,4 @@ class TokenIndex {
     std::size_t mask_ = 0;
 };
 
-}  // namespace hft::pm
+}  // namespace lobiq::pm

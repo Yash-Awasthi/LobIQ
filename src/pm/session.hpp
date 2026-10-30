@@ -23,7 +23,7 @@
 #include "pm/gamma.hpp"
 #include "pm/reader.hpp"
 
-namespace hft::pm {
+namespace lobiq::pm {
 
 // Tokens, their connections and labels, and the arbitrage groups; written next to a
 // recording so a replay sets the engine up the same way.
@@ -188,4 +188,4 @@ class Recorder {
     std::thread thread_;
 };
 
-}  // namespace hft::pm
+}  // namespace lobiq::pm

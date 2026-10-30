@@ -36,7 +36,7 @@
 
 namespace {
 
-using namespace hft;
+using namespace lobiq;
 
 std::vector<std::uint16_t> busiest(const std::filesystem::path& dir, std::size_t n) {
     std::vector<std::pair<std::uint64_t, std::uint16_t>> v;
@@ -226,7 +226,7 @@ inline void warm(const std::vector<std::unique_ptr<Book>>& books, const std::vec
 template <class Book>
 void book_variant(const char* name, const std::vector<Event>& ev,
                   const std::vector<std::size_t>& cap, int reps, double tpn, std::uint64_t ovh) {
-    hft::Histogram h;
+    lobiq::Histogram h;
     for (int r = 0; r <= reps; ++r) {
         auto books = make_books<Book>(cap);
         std::uint64_t errors = 0;
@@ -340,7 +340,7 @@ void replay_run(const std::filesystem::path& dir, const std::vector<std::uint16_
         std::vector<std::unique_ptr<Tick>> books;
         std::vector<book::ItchApply<Tick>> ap;
         for (std::size_t i = 0; i < locs.size(); ++i)
-            books.push_back(std::make_unique<Tick>(std::getenv("HFT_BIGPOOL") ? (1 << 18) : (1 << 16)));
+            books.push_back(std::make_unique<Tick>(std::getenv("LOBIQ_BIGPOOL") ? (1 << 18) : (1 << 16)));
         for (auto& b : books) ap.push_back({*b});
         data::MergedReader rd(dir, locs, 64, threads);
         data::Record rec{};
@@ -432,7 +432,7 @@ void replay_sym(const std::filesystem::path& dir, const std::vector<std::uint16_
 
 void replay(const std::filesystem::path& dir, const std::vector<std::uint16_t>& locs, int reps,
             unsigned threads) {
-    const char* e = std::getenv("HFT_LOOKAHEAD");
+    const char* e = std::getenv("LOBIQ_LOOKAHEAD");
     switch (e ? std::atoi(e) : 0) {
         case 4: return replay_run<4>(dir, locs, reps, threads);
         case 8: return replay_run<8>(dir, locs, reps, threads);

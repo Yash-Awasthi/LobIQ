@@ -11,7 +11,7 @@
 #include "backtest/registry.hpp"
 #include "strategy/conformal.hpp"
 
-using namespace hft::backtest;
+using namespace lobiq::backtest;
 
 namespace {
 
@@ -22,7 +22,7 @@ struct ConformalMaker {
     double horizon_s = 1, sample_s = 0.1;
     double min_edge_ticks = 0.5, skew_ticks = 0.5;
     std::size_t warmup = 100;
-    hft::strategy::conformal::Adaptive aci;
+    lobiq::strategy::conformal::Adaptive aci;
 
     struct Pending {
         std::uint64_t ts;
@@ -34,7 +34,7 @@ struct ConformalMaker {
     std::uint64_t next_sample = 0, horizon_ns = 1'000'000'000, sample_ns = 100'000'000;
 
     void decide(const View& v, Desired& d) {
-        const hft::book::Bbo b = v.book.bbo();
+        const lobiq::book::Bbo b = v.book.bbo();
         if (!b.bid_px || !b.ask_px || b.ask_px <= b.bid_px || !std::isfinite(v.mid)) return;
         const double bq = static_cast<double>(b.bid_qty), aq = static_cast<double>(b.ask_qty);
         const double micro = (static_cast<double>(b.bid_px) * aq + static_cast<double>(b.ask_px) * bq) / (bq + aq) / tick;
@@ -61,7 +61,7 @@ struct ConformalMaker {
     }
 };
 
-HFT_STRATEGY("conformal",
+LOBIQ_STRATEGY("conformal",
              "quotes the micro-price +/- an adaptive conformal interval of the mid horizon_s ahead; "
              "keys: size max_inventory alpha gamma window horizon_s sample_s min_edge_ticks skew_ticks warmup",
              [](const Params& p, const RunSpec& r) {
@@ -78,7 +78,7 @@ HFT_STRATEGY("conformal",
                  s.min_edge_ticks = p.get("min_edge_ticks", 0.5);
                  s.skew_ticks = p.get("skew_ticks", 0.5);
                  s.warmup = static_cast<std::size_t>(p.get("warmup", 100));
-                 s.aci = hft::strategy::conformal::Adaptive(p.get("alpha", 0.2), p.get("gamma", 0.005),
+                 s.aci = lobiq::strategy::conformal::Adaptive(p.get("alpha", 0.2), p.get("gamma", 0.005),
                                                             static_cast<std::size_t>(p.get("window", 500)));
                  return s;
              });

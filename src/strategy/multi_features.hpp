@@ -15,7 +15,7 @@
 #include "strategy/features.hpp"
 #include "strategy/market_feed.hpp"
 
-namespace hft::strategy {
+namespace lobiq::strategy {
 
 class MultiFeatures {
    public:
@@ -97,4 +97,4 @@ class MultiFeatures {
     MarketEvent last_;
 };
 
-}  // namespace hft::strategy
+}  // namespace lobiq::strategy

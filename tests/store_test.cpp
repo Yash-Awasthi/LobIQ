@@ -9,7 +9,7 @@
 
 #include "temp_dir.hpp"
 
-using namespace hft::data;
+using namespace lobiq::data;
 
 namespace {
 

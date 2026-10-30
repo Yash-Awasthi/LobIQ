@@ -14,7 +14,7 @@
 #include "engine/matching.hpp"
 #include "feed/itch.hpp"
 
-namespace hft::engine {
+namespace lobiq::engine {
 
 // Queue: fill by queue priority, displayed before hidden at the same price. TradeThrough: fill only
 // when a trade prints strictly beyond our price (the conservative bound).
@@ -329,4 +329,4 @@ class ReplayExchange {
     std::uint64_t next_match_ = 0;
 };
 
-}  // namespace hft::engine
+}  // namespace lobiq::engine

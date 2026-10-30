@@ -5,7 +5,7 @@
 
 #include <string_view>
 
-namespace hft::pm {
+namespace lobiq::pm {
 
 inline constexpr std::string_view kDashboard = R"HTML(<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -76,9 +76,9 @@ async function tick(){try{const m=await (await fetch('/metrics.json',{cache:'no-
   m.tokens.map(t=>[esc(t.label),px(t.best_bid),px(t.best_ask),px(t.bid),px(t.ask),t.inv,t.pnl,t.quotes,t.on?'yes':'no']));
 }catch(e){document.getElementById('status').textContent='no data: '+e}}
 document.getElementById('kill').onclick=async()=>{if(!confirm('Cancel every paper order and stop quoting?'))return;
- const r=await fetch('/kill',{method:'POST',headers:{'X-Hft-Kill':'1'}});document.getElementById('kill').textContent=r.ok?'Killed':'Kill failed'};
+ const r=await fetch('/kill',{method:'POST',headers:{'X-Lobiq-Kill':'1'}});document.getElementById('kill').textContent=r.ok?'Killed':'Kill failed'};
 setInterval(tick,1000);tick();
 </script></body></html>
 )HTML";
 
-}  // namespace hft::pm
+}  // namespace lobiq::pm

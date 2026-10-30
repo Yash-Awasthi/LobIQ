@@ -3,7 +3,7 @@
 #include "strategy/microstructure.hpp"
 #include "strategy/mlofi.hpp"
 
-using namespace hft;
+using namespace lobiq;
 namespace ml = strategy::mlofi;
 
 namespace {

@@ -5,9 +5,18 @@ on:
     branches: [master]
   pull_request:
 
+permissions:
+  contents: read
+
+# A newer push to the same pull request supersedes the older run; master runs always finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -16,7 +25,12 @@ jobs:
     env:
       CXX: ${{ matrix.cxx }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/vcpkg/archives
+          key: vcpkg-${{ runner.os }}-${{ matrix.cxx }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-${{ runner.os }}-${{ matrix.cxx }}-
       - run: |
           echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
           sudo git -C "$VCPKG_INSTALLATION_ROOT" fetch origin master
@@ -26,13 +40,13 @@ jobs:
       - run: cmake --build build/${{ matrix.preset }}
       - run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure
       - if: matrix.preset == 'release'
-        run: build/release/bench/hft_bench --benchmark_min_time=0.01s
+        run: build/release/bench/lobiq_bench --benchmark_min_time=0.01s
       - if: matrix.preset == 'release'
         run: scripts/check_cli.sh build/release/apps
       - if: matrix.preset == 'release'
         run: scripts/demo/backtest.sh
       - if: matrix.preset == 'release'
-        run: HFT_BIN=build/release/apps scripts/demo/paper.sh
+        run: LOBIQ_BIN=build/release/apps scripts/demo/paper.sh
       - if: matrix.preset == 'release'
         name: strategy templates build and run
         run: |
@@ -43,10 +57,16 @@ jobs:
 
   perf-gate:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/vcpkg/archives
+          key: vcpkg-${{ runner.os }}-perf-gate-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-${{ runner.os }}-perf-gate-
       - run: |
           echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
           sudo git -C "$VCPKG_INSTALLATION_ROOT" fetch origin master
@@ -64,14 +84,16 @@ jobs:
 
   gates:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: scripts/security_gates.sh
 
   fpga:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo apt-get install -y verilator
       - run: cmake -S fpga -B build/fpga -DCMAKE_BUILD_TYPE=Release
       - run: cmake --build build/fpga
@@ -79,8 +101,14 @@ jobs:
 
   fuzz:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/vcpkg/archives
+          key: vcpkg-${{ runner.os }}-fuzz-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-${{ runner.os }}-fuzz-
       - run: |
           echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
           sudo git -C "$VCPKG_INSTALLATION_ROOT" fetch origin master

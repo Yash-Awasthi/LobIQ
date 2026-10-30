@@ -4,7 +4,7 @@
 
 #include "strategy/realism.hpp"
 
-namespace rl = hft::strategy::realism;
+namespace rl = lobiq::strategy::realism;
 
 namespace {
 

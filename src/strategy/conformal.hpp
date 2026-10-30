@@ -11,7 +11,7 @@
 #include <limits>
 #include <vector>
 
-namespace hft::strategy::conformal {
+namespace lobiq::strategy::conformal {
 
 // The ceil((n + 1)(1 - alpha))-th smallest score: |y - prediction| is then within it with
 // probability at least 1 - alpha for a new exchangeable point. Infinite when n is too small.
@@ -73,4 +73,4 @@ class Adaptive {
     std::size_t n_ = 0;
 };
 
-}  // namespace hft::strategy::conformal
+}  // namespace lobiq::strategy::conformal

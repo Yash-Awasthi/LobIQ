@@ -18,7 +18,7 @@
 #include "book/types.hpp"
 #include "core/pool.hpp"
 
-namespace hft::book {
+namespace lobiq::book {
 
 class TickBook {
    public:
@@ -720,4 +720,4 @@ class TickBook {
     Level win_[2][kLevels];
 };
 
-}  // namespace hft::book
+}  // namespace lobiq::book

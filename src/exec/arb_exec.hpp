@@ -12,7 +12,7 @@
 #include "exec/types.hpp"
 #include "pm/book.hpp"
 
-namespace hft::exec {
+namespace lobiq::exec {
 
 struct ArbParams {
     bool on = false;
@@ -549,4 +549,4 @@ class ArbExec {
     ArbStats stats_;
 };
 
-}  // namespace hft::exec
+}  // namespace lobiq::exec

@@ -1,7 +1,7 @@
 #pragma once
 
 // Strategies by name for itch_backtest. A strategy is any type with `void decide(const View&,
-// Desired&)`; HFT_STRATEGY registers a factory for it from a .cpp under strategies/ (docs/STRATEGIES.md).
+// Desired&)`; LOBIQ_STRATEGY registers a factory for it from a .cpp under strategies/ (docs/STRATEGIES.md).
 
 #include <cstdint>
 #include <functional>
@@ -11,7 +11,7 @@
 
 #include "backtest/backtest.hpp"
 
-namespace hft::backtest {
+namespace lobiq::backtest {
 
 // key=value arguments from the command line; `arg` is the text after "name:" ("dp:policy.bin").
 struct Params {
@@ -69,10 +69,10 @@ struct RegisterStrategy {
     }
 };
 
-}  // namespace hft::backtest
+}  // namespace lobiq::backtest
 
-#define HFT_STRATEGY_CAT2(a, b) a##b
-#define HFT_STRATEGY_CAT(a, b) HFT_STRATEGY_CAT2(a, b)
-// HFT_STRATEGY("name", "one-line help", [](const Params& p, const RunSpec& r) { return MyStrategy{...}; });
-#define HFT_STRATEGY(name, help, ...) \
-    static const ::hft::backtest::RegisterStrategy HFT_STRATEGY_CAT(hft_strategy_, __COUNTER__)(name, help, __VA_ARGS__)
+#define LOBIQ_STRATEGY_CAT2(a, b) a##b
+#define LOBIQ_STRATEGY_CAT(a, b) LOBIQ_STRATEGY_CAT2(a, b)
+// LOBIQ_STRATEGY("name", "one-line help", [](const Params& p, const RunSpec& r) { return MyStrategy{...}; });
+#define LOBIQ_STRATEGY(name, help, ...) \
+    static const ::lobiq::backtest::RegisterStrategy LOBIQ_STRATEGY_CAT(lobiq_strategy_, __COUNTER__)(name, help, __VA_ARGS__)

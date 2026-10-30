@@ -16,8 +16,8 @@
 #include "sources/random_flow.hpp"
 #include "strategy/market_feed.hpp"
 
-using namespace hft;
-using namespace hft::strategy;
+using namespace lobiq;
+using namespace lobiq::strategy;
 
 namespace {
 

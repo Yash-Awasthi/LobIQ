@@ -7,7 +7,7 @@
 #include <random>
 #include <vector>
 
-using hft::Histogram;
+using lobiq::Histogram;
 
 TEST(Histogram, BucketsTileTheRange) {
     for (std::size_t i = 1; i < (64 - Histogram::S + 2) * Histogram::kHalf; ++i) {

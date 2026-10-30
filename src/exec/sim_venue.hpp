@@ -13,7 +13,7 @@
 #include "exec/types.hpp"
 #include "pm/book.hpp"
 
-namespace hft::exec {
+namespace lobiq::exec {
 
 struct SimConfig {
     Ns lat_in = 0, lat_out = 0;  // one-way order entry and report latency
@@ -455,4 +455,4 @@ class SimVenue {
     SimStats stats_;
 };
 
-}  // namespace hft::exec
+}  // namespace lobiq::exec

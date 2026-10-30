@@ -6,8 +6,8 @@
 #include <tuple>
 #include <vector>
 
-using namespace hft::strategy::micro;
-using hft::book::Bbo;
+using namespace lobiq::strategy::micro;
+using lobiq::book::Bbo;
 
 Bbo quote(std::uint32_t bid, std::uint32_t bq, std::uint32_t ask, std::uint32_t aq) {
     Bbo b;
@@ -80,7 +80,7 @@ TEST(Ols, RecoversALineAndScoresOutOfSample) {
 
 // Lead-lag: B's first move strictly after each A move, within the horizon, sign-adjusted.
 TEST(LeadLag, AnswersAreTheFollowersNextMoveWithinTheHorizon) {
-    using hft::strategy::micro::Move;
+    using lobiq::strategy::micro::Move;
     const std::vector<Move> a = {{100, +1}, {10'000, -1}, {20'000, +1}, {5'000'000'000, +1}};
     const std::vector<Move> b = {{50, -1}, {100, -1}, {600, +1}, {15'000, -1}, {2'000'000'000, -1}};
     const auto r = lead_response(a, b, +1);

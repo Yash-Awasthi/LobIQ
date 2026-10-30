@@ -22,7 +22,7 @@
 
 namespace {
 
-using namespace hft;
+using namespace lobiq;
 namespace rl = strategy::realism;
 
 constexpr std::uint64_t kNsPerS = 1'000'000'000ull;

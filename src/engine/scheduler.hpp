@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace hft::engine {
+namespace lobiq::engine {
 
 // Declaration order is the tie-break at equal time.
 enum class Kind : std::uint8_t { Market, MarketData, OrderArrival, Report };
@@ -73,4 +73,4 @@ class EventQueue {
     std::uint64_t counter_ = 0;
 };
 
-}  // namespace hft::engine
+}  // namespace lobiq::engine

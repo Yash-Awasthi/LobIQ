@@ -21,7 +21,7 @@
 #include "book/tick_book.hpp"
 #include "feed/itch.hpp"
 
-namespace hft::surveil {
+namespace lobiq::surveil {
 
 struct Params {
     double size_multiple = 10;           // order (or layer) size against the typical best-level depth
@@ -272,4 +272,4 @@ class Detector {
     std::vector<Stuffing> stuffing_;
 };
 
-}  // namespace hft::surveil
+}  // namespace lobiq::surveil

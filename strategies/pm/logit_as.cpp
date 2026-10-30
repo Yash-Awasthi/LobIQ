@@ -7,9 +7,9 @@
 
 namespace {
 
-struct LogitAs final : hft::pm::Quoter {
-    hft::pm::Quote quote(const hft::pm::QuoteInput& in) override {
-        const hft::pm::MakerParams& p = in.params;
+struct LogitAs final : lobiq::pm::Quoter {
+    lobiq::pm::Quote quote(const lobiq::pm::QuoteInput& in) override {
+        const lobiq::pm::MakerParams& p = in.params;
         const double q = in.inventory / p.size;
         const double risk = p.gamma * in.variance * p.horizon_s;
         const double r = std::log(in.mid / (1 - in.mid)) - q * risk;
@@ -20,6 +20,6 @@ struct LogitAs final : hft::pm::Quoter {
     }
 };
 
-HFT_QUOTER("logit_as", "Avellaneda-Stoikov in logit units (the default); keys: gamma k horizon_s", [] { return new LogitAs; });
+LOBIQ_QUOTER("logit_as", "Avellaneda-Stoikov in logit units (the default); keys: gamma k horizon_s", [] { return new LogitAs; });
 
 }  // namespace

@@ -6,7 +6,7 @@
 
 #include <string>
 
-using hft::surveil::Detector;
+using lobiq::surveil::Detector;
 
 namespace {
 

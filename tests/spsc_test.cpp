@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <thread>
 
-using hft::SpscRing;
+using lobiq::SpscRing;
 
 TEST(Spsc, FullAndEmptyAtCapacity) {
     SpscRing<int, 4> r;
@@ -40,7 +40,7 @@ TEST(Spsc, TransfersInOrderAcrossThreads) {
 #include <random>
 #include <string>
 
-using hft::SpscBytes;
+using lobiq::SpscBytes;
 
 namespace {
 
@@ -101,7 +101,7 @@ TEST(SpscBytes, TransfersInOrderAcrossThreads) {
 #include "core/doorbell.hpp"
 
 TEST(Doorbell, WakesASleepingConsumerAndTimesOut) {
-    hft::Doorbell bell;
+    lobiq::Doorbell bell;
     auto t0 = std::chrono::steady_clock::now();
     bell.wait(bell.snapshot(), 20'000);  // nobody rings: returns after the timeout
     EXPECT_GE(std::chrono::steady_clock::now() - t0, std::chrono::milliseconds(15));

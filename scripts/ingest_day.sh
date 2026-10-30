@@ -1,13 +1,13 @@
 #!/bin/bash
 # Downloads one Nasdaq ITCH day (e.g. S121225-v50.txt.gz), verifies CRC and SHA-256, ingests it.
-# Env: HFT_DATA (~/data), HFT_INGEST, HFT_CHECKPOINT, KEEP_GZ=1 keeps the download.
+# Env: LOBIQ_DATA (~/data), LOBIQ_INGEST, LOBIQ_CHECKPOINT, KEEP_GZ=1 keeps the download.
 set -euo pipefail
 
 name=${1:?usage: ingest_day.sh <remote-file-name>}
-base=${HFT_BASE:-"https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH"}
-data=${HFT_DATA:-$HOME/data}
-ingest=${HFT_INGEST:-$(dirname "$0")/../build/release/apps/ingest}
-checkpoint=${HFT_CHECKPOINT:-$(dirname "$0")/../build/release/apps/checkpoint}
+base=${LOBIQ_BASE:-"https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH"}
+data=${LOBIQ_DATA:-$HOME/data}
+ingest=${LOBIQ_INGEST:-$(dirname "$0")/../build/release/apps/ingest}
+checkpoint=${LOBIQ_CHECKPOINT:-$(dirname "$0")/../build/release/apps/checkpoint}
 gz="$data/$name"
 store="$data/store-${name%%.*}"
 

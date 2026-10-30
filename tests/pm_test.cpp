@@ -6,7 +6,7 @@
 
 #include "ref_pm_book.hpp"
 
-using namespace hft::pm;
+using namespace lobiq::pm;
 
 TEST(PmBook, ParsesPrices) {
     EXPECT_EQ(parse_price("0.366"), 3660);
@@ -87,15 +87,15 @@ TEST(PmBook, IgnoresPricesOffTheGrid) {
 
 namespace {
 
-hft::pm::MakerParams params() {
-    hft::pm::MakerParams p;
+lobiq::pm::MakerParams params() {
+    lobiq::pm::MakerParams p;
     p.warmup_s = 0;
     p.requote_s = 0;
     return p;
 }
 
 // Bids 0.49 (500 shares) and 0.48, asks 0.51 (500) and 0.52.
-void seed(hft::pm::TokenMaker& m) {
+void seed(lobiq::pm::TokenMaker& m) {
     m.book.set(true, 4900, 500);
     m.book.set(true, 4800, 500);
     m.book.set(false, 5100, 500);
@@ -106,7 +106,7 @@ void seed(hft::pm::TokenMaker& m) {
 }  // namespace
 
 TEST(PmMaker, QuotesStayInsideTheSpreadAndNeverCross) {
-    hft::pm::TokenMaker m(params());
+    lobiq::pm::TokenMaker m(params());
     seed(m);
     ASSERT_GE(m.bid_px(), 0);
     ASSERT_GE(m.ask_px(), 0);
@@ -116,7 +116,7 @@ TEST(PmMaker, QuotesStayInsideTheSpreadAndNeverCross) {
 }
 
 TEST(PmMaker, TradeThroughFillsTheWholeOrder) {
-    hft::pm::TokenMaker m(params());
+    lobiq::pm::TokenMaker m(params());
     seed(m);
     const std::int32_t b = m.bid_px();
     m.on_trade(2'000'000'000, /*taker_buy=*/false, b - 100, 1);
@@ -128,7 +128,7 @@ TEST(PmMaker, TradeThroughFillsTheWholeOrder) {
 TEST(PmMaker, TradeAtOurPriceFillsOnlyAfterTheQueueAhead) {
     auto p = params();
     p.k = 1e6;  // negligible base spread, so the bid joins the best
-    hft::pm::TokenMaker m(p);
+    lobiq::pm::TokenMaker m(p);
     seed(m);
     ASSERT_EQ(m.bid_px(), 4900);  // joins the best bid, behind its 500 shares
     m.on_trade(2'000'000'000, false, 4900, 300);
@@ -141,7 +141,7 @@ TEST(PmMaker, TradeAtOurPriceFillsOnlyAfterTheQueueAhead) {
 TEST(PmMaker, SnapshotCancelsQuotesAndWarmupDelaysThem) {
     auto p = params();
     p.warmup_s = 10;
-    hft::pm::TokenMaker m(p);
+    lobiq::pm::TokenMaker m(p);
     seed(m);
     EXPECT_LT(m.bid_px(), 0);  // still warming up
     m.on_trade(20'000'000'000, true, 5100, 1);

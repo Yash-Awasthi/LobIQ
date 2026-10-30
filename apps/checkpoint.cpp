@@ -25,7 +25,7 @@
 
 namespace {
 
-using namespace hft;
+using namespace lobiq;
 using Book = book::TickBook;
 
 // Replays `n` records (all when n == 0) and returns the number applied.
@@ -108,7 +108,7 @@ std::uint64_t verify(const std::filesystem::path& dir, std::uint16_t loc) {
 int main(int argc, char** argv) {
     constexpr const char* usage = "usage: checkpoint <store-dir> [--verify] [locate ...]";
     if (argc < 2) return std::fprintf(stderr, "%s\n", usage), 2;
-    if (!hft::app::known_options(argc, argv, {"--verify"}, usage) || !hft::app::is_dir(argv[1], usage)) return 2;
+    if (!lobiq::app::known_options(argc, argv, {"--verify"}, usage) || !lobiq::app::is_dir(argv[1], usage)) return 2;
     const std::filesystem::path dir = argv[1];
     int i = 2;
     const bool check = argc > 2 && std::strcmp(argv[2], "--verify") == 0;
@@ -127,7 +127,7 @@ int main(int argc, char** argv) {
     // Symbols have their own files and books, so they run on a pool (THREADS, default all
     // hardware threads); the report is still in locate order.
     std::vector<std::uint64_t> counts(locates.size());
-    hft::parallel_for(locates.size(), [&](std::size_t k) { counts[k] = check ? verify(dir, locates[k]) : write(dir, locates[k], every); });
+    lobiq::parallel_for(locates.size(), [&](std::size_t k) { counts[k] = check ? verify(dir, locates[k]) : write(dir, locates[k], every); });
 
     std::uint64_t total = 0, bad = 0;
     for (std::size_t k = 0; k < locates.size(); ++k) {

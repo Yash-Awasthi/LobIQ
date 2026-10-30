@@ -9,7 +9,7 @@
 
 #include "net/json.hpp"
 
-using namespace hft::net;
+using namespace lobiq::net;
 
 namespace {
 

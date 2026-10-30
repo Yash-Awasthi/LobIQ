@@ -8,8 +8,8 @@
 #include "core/philox.hpp"
 #include "strategy/garch.hpp"
 
-using namespace hft;
-using namespace hft::strategy::vol;
+using namespace lobiq;
+using namespace lobiq::strategy::vol;
 
 namespace {
 

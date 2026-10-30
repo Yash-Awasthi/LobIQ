@@ -25,7 +25,7 @@
 
 namespace {
 
-using namespace hft;
+using namespace lobiq;
 namespace lb = data::lobster;
 
 constexpr std::uint64_t kNsPerMin = 60'000'000'000ull, kEnd = 16 * 60 * kNsPerMin;
@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
     std::vector<std::uint64_t> counts(syms.size());
     std::string error;
     std::mutex error_lock;
-    hft::parallel_for(syms.size(), [&](std::size_t i) {
+    lobiq::parallel_for(syms.size(), [&](std::size_t i) {
         try {
             counts[i] = write_symbol(dir, names.at(syms[i]), (out / (syms[i] + "_" + window)).string(), levels, start);
         } catch (const std::exception& e) {

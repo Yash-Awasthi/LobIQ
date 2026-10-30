@@ -4,7 +4,7 @@
 
 #include "core/philox.hpp"
 
-using namespace hft::backtest;
+using namespace lobiq::backtest;
 
 TEST(Accounting, KnownAnswerRoundTrip) {
     Accounting a;
@@ -35,7 +35,7 @@ TEST(Accounting, AdverseSelectionResolvesOneSecondAfterEachFill) {
 }
 
 TEST(Accounting, IdentityHoldsOnRandomFillsAndMoves) {
-    const hft::rng::Stream g(9, 0, 0);
+    const lobiq::rng::Stream g(9, 0, 0);
     Accounting a;
     std::uint32_t bid = 50'0000;
     for (std::uint32_t i = 0; i < 20000; ++i) {

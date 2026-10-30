@@ -16,7 +16,7 @@
 #include "net/tls.hpp"
 #include "pm/rules.hpp"
 
-namespace hft::pm {
+namespace lobiq::pm {
 
 inline constexpr const char* kGammaHost = "gamma-api.polymarket.com";
 inline constexpr const char* kWsHost = "ws-subscriptions-clob.polymarket.com";
@@ -171,4 +171,4 @@ inline std::vector<EventInfo> discover_events(int limit) {
     return out;
 }
 
-}  // namespace hft::pm
+}  // namespace lobiq::pm

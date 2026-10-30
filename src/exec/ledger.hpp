@@ -11,7 +11,7 @@
 #include "core/pool.hpp"
 #include "exec/types.hpp"
 
-namespace hft::exec {
+namespace lobiq::exec {
 
 class Ledger {
    public:
@@ -202,4 +202,4 @@ class Ledger {
     bool long_only_;
 };
 
-}  // namespace hft::exec
+}  // namespace lobiq::exec

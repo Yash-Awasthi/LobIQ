@@ -10,7 +10,7 @@
 
 #include "options/black_scholes.hpp"
 
-namespace hft::options {
+namespace lobiq::options {
 
 struct TreeResult {
     double price = 0, delta = 0, gamma = 0;
@@ -43,4 +43,4 @@ inline TreeResult binomial(Kind kind, bool american, double S, double K, double 
     return out;
 }
 
-}  // namespace hft::options
+}  // namespace lobiq::options

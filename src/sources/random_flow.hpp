@@ -10,7 +10,7 @@
 #include "core/philox.hpp"
 #include "sources/itch_out.hpp"
 
-namespace hft::sources {
+namespace lobiq::sources {
 
 class RandomFlow {
    public:
@@ -130,4 +130,4 @@ class RandomFlow {
     std::uint64_t next_match_ = 1;
 };
 
-}  // namespace hft::sources
+}  // namespace lobiq::sources

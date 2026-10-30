@@ -9,7 +9,7 @@
 #include "book/tick_book.hpp"
 #include "feed/itch.hpp"
 
-using namespace hft;
+using namespace lobiq;
 
 namespace {
 

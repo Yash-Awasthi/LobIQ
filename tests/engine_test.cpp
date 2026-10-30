@@ -10,7 +10,7 @@
 #include "pm/reader.hpp"
 #include "temp_dir.hpp"
 
-using namespace hft::pm;
+using namespace lobiq::pm;
 
 namespace {
 
@@ -194,13 +194,13 @@ TEST(Engine, VenueRejectSpikeTripsTheKillSwitch) {
     feed(e, {{kS, book("A", "0.48", "0.52")}, {kS + 1'000'000, change("A", "SELL", "0.48", "100")},
              {kS + 200'000'000, control("_heartbeat", 0)}});
     EXPECT_EQ(e.venue_stats().rejects, 1u);
-    EXPECT_EQ(e.exec_risk().kill_reason(), hft::exec::KillReason::RejectSpike);
+    EXPECT_EQ(e.exec_risk().kill_reason(), lobiq::exec::KillReason::RejectSpike);
 }
 
 TEST(Engine, VenueLossBeyondTheDailyStopTripsTheKillSwitch) {
     auto p = params();
     p.venue = true;
-    p.risk.daily_stop = 10 * hft::exec::kDollar;
+    p.risk.daily_stop = 10 * lobiq::exec::kDollar;
     Engine e(p);
     feed(e, {{kS, book("A", "0.48", "0.52")}, {kS + 1, trade("A", "SELL", "0.48", "600")}});  // we buy 100 at 0.48
     ASSERT_EQ(e.ledger().pos(e.token("A")), 100'000'000);
@@ -209,7 +209,7 @@ TEST(Engine, VenueLossBeyondTheDailyStopTripsTheKillSwitch) {
     EXPECT_FALSE(e.exec_risk().killed());  // marked at the 0.40 bid: 8 USD down
     feed(e, {{4 * kS, change("A", "BUY", "0.40", "0")}, {4 * kS, change("A", "BUY", "0.37", "500")},
              {5 * kS, control("_heartbeat", 0)}});
-    EXPECT_EQ(e.exec_risk().kill_reason(), hft::exec::KillReason::Loss);  // 11 USD down
+    EXPECT_EQ(e.exec_risk().kill_reason(), lobiq::exec::KillReason::Loss);  // 11 USD down
     EXPECT_GT(e.ledger().capital_usd_days(), 0);
 }
 
@@ -245,7 +245,7 @@ TEST(Engine, KillRecordTripsTheSwitchCancelsEverythingAndBlocksNewOrders) {
     feed(e, {{kS, book("A", "0.48", "0.52")}, {kS + 1, trade("A", "SELL", "0.48", "600")}});  // bid and ask resting
     ASSERT_EQ(e.oms().open_orders(), 2u);
     feed(e, {{2 * kS, control("_kill", -1)}});
-    EXPECT_EQ(e.exec_risk().kill_reason(), hft::exec::KillReason::Operator);
+    EXPECT_EQ(e.exec_risk().kill_reason(), lobiq::exec::KillReason::Operator);
     EXPECT_EQ(e.oms().open_orders(), 0u);
     const auto orders = e.venue_stats().orders;
     feed(e, {{3 * kS, change("A", "BUY", "0.50", "10")}, {4 * kS, change("A", "SELL", "0.51", "10")}});
@@ -268,7 +268,7 @@ std::string book2(const char* id, const char* bid, const char* bsize, const char
     return std::string(R"({"event_type":"book","asset_id":")") + id + R"(","bids":[{"price":")" + bid + R"(","size":")" + bsize +
            R"("}],"asks":[{"price":")" + ask + R"(","size":")" + asize + R"("}],"tick_size":"0.01"})";
 }
-constexpr hft::exec::Usd kUsd = hft::exec::kDollar;
+constexpr lobiq::exec::Usd kUsd = lobiq::exec::kDollar;
 
 }  // namespace
 
@@ -288,7 +288,7 @@ TEST(EngineArb, PairBuySideBuysBothLegsAndMergesOnceSettled) {
     EXPECT_EQ(s.attempts, 1u);
     EXPECT_EQ(s.complete, 1u);
     EXPECT_EQ(s.merges, 1u);
-    const hft::exec::Usd fees = e.ledger().fees();
+    const lobiq::exec::Usd fees = e.ledger().fees();
     EXPECT_EQ(fees, 245 * kUsd / 100);              // 1.20 + 1.25
     EXPECT_EQ(s.realised, 10 * kUsd - fees);        // 100 sets at 0.90
     EXPECT_EQ(e.ledger().cash(), 1'000'000 * kUsd + s.realised);
@@ -378,7 +378,7 @@ TEST(EngineArb, IncompleteSetIsUnwoundWhenThatIsCheaper) {
     EXPECT_EQ(s.unwound, 1u);
     EXPECT_EQ(e.ledger().pos(e.token("Y")), 0);
     EXPECT_EQ(e.ledger().pos(e.token("N")), 0);
-    EXPECT_EQ(s.realised, -hft::exec::notional(200, 100'000'000) - e.ledger().fees());
+    EXPECT_EQ(s.realised, -lobiq::exec::notional(200, 100'000'000) - e.ledger().fees());
 }
 
 TEST(EngineArb, UnresolvableSetFreezesThenTripsTheKillSwitchAfterTheHoldLimit) {
@@ -389,7 +389,7 @@ TEST(EngineArb, UnresolvableSetFreezesThenTripsTheKillSwitchAfterTheHoldLimit) {
     incomplete(e, "0.75", "0.20");  // completing loses 15, unwinding 20: both past the 1 USD bound
     EXPECT_EQ(e.arb_exec().stats().frozen_bound, 1u);
     EXPECT_EQ(e.ledger().pos(e.token("Y")), 100'000'000);  // held, not silently left
-    EXPECT_EQ(e.exec_risk().kill_reason(), hft::exec::KillReason::LegExposure);  // 41.2 USD exposed for 2.8 s
+    EXPECT_EQ(e.exec_risk().kill_reason(), lobiq::exec::KillReason::LegExposure);  // 41.2 USD exposed for 2.8 s
 }
 
 TEST(EngineArb, FrozenSetWithinTheExposureBoundIsHeldWithoutAKill) {
@@ -484,7 +484,7 @@ TEST(EngineVenue, ResolutionPaysOutClosesTheMarketAndStopsQuoting) {
     const auto cash = e.ledger().cash();
     feed(e, {{2 * kS, resolved("Y", "Y", "N")}});
     EXPECT_EQ(e.ledger().pos(y), 0);
-    EXPECT_EQ(e.ledger().cash(), cash + 100 * hft::exec::kDollar);  // Y paid 1 a share
+    EXPECT_EQ(e.ledger().cash(), cash + 100 * lobiq::exec::kDollar);  // Y paid 1 a share
     EXPECT_EQ(e.oms().open_orders(), 0u);
     EXPECT_FALSE(e.maker(y).enabled());
     EXPECT_EQ(e.maker(y).inventory(), 0);
@@ -629,7 +629,7 @@ namespace {
 
 // An event with 16 outcomes at 0.05 (0.80 a set, fees included it clears); the 16th outcome's ask moves 5 ms after the
 // window opens. Returns the arbitrage stats after the attempt.
-hft::exec::ArbStats sixteen_legs(hft::exec::Ns batch_gap) {
+lobiq::exec::ArbStats sixteen_legs(lobiq::exec::Ns batch_gap) {
     auto p = arb_params();
     p.arb.batch_gap = batch_gap;
     Engine e(p);

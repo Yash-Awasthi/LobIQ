@@ -15,7 +15,7 @@
 
 #include "core/philox.hpp"
 
-namespace hft::strategy::regime {
+namespace lobiq::strategy::regime {
 
 using Row = std::vector<double>;
 using Seq = std::vector<Row>;
@@ -292,4 +292,4 @@ inline void sort_states(Hmm& h, std::size_t f) {
     h = s;
 }
 
-}  // namespace hft::strategy::regime
+}  // namespace lobiq::strategy::regime

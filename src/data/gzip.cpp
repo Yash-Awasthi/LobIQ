@@ -8,7 +8,7 @@
 
 #include "core/sha256.hpp"
 
-namespace hft::data {
+namespace lobiq::data {
 
 namespace {
 
@@ -76,4 +76,4 @@ std::size_t GzipReader::read(std::uint8_t* dst, std::size_t n) {
 
 std::string GzipReader::sha256_hex() { return impl_->sha.hex(); }
 
-}  // namespace hft::data
+}  // namespace lobiq::data

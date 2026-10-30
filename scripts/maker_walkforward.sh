@@ -3,8 +3,8 @@
 # chosen on the train days by total PnL, then scored unchanged on the test days next to the
 # plain joiner (threshold 1 never steps back). Prints Markdown (docs/results/maker-walkforward.md).
 set -euo pipefail
-d=${HFT_DATA:-$HOME/data}
-b=${HFT_BUILD:-$(dirname "$0")/../build/native}
+d=${LOBIQ_DATA:-$HOME/data}
+b=${LOBIQ_BUILD:-$(dirname "$0")/../build/native}
 syms=${SYMBOLS:-SPY,QQQ,IWM,SOXL,SQQQ,TQQQ,IBIT,TNA,INTC,NVDA}
 train=(S120825 S120925)
 read -ra test <<< "${TEST:-S121025 S121125 S121225 S061226}"

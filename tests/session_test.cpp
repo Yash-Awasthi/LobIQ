@@ -10,7 +10,7 @@
 #include "pm/reader.hpp"
 #include "temp_dir.hpp"
 
-using namespace hft::pm;
+using namespace lobiq::pm;
 
 TEST(Session, SavesAndLoadsTokensAndGroups) {
     TempDir dir("pm_session");
@@ -33,12 +33,12 @@ TEST(Session, SavesAndLoadsTokensAndGroups) {
 
 TEST(Gamma, ReadsEachMarketsTradingRules) {
     // Fields as the metadata API sends them (2026-10-10).
-    const auto m = hft::net::parse_json(
+    const auto m = lobiq::net::parse_json(
         R"({"slug":"a","conditionId":"0x1","clobTokenIds":"[\"11\", \"12\"]","outcomes":"[\"Yes\", \"No\"]",)"
         R"("active":true,"closed":false,"enableOrderBook":true,"acceptingOrders":true,"orderMinSize":5,)"
         R"("orderPriceMinTickSize":0.001,"negRisk":true,"feesEnabled":true,"secondsDelay":1,)"
         R"("feeSchedule":{"exponent":1,"rate":0.05,"takerOnly":true,"rebateRate":0.15}})");
-    const Market mk = hft::pm::market_from(m, "t");
+    const Market mk = lobiq::pm::market_from(m, "t");
     EXPECT_EQ(mk.rules.tick, 10);  // 0.001 in 1e-4 price units
     EXPECT_EQ(mk.rules.min_qty, 5'000'000);
     EXPECT_TRUE(mk.rules.neg_risk);
@@ -47,9 +47,9 @@ TEST(Gamma, ReadsEachMarketsTradingRules) {
     EXPECT_EQ(mk.rules.fee_exp, 1);
     EXPECT_EQ(mk.rules.delay_ms, 1000);
 
-    const auto free = hft::net::parse_json(
+    const auto free = lobiq::net::parse_json(
         R"({"clobTokenIds":"[\"13\"]","orderMinSize":5,"orderPriceMinTickSize":0.01,"feesEnabled":false,"feeSchedule":null,"secondsDelay":null})");
-    const Market f = hft::pm::market_from(free, "t");
+    const Market f = lobiq::pm::market_from(free, "t");
     EXPECT_EQ(f.rules.tick, 100);
     EXPECT_FALSE(f.rules.fees);
     EXPECT_EQ(f.rules.delay_ms, 0);
@@ -57,26 +57,26 @@ TEST(Gamma, ReadsEachMarketsTradingRules) {
 
 TEST(Gamma, DropsMarketsWhoseTokenIdsAreNotPlainDigits) {
     // Ids go into the subscription message, URLs and file names (SECURITY SEC5): digits only, bounded.
-    const auto quote = hft::net::parse_json(
+    const auto quote = lobiq::net::parse_json(
         R"({"clobTokenIds":"[\"12\", \"3\\\"],\\\"x\"]","active":true,"enableOrderBook":true,"acceptingOrders":true})");
-    const Market q = hft::pm::market_from(quote, "t");
+    const Market q = lobiq::pm::market_from(quote, "t");
     EXPECT_TRUE(q.tokens.empty());
     EXPECT_FALSE(q.open);
-    const auto ok = hft::net::parse_json(R"({"clobTokenIds":"[\"12\", \"34\"]"})");
-    EXPECT_EQ(hft::pm::market_from(ok, "t").tokens.size(), 2u);
+    const auto ok = lobiq::net::parse_json(R"({"clobTokenIds":"[\"12\", \"34\"]"})");
+    EXPECT_EQ(lobiq::pm::market_from(ok, "t").tokens.size(), 2u);
     const std::string long_id = "{\"clobTokenIds\":\"[\\\"" + std::string(101, '7') + "\\\"]\"}";
-    EXPECT_TRUE(hft::pm::market_from(hft::net::parse_json(long_id), "t").tokens.empty());
-    EXPECT_TRUE(hft::pm::valid_id("4961360"));
-    EXPECT_FALSE(hft::pm::valid_id(""));
-    EXPECT_FALSE(hft::pm::valid_id("12/../x"));
+    EXPECT_TRUE(lobiq::pm::market_from(lobiq::net::parse_json(long_id), "t").tokens.empty());
+    EXPECT_TRUE(lobiq::pm::valid_id("4961360"));
+    EXPECT_FALSE(lobiq::pm::valid_id(""));
+    EXPECT_FALSE(lobiq::pm::valid_id("12/../x"));
 }
 
 // Exchange strings end up in tab-separated files, ids in names: neither may break them.
 TEST(Gamma, KeepsExchangeStringsOnOneLineAndIdsInRange) {
-    const auto m = hft::net::parse_json(
+    const auto m = lobiq::net::parse_json(
         R"({"slug":"a\tb\nc","endDate":"2026\r","conditionId":"0x\u0001","clobTokenIds":"[\"11\", \"12\"]",)"
         R"("outcomes":"[\"Ye\\ts\", \"No\"]","orderPriceMinTickSize":0.00001})");
-    const Market mk = hft::pm::market_from(m, "t\tx");
+    const Market mk = lobiq::pm::market_from(m, "t\tx");
     EXPECT_EQ(mk.slug, "a b c");
     EXPECT_EQ(mk.end, "2026 ");
     EXPECT_EQ(mk.condition, "0x ");
@@ -85,11 +85,11 @@ TEST(Gamma, KeepsExchangeStringsOnOneLineAndIdsInRange) {
     EXPECT_EQ(mk.tokens[0].second, "Ye s");
     EXPECT_EQ(mk.rules.tick, 0);  // rounds to 0: unknown, the book's tick is used
 
-    const auto e = hft::net::parse_json(R"({"id":1e300,"slug":"s\nt","markets":[]})");
-    const hft::pm::EventInfo ev = hft::pm::event_from(e);
+    const auto e = lobiq::net::parse_json(R"({"id":1e300,"slug":"s\nt","markets":[]})");
+    const lobiq::pm::EventInfo ev = lobiq::pm::event_from(e);
     EXPECT_EQ(ev.id, "");
     EXPECT_EQ(ev.slug, "s t");
-    EXPECT_EQ(hft::pm::event_from(hft::net::parse_json(R"({"id":4961360})")).id, "4961360");
+    EXPECT_EQ(lobiq::pm::event_from(lobiq::net::parse_json(R"({"id":4961360})")).id, "4961360");
 }
 
 // A recording's session file is input like the recording itself (SECURITY SEC2): numbers out of
@@ -128,7 +128,7 @@ TEST(Session, KeepsMarketRulesAndReadsOlderFilesWithDefaults) {
     const Session o = Session::load(dir.path / "old.tsv");
     ASSERT_EQ(o.tokens.size(), 1u);
     EXPECT_EQ(o.tokens[0].label, "B No");
-    EXPECT_EQ(o.tokens[0].rules.min_qty, hft::pm::MarketRules{}.min_qty);
+    EXPECT_EQ(o.tokens[0].rules.min_qty, lobiq::pm::MarketRules{}.min_qty);
     EXPECT_EQ(o.tokens[0].rules.tick, 0);  // unknown: taken from the book
 }
 

@@ -7,8 +7,8 @@
 #include "core/philox.hpp"
 #include "strategy/conformal.hpp"
 
-using namespace hft;
-using namespace hft::strategy::conformal;
+using namespace lobiq;
+using namespace lobiq::strategy::conformal;
 
 TEST(SplitConformal, TakesTheFiniteSampleRank) {
     const std::vector<double> s = {5, 1, 9, 3, 7, 2, 8, 4, 6};

@@ -11,7 +11,7 @@
 
 namespace {
 
-using Book = hft::book::TickBook;
+using Book = lobiq::book::TickBook;
 
 // 10k resting orders: most within 50 ticks of a $100 mid, a tenth spread far out.
 void fill(Book& b, std::size_t n) {
@@ -20,7 +20,7 @@ void fill(Book& b, std::size_t n) {
         const bool sell = rng() % 2;
         const std::uint32_t ticks = rng() % 10 == 0 ? 50 + rng() % 5000 : 1 + rng() % 50;
         const std::uint32_t px = sell ? 100'0000 + ticks * 100 : 100'0000 - ticks * 100;
-        b.add(ref, sell ? hft::book::Side::Sell : hft::book::Side::Buy, 100, px, ref);
+        b.add(ref, sell ? lobiq::book::Side::Sell : lobiq::book::Side::Buy, 100, px, ref);
     }
 }
 
@@ -71,7 +71,7 @@ void BM_ProcessFork(benchmark::State& state) {
         const pid_t pid = fork();
         if (pid == 0) {
             if (touch)
-                for (auto& b : books) b->add(1ULL << 40, hft::book::Side::Buy, 100, 99'0000, 1);
+                for (auto& b : books) b->add(1ULL << 40, lobiq::book::Side::Buy, 100, 99'0000, 1);
             _exit(0);
         }
         int status = 0;

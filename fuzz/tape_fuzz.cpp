@@ -15,7 +15,7 @@
 
 namespace {
 
-bool same(const hft::net::JsonTape& a, const hft::net::JsonTape& b, std::uint32_t i) {
+bool same(const lobiq::net::JsonTape& a, const lobiq::net::JsonTape& b, std::uint32_t i) {
     if (a.type(i) != b.type(i) || a.raw(i) != b.raw(i) || a.end(i) != b.end(i)) return false;
     for (std::uint32_t c = a.first(i); c != a.end(i); c = a.next(c))
         if (!same(a, b, c)) return false;
@@ -28,23 +28,23 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size
     const std::string_view s(reinterpret_cast<const char*>(data), size);
     bool tree = true;
     try {
-        hft::net::parse_json(s);
+        lobiq::net::parse_json(s);
     } catch (const std::runtime_error&) {
         tree = false;
     }
-    hft::net::JsonTape simd, scalar;
+    lobiq::net::JsonTape simd, scalar;
     scalar.use_simd(false);
     const bool a = simd.parse(s), b = scalar.parse(s);
     if (a != b || a != tree) std::abort();
     if (a && !same(simd, scalar, simd.root())) std::abort();
 
     // The message decoder's single pass must give the tape's events, or defer to it.
-    hft::pm::Decoder fast, tape;
-    std::vector<hft::pm::Event> x, y;
-    std::vector<std::vector<hft::pm::Level>> xl, yl;
-    std::vector<std::vector<hft::pm::Change>> xc, yc;
+    lobiq::pm::Decoder fast, tape;
+    std::vector<lobiq::pm::Event> x, y;
+    std::vector<std::vector<lobiq::pm::Level>> xl, yl;
+    std::vector<std::vector<lobiq::pm::Change>> xc, yc;
     auto keep = [](auto& ev, auto& lv, auto& ch) {
-        return [&](const hft::pm::Event& e) {
+        return [&](const lobiq::pm::Event& e) {
             ev.push_back(e);
             lv.emplace_back(e.bids.begin(), e.bids.end()), lv.back().insert(lv.back().end(), e.asks.begin(), e.asks.end());
             ch.emplace_back(e.changes.begin(), e.changes.end());

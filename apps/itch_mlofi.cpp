@@ -27,7 +27,7 @@
 
 namespace {
 
-using namespace hft;
+using namespace lobiq;
 namespace ml = strategy::mlofi;
 
 constexpr std::uint64_t kNsPerS = 1'000'000'000ull;
@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
     if (syms.empty()) return std::fprintf(stderr, "%s\n", usage), 2;
 
     std::vector<std::vector<Interval>> days(syms.size());
-    hft::parallel_for(syms.size(), [&](std::size_t i) { days[i] = replay(dir, names.at(syms[i]), step); });
+    lobiq::parallel_for(syms.size(), [&](std::size_t i) { days[i] = replay(dir, names.at(syms[i]), step); });
     const std::size_t n = days[0].size(), cut = static_cast<std::size_t>((split - kOpen) / step);
 
     std::printf("# Multi-level order flow imbalance: %s\n\n", dir.filename().c_str());

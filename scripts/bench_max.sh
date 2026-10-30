@@ -3,7 +3,7 @@
 # (docs/results/max-performance.md). First: sudo NO_TURBO=0 scripts/tune.sh and scripts/pgo.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-d=${HFT_DATA:-$HOME/data}
+d=${LOBIQ_DATA:-$HOME/data}
 day=${DAY:-S121025}
 P=${PCPU:-4} E=${ECPU:-12}
 [ "$(cat /sys/devices/system/cpu/intel_pstate/no_turbo)" = 0 ] || { echo "turbo is off: sudo NO_TURBO=0 scripts/tune.sh" >&2; exit 2; }

@@ -34,7 +34,7 @@
 
 namespace {
 
-using namespace hft;
+using namespace lobiq;
 namespace fs = std::filesystem;
 using strategy::SymbolFeatures;
 

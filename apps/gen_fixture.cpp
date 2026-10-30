@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
         return 2;
     }
     std::vector<std::uint8_t> raw;
-    hft::sources::RandomFlow flow(std::strtoull(argv[1], nullptr, 10),
+    lobiq::sources::RandomFlow flow(std::strtoull(argv[1], nullptr, 10),
                                   static_cast<std::uint16_t>(std::atoi(argv[2])));
     flow.day(std::strtoull(argv[3], nullptr, 10), raw);
     std::vector<std::uint8_t> comp(ZSTD_compressBound(raw.size()));

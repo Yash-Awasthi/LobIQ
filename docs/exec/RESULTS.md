@@ -20,7 +20,7 @@ Throughput: 489k messages/s (whole replay, one thread, decompression included; 5
 other runs). In-process timings include a tsc start/stop pair (about 10 ns) and cold caches between
 messages; the isolated micro-benchmarks give the warm cost:
 
-`taskset -c 2 build/native/bench/hft_bench --benchmark_filter="Risk|Oms" --benchmark_repetitions=3`
+`taskset -c 2 build/native/bench/lobiq_bench --benchmark_filter="Risk|Oms" --benchmark_repetitions=3`
 
 | case | mean |
 |---|---|

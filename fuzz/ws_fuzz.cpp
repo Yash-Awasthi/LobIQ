@@ -16,12 +16,12 @@ namespace {
 // Messages as "op:data", then "!" if the parser threw.
 std::vector<std::string> run(const char* p, std::size_t n, std::size_t chunk) {
     std::vector<std::string> out;
-    hft::net::WsParser w;
+    lobiq::net::WsParser w;
     try {
         for (std::size_t i = 0; i < n || i == 0; i += chunk) {
             const std::size_t k = i < n ? std::min(chunk, n - i) : 0;
             std::memcpy(w.reserve(k), p + i, k), w.commit(k);
-            hft::net::WsView v;
+            lobiq::net::WsView v;
             while (w.next_view(v)) out.push_back(std::to_string(v.op) + ":" + std::string(v.data));
             if (k == 0) break;
         }

@@ -4,8 +4,8 @@
 # Usage: scripts/book_models.sh > docs/results/book-models.md
 set -euo pipefail
 cd "$(dirname "$0")/.."
-B=${HFT_BUILD:-build/native}/apps
-D=${HFT_DATA:-$HOME/data}
+B=${LOBIQ_BUILD:-build/native}/apps
+D=${LOBIQ_DATA:-$HOME/data}
 DAYS=${DAYS:-S101819 S120925 S121025 S121125 S121225}
 SYMS=${SYMS:-AAPL MSFT NVDA AMZN INTC}
 store() { echo "$D/store-$1-v50"; }
@@ -43,7 +43,7 @@ echo
 echo "| A | B | Mean TV |"
 echo "|---|---|---|"
 realism() {  # lobiq generates the simulator's day when no B is given
-    HFT_BIN=$B HFT_DATA=$D scripts/lobiq realism "$@" | grep '^| \*\*mean' | awk -F'|' '{gsub(/[* ]/, "", $5); print $5}'
+    LOBIQ_BIN=$B LOBIQ_DATA=$D scripts/lobiq realism "$@" | grep '^| \*\*mean' | awk -F'|' '{gsub(/[* ]/, "", $5); print $5}'
 }
 pairs=("S121025 AAPL S121125 AAPL" "S121025 AAPL S121025 MSFT" "S121025 AAPL S101819 AAPL" "S121025 AAPL" "S121025 NVDA" "S121025 INTC")
 for p in "${pairs[@]}"; do

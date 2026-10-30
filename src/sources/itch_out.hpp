@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace hft::sources {
+namespace lobiq::sources {
 
 struct BinaryFileWriter {
     struct Msg {
@@ -79,4 +79,4 @@ struct BinaryFileWriter {
     }
 };
 
-}  // namespace hft::sources
+}  // namespace lobiq::sources

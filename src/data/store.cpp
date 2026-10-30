@@ -13,7 +13,7 @@
 #include <string>
 #include <utility>
 
-namespace hft::data {
+namespace lobiq::data {
 
 namespace {
 
@@ -401,4 +401,4 @@ std::map<std::string, std::uint16_t> read_symbols(const std::filesystem::path& d
     return m;
 }
 
-}  // namespace hft::data
+}  // namespace lobiq::data

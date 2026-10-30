@@ -26,7 +26,7 @@
 
 namespace {
 
-using namespace hft::options;
+using namespace lobiq::options;
 
 constexpr const char* kUsage =
     "usage: options price call|put S K T r q sigma\n"
@@ -101,7 +101,7 @@ int surface(int argc, char** argv) {
         std::vector<double> fs;
         for (const auto& [K, x] : cp)
             if (x.first > 0 && x.second > 0) fs.push_back(K + std::exp(r * T) * (x.first - x.second));
-        const double F = hft::strategy::micro::median(fs);
+        const double F = lobiq::strategy::micro::median(fs);
         if (!std::isfinite(F) || F <= 0) {
             std::fprintf(stderr, "expiry %g: no strike with both a call and a put; skipped\n", T);
             continue;

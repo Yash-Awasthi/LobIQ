@@ -27,7 +27,7 @@
 
 #include "net/ws_frames.hpp"
 
-namespace hft::net {
+namespace lobiq::net {
 
 inline std::int64_t realtime_ns() {
     timespec ts;
@@ -228,7 +228,7 @@ inline std::string http_get(const std::string& host, const std::string& path) {
     TlsConn c;
     c.connect(host, "443");
     c.write_all("GET " + path + " HTTP/1.1\r\nHost: " + host +
-                "\r\nUser-Agent: hft-recorder\r\nAccept: application/json\r\n"
+                "\r\nUser-Agent: lobiq-recorder\r\nAccept: application/json\r\n"
                 "Accept-Encoding: identity\r\nConnection: close\r\n\r\n");
     std::string raw;
     char buf[16384];
@@ -257,7 +257,7 @@ class WsClient {
         const std::string key = base64(nonce.data(), nonce.size());
         conn_.write_all("GET " + path + " HTTP/1.1\r\nHost: " + host +
                         "\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: " + key +
-                        "\r\nSec-WebSocket-Version: 13\r\nUser-Agent: hft-recorder\r\n\r\n");
+                        "\r\nSec-WebSocket-Version: 13\r\nUser-Agent: lobiq-recorder\r\n\r\n");
         std::string head;
         char c;
         while (head.size() < 8192 && (head.size() < 4 || head.compare(head.size() - 4, 4, "\r\n\r\n") != 0)) {
@@ -308,4 +308,4 @@ class WsClient {
     WsParser parser_;
 };
 
-}  // namespace hft::net
+}  // namespace lobiq::net

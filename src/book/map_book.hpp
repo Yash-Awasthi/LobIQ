@@ -14,7 +14,7 @@
 
 #include "book/types.hpp"
 
-namespace hft::book {
+namespace lobiq::book {
 
 class MapBook {
    public:
@@ -165,4 +165,4 @@ class MapBook {
     Orders orders_;
 };
 
-}  // namespace hft::book
+}  // namespace lobiq::book

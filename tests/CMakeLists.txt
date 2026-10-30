@@ -1,6 +1,6 @@
 include(GoogleTest)
 
-add_executable(hft_tests endian_test.cpp itch_test.cpp store_test.cpp gzip_test.cpp book_test.cpp
+add_executable(lobiq_tests endian_test.cpp itch_test.cpp store_test.cpp gzip_test.cpp book_test.cpp
                          book_prop_test.cpp timing_test.cpp philox_test.cpp
                          matching_test.cpp scheduler_test.cpp
                          replay_exchange_test.cpp
@@ -11,18 +11,18 @@ add_executable(hft_tests endian_test.cpp itch_test.cpp store_test.cpp gzip_test.
                          arb_test.cpp engine_test.cpp session_test.cpp pm_decoder_test.cpp
                          exec_test.cpp ledger_test.cpp risk_test.cpp oms_test.cpp config_test.cpp arb_exec_test.cpp
                          sim_venue_test.cpp report_test.cpp quoter_test.cpp pool_test.cpp microstructure_test.cpp parallel_test.cpp surveil_test.cpp bestex_test.cpp markov_test.cpp mlofi_test.cpp lobster_test.cpp realism_test.cpp
-                         garch_test.cpp hawkes_mv_test.cpp regime_test.cpp conformal_test.cpp overfit_test.cpp options_test.cpp symreg_test.cpp ${HFT_STRATEGY_SOURCES} ${HFT_QUOTER_SOURCES})
-target_link_libraries(hft_tests PRIVATE hft_core hft_data GTest::gtest_main rapidcheck
+                         garch_test.cpp hawkes_mv_test.cpp regime_test.cpp conformal_test.cpp overfit_test.cpp options_test.cpp symreg_test.cpp ${LOBIQ_STRATEGY_SOURCES} ${LOBIQ_QUOTER_SOURCES})
+target_link_libraries(lobiq_tests PRIVATE lobiq_core lobiq_data GTest::gtest_main rapidcheck
                                         zstd::libzstd OpenSSL::SSL OpenSSL::Crypto)
-target_compile_definitions(hft_tests PRIVATE HFT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
-gtest_discover_tests(hft_tests)
+target_compile_definitions(lobiq_tests PRIVATE LOBIQ_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+gtest_discover_tests(lobiq_tests)
 # RapidCheck instantiates the deprecated std::aligned_storage in user translation units.
 set_source_files_properties(book_prop_test.cpp matching_test.cpp tape_test.cpp pm_test.cpp pm_decoder_test.cpp exec_test.cpp ledger_test.cpp oms_test.cpp PROPERTIES COMPILE_OPTIONS -Wno-deprecated-declarations)
 
 # Sanitizer runtimes define their own operator new, which the counting allocator replaces.
 if(NOT CMAKE_CXX_FLAGS MATCHES "-fsanitize")
   add_executable(alloc_test alloc_test.cpp)
-  target_link_libraries(alloc_test PRIVATE hft_core GTest::gtest_main)
+  target_link_libraries(alloc_test PRIVATE lobiq_core GTest::gtest_main)
   gtest_discover_tests(alloc_test)
 endif()
 add_test(NAME ItchStudy.SyntheticDays COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/study_smoke.sh $<TARGET_FILE_DIR:itch_study>)

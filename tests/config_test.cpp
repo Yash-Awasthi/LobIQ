@@ -4,8 +4,8 @@
 
 #include <stdexcept>
 
-using namespace hft;
-using namespace hft::pm;
+using namespace lobiq;
+using namespace lobiq::pm;
 
 namespace {
 

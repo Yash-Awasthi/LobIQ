@@ -10,7 +10,7 @@
 #include <numeric>
 #include <vector>
 
-namespace hft::opt {
+namespace lobiq::opt {
 
 struct Result {
     std::vector<double> x;
@@ -64,4 +64,4 @@ Result nelder_mead(F&& f, const std::vector<double>& x0, double step = 0.5, int 
     return {s[m], v[m], it};
 }
 
-}  // namespace hft::opt
+}  // namespace lobiq::opt
